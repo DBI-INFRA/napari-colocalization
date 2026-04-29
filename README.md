@@ -1,6 +1,6 @@
 <p align="center">
   <!-- TODO: replace with final logo -->
-  <img src="docs/img/logo.png" alt="napari-colocalisation logo" width="160"/>
+  <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalisation/main/docs/img/logo.png" alt="napari-colocalisation logo" width="160"/>
 </p>
 
 # napari-colocalisation
@@ -25,7 +25,7 @@ results table plus an intensity-vs-intensity scatter plot — all without leavin
 napari.
 
 <p align="center">
-  <img src="docs/img/widget_overview.png" alt="napari-colocalisation widget" width="780"/>
+  <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalisation/main/docs/img/widget_overview.png" alt="napari-colocalisation widget" width="780"/>
 </p>
 
 ## Features
@@ -68,7 +68,7 @@ pip install git+https://github.com/DBI-INFRA/napari-colocalisation.git
    Colocalisation sample (2D)** (a 3D sample is also provided).
 
    <p align="center">
-     <img src="docs/img/quickstart_sample.png" alt="Open Sample menu" width="520"/>
+     <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalisation/main/docs/img/quickstart_sample.png" alt="Open Sample menu" width="520"/>
    </p>
 
 3. Open the widget: **Plugins → Colocalisation Analysis**. Two image layers
@@ -79,11 +79,11 @@ pip install git+https://github.com/DBI-INFRA/napari-colocalisation.git
    metric values overlaid.
 
    <p align="center">
-     <img src="docs/img/quickstart_run.png" alt="Run result" width="780"/>
+     <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalisation/main/docs/img/quickstart_run.png" alt="Run result" width="780"/>
    </p>
 
 <p align="center">
-  <img src="docs/img/widget_overview.png" alt="napari-colocalisation widget" width="780"/>
+  <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalisation/main/docs/img/widget_overview.png" alt="napari-colocalisation widget" width="780"/>
 </p>
 
 5. *(Optional)* Add a Shapes layer, draw a few rectangles or polygons, set
@@ -92,7 +92,7 @@ pip install git+https://github.com/DBI-INFRA/napari-colocalisation.git
    viewer.
 
 <p align="center">
-  <img src="docs/img/widget_shapes.png" alt="napari-colocalisation widget" width="780"/>
+  <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalisation/main/docs/img/widget_shapes.png" alt="napari-colocalisation widget" width="780"/>
 </p>
 
 See [docs/usage.md](docs/usage.md) for the full walkthrough.
