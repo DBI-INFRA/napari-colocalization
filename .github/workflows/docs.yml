@@ -1,0 +1,47 @@
+name: docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - 'src/napari_colocalisation/**'
+      - 'README.md'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write   # mkdocs gh-deploy pushes to gh-pages
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # mkdocs gh-deploy needs full history
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install package and docs dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Install the package itself so mkdocstrings can import
+          # napari_colocalisation and read its docstrings.
+          python -m pip install . --group docs
+
+      - name: Configure Git for gh-deploy
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Build and deploy to gh-pages
+        run: mkdocs gh-deploy --force --clean --verbose

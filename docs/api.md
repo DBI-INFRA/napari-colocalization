@@ -1,0 +1,111 @@
+# Python API
+
+The pure-compute layer of `napari-colocalisation` is independent of napari
+and Qt — you can import the metric, masking, and analysis functions from
+a script or notebook and use them on plain ndarrays.
+
+> Documentation index: [Home](index.md) · [Usage](usage.md) · [Metrics](metrics.md) · **Python API**
+
+The function reference below is generated directly from the source
+docstrings. The narrative and examples on this page are written by hand;
+the `:::` blocks are filled in automatically by mkdocstrings at build
+time.
+
+## Module layout
+
+```
+napari_colocalisation
+├── _metrics.py     pearson, spearman, manders, costes_threshold
+├── _masking.py     shapes_to_label_mask, labels_to_label_mask, iter_regions
+├── _analysis.py    analyse_pairwise, analyse_all_to_all, COLUMNS
+├── _sample_data.py make_sample_data, make_sample_data_3d
+└── _widget.py      ColocalisationWidget (Qt-only)
+```
+
+The leading underscore is a convention from the napari plugin template;
+the symbols below are stable and intended to be imported.
+
+## Metrics — `napari_colocalisation._metrics`
+
+::: napari_colocalisation._metrics
+    options:
+      members:
+        - pearson
+        - spearman
+        - manders
+        - costes_threshold
+      show_root_heading: false
+      heading_level: 3
+
+## Masking — `napari_colocalisation._masking`
+
+::: napari_colocalisation._masking
+    options:
+      members:
+        - shapes_to_label_mask
+        - labels_to_label_mask
+        - iter_regions
+      show_root_heading: false
+      heading_level: 3
+
+## Analysis — `napari_colocalisation._analysis`
+
+`COLUMNS` is the canonical column order shared by the table, the CSV
+export, and the row dicts:
+
+```python
+('region', 'channel_a', 'channel_b', 'n_pixels',
+ 'pcc', 'pcc_pvalue', 'srcc', 'srcc_pvalue',
+ 'm1', 'm2', 'threshold_a', 'threshold_b')
+```
+
+::: napari_colocalisation._analysis
+    options:
+      members:
+        - analyse_pairwise
+        - analyse_all_to_all
+      show_root_heading: false
+      heading_level: 3
+
+## Sample data — `napari_colocalisation._sample_data`
+
+::: napari_colocalisation._sample_data
+    options:
+      members:
+        - make_sample_data
+        - make_sample_data_3d
+      show_root_heading: false
+      heading_level: 3
+
+## Putting it together: scripted analysis
+
+```python
+import numpy as np
+import pandas as pd
+from napari_colocalisation._analysis import analyse_pairwise, COLUMNS
+
+a = np.load('channel_a.npy')
+b = np.load('channel_b.npy')
+mask = np.load('cell_labels.npy')   # 0 = bg, 1..N = cells
+
+rows = analyse_pairwise(
+    a, b,
+    label_mask=mask,
+    metrics=('pcc', 'srcc', 'mcc'),
+    threshold_method='costes',
+    channel_a='dna', channel_b='tubulin',
+)
+
+df = pd.DataFrame(rows, columns=COLUMNS)
+df.to_csv('colocalisation_per_cell.csv', index=False)
+print(df.describe())
+```
+
+## Stability
+
+- The function signatures, return shapes and `COLUMNS` tuple above are
+  intended to be stable across point releases.
+- Internal helpers prefixed with `_` (private functions inside each
+  module) may change without notice.
+- `ColocalisationWidget` (`_widget.py`) is the GUI surface and not part
+  of the scripting API; for scripts, drive `analyse_*` directly.
