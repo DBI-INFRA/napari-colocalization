@@ -1,6 +1,6 @@
 name: napari-colocalisation
 display_name: Colocalisation
-visibility: public
+visibility: hidden
 contributions:
   commands:
     - id: napari-colocalisation.make_widget
