@@ -13,6 +13,11 @@
 [![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/napari-colocalisation)](https://napari-hub.org/plugins/napari-colocalisation)
 [![npe2](https://img.shields.io/badge/plugin-npe2-blue?link=https://napari.org/stable/plugins/index.html)](https://napari.org/stable/plugins/index.html)
 
+> ⚠️ **Under construction — pre-alpha.** APIs, UI, and outputs may change
+> without notice. Not recommended for production analysis yet; use at your
+> own risk and please report rough edges via the
+> [issue tracker](https://github.com/DBI-INFRA/napari-colocalisation/issues).
+
 Interactive intensity-colocalisation analysis for [napari](https://napari.org).
 Pick two channels (or one multi-channel image), optionally restrict the
 analysis to a region drawn as shapes or labels, choose your metric, and get a
