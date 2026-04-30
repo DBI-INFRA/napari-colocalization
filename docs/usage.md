@@ -84,7 +84,7 @@ axis removed).
 
 ## Correlation metrics
 
-Three checkboxes for **Pearson**, **Spearman** and **Manders**. By default
+Four checkboxes for **Pearson**, **Spearman**, **Li ICQ** and **Manders**. By default
 only **Spearman** is enabled — it is the most outlier-robust of the three,
 and a common starting point.
 
@@ -130,6 +130,7 @@ One row per **(channel pair, region)** combination. Columns:
 | `n_pixels` | Number of pixels analysed in this region. |
 | `pcc`, `pcc_pvalue` | Pearson correlation + two-tailed p-value. |
 | `srcc`, `srcc_pvalue` | Spearman rank correlation + p-value. |
+| `icq` | Li's Intensity Correlation Quotient (−0.5 to +0.5). |
 | `m1`, `m2` | Manders' M1 and M2 coefficients. |
 | `threshold_a`, `threshold_b` | Thresholds used for MCC (whether manual or Costes-derived). |
 

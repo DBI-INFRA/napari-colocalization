@@ -104,6 +104,76 @@ def spearman(a, b, mask=None):
     return float(result.statistic), float(result.pvalue)
 
 
+def li_icq(a, b, mask=None):
+    """Li's Intensity Correlation Quotient (ICQ).
+
+    For each pixel ``i``, form the covariance contribution
+    ``P_i = (a_i - mean(a)) * (b_i - mean(b))``. The ICQ is the
+    fraction of pixels for which this product is positive,
+    re-centred to lie on ``[-0.5, 0.5]``:
+
+    .. math::
+        \\mathrm{ICQ} = \\frac{|\\{i : P_i > 0\\}|}{N} - 0.5
+
+    Following Li et al. (2004), values close to ``+0.5`` indicate
+    dependent (co-varying) staining, ``0`` indicates random
+    staining, and ``-0.5`` indicates segregated (anti-varying)
+    staining.
+
+    Parameters
+    ----------
+    a, b : array_like
+        Same-shape intensity arrays of any dimensionality.
+    mask : array_like of bool, optional
+        Boolean array with the same shape as ``a`` / ``b``. Only
+        pixels where ``mask`` is ``True`` are counted. ``None``
+        (the default) uses every pixel.
+
+    Returns
+    -------
+    icq : float
+        Value in ``[-0.5, 0.5]``, or ``nan`` for inputs with
+        fewer than two samples or zero variance in either channel
+        (where the means coincide with every value and the sign
+        of ``P_i`` is degenerate).
+
+    Notes
+    -----
+    Pixels with ``P_i == 0`` (typically because one channel
+    equals its mean exactly at that pixel) are excluded from the
+    fraction's numerator and denominator, mirroring the
+    convention adopted by ImageJ's Coloc 2 plugin.
+
+    References
+    ----------
+    Li, Q. et al. (2004). *A Syntaxin 1, Galpha(o), and N-type
+    Calcium Channel Complex at a Presynaptic Nerve Terminal:
+    Analysis by Quantitative Immunocolocalization.*
+    J. Neurosci. 24(16), 4070-4081.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from napari_colocalization._metrics import li_icq
+    >>> rng = np.random.default_rng(0)
+    >>> a = rng.random((128, 128))
+    >>> round(li_icq(a, a), 2)         # perfectly co-varying
+    0.5
+    >>> round(li_icq(a, -a), 2)        # perfectly anti-varying
+    -0.5
+    """
+    a_flat, b_flat = _flatten_with_mask(a, b, mask)
+    if a_flat.size < 2 or a_flat.std() == 0 or b_flat.std() == 0:
+        return float('nan')
+    products = (a_flat - a_flat.mean()) * (b_flat - b_flat.mean())
+    nonzero = products != 0
+    n = int(nonzero.sum())
+    if n == 0:
+        return float('nan')
+    positive = int((products > 0).sum())
+    return float(positive / n - 0.5)
+
+
 def manders(a, b, threshold_a, threshold_b, mask=None):
     """Manders' colocalization coefficients M1 and M2.
 

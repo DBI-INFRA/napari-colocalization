@@ -60,6 +60,40 @@ coefficient and the p-value are returned.
 The plugin defaults to **Spearman only** because it gives a sensible
 result on a wider range of microscopy data than PCC alone.
 
+## Li ICQ
+
+The Intensity Correlation Quotient introduced by Li et al. (2004).
+For each pixel ``i`` form the *covariance contribution*
+``P_i = (a_i - mean(a)) * (b_i - mean(b))``: this product is positive
+when both channels co-vary at that pixel (both above or both below
+their means) and negative when they anti-vary. ICQ is the fraction of
+non-zero ``P_i`` that are positive, re-centred to lie on
+``[-0.5, 0.5]``:
+
+$$
+\mathrm{ICQ} = \frac{|\{i : P_i > 0\}|}{N} - 0.5
+$$
+
+Range: −0.5 (perfectly segregated staining) → 0 (random) → +0.5
+(perfectly dependent staining). Unlike PCC and Spearman, ICQ measures
+*sign agreement* with respect to the channel means rather than
+magnitude correlation, which makes it robust to many of the intensity
+artefacts that affect PCC (offsets, soft saturation) while still being
+sensitive to dependent staining.
+
+**When to use it.** Reported alongside PCC/SRCC as a quick sanity check
+on the *shape* of the dependence: an ICQ near 0 with a high PCC is a
+warning that the PCC is being driven by a few extreme pixel pairs
+rather than a population-wide co-variation.
+
+**Watch out for.** ICQ does not have a standard p-value, only the
+scalar; we report the value alone. Like the other correlation metrics
+it is restricted to the analysed region (whole image, shape, or
+label).
+
+We compute it locally in :func:`_metrics.li_icq` (no scikit-image
+equivalent).
+
 ## Manders (MCC)
 
 Two coefficients, M1 and M2, that ask: *"what fraction of the intensity
@@ -130,6 +164,7 @@ plot.
 |---|---|
 | "Are the two channels linearly correlated?" | Pearson |
 | "Is the relationship monotonic but not necessarily linear?" | Spearman |
+| "Do the channels co-vary in the *same direction* relative to their means, ignoring magnitude?" | Li ICQ |
 | "What fraction of A's signal sits where B is bright?" | Manders M1 |
 | "...and vice versa?" | Manders M2 |
 | "Just give me a robust default" | Spearman |
@@ -149,5 +184,8 @@ reporting more than one is good practice.
 - Dunn, K.W., Kamocka, M.M., McDonald, J.H. (2011). *A practical guide to
   evaluating colocalization in biological microscopy.* Am. J. Physiol.
   Cell Physiol. 300(4), C723-C742.
+- Li, Q. et al. (2004). *A Syntaxin 1, Galpha(o), and N-type Calcium
+  Channel Complex at a Presynaptic Nerve Terminal: Analysis by
+  Quantitative Immunocolocalization.* J. Neurosci. 24(16), 4070-4081.
 - [ImageJ colocalization analysis](https://imagej.net/imaging/colocalization-analysis)
 - [ImageJ Coloc 2 plugin](https://imagej.net/plugins/coloc-2)

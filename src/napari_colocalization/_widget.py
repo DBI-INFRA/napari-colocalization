@@ -191,10 +191,12 @@ class ColocalizationWidget(QWidget):
     def _build_metrics_group(self):
         self._cb_pcc = QCheckBox('Pearson')
         self._cb_srcc = QCheckBox('Spearman')
+        self._cb_icq = QCheckBox('Li ICQ')
         self._cb_mcc = QCheckBox('Manders')
         for cb, checked in (
             (self._cb_pcc, False),
             (self._cb_srcc, True),
+            (self._cb_icq, False),
             (self._cb_mcc, False),
         ):
             cb.setChecked(checked)
@@ -203,6 +205,7 @@ class ColocalizationWidget(QWidget):
             'Correlation metrics',
             self._cb_pcc,
             self._cb_srcc,
+            self._cb_icq,
             self._cb_mcc,
             vertical=False,
         )
@@ -394,6 +397,8 @@ class ColocalizationWidget(QWidget):
             out.append('pcc')
         if self._cb_srcc.isChecked():
             out.append('srcc')
+        if self._cb_icq.isChecked():
+            out.append('icq')
         if self._cb_mcc.isChecked():
             out.append('mcc')
         return tuple(out)
@@ -674,6 +679,7 @@ class ColocalizationWidget(QWidget):
         for key, label in (
             ('pcc', 'Pearson'),
             ('srcc', 'Spearman'),
+            ('icq', 'ICQ'),
             ('m1', 'M1'),
             ('m2', 'M2'),
         ):

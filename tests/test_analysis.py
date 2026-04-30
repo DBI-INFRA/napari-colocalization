@@ -76,8 +76,16 @@ def test_pairwise_only_requested_metrics_populated():
     row = rows[0]
     assert not np.isnan(row['pcc'])
     assert np.isnan(row['srcc'])
+    assert np.isnan(row['icq'])
     assert np.isnan(row['m1'])
     assert np.isnan(row['m2'])
+
+
+def test_pairwise_icq_identical_is_half(rng):
+    a = rng.random((32, 32))
+    rows = analyse_pairwise(a, a.copy(), metrics=('icq',))
+    assert rows[0]['icq'] == pytest.approx(0.5)
+    assert np.isnan(rows[0]['pcc'])
 
 
 def test_pairwise_shape_mismatch_raises():

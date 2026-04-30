@@ -8,9 +8,15 @@ suitable for direct insertion into a table or a CSV.
 import numpy as np
 
 from ._masking import iter_regions
-from ._metrics import costes_threshold, manders, pearson, spearman
+from ._metrics import (
+    costes_threshold,
+    li_icq,
+    manders,
+    pearson,
+    spearman,
+)
 
-ALL_METRICS = ('pcc', 'srcc', 'mcc')
+ALL_METRICS = ('pcc', 'srcc', 'icq', 'mcc')
 COLUMNS = (
     'region',
     'channel_a',
@@ -20,6 +26,7 @@ COLUMNS = (
     'pcc_pvalue',
     'srcc',
     'srcc_pvalue',
+    'icq',
     'm1',
     'm2',
     'threshold_a',
@@ -38,6 +45,7 @@ def _empty_row(region, channel_a, channel_b, n_pixels):
         'pcc_pvalue': nan,
         'srcc': nan,
         'srcc_pvalue': nan,
+        'icq': nan,
         'm1': nan,
         'm2': nan,
         'threshold_a': nan,
@@ -141,6 +149,8 @@ def analyse_pairwise(
             rho, pval = spearman(a, b, mask=region_mask)
             row['srcc'] = rho
             row['srcc_pvalue'] = pval
+        if 'icq' in metrics:
+            row['icq'] = li_icq(a, b, mask=region_mask)
         if 'mcc' in metrics:
             t_a, t_b = _resolve_thresholds(
                 a,

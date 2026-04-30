@@ -3,6 +3,7 @@ import pytest
 
 from napari_colocalization._metrics import (
     costes_threshold,
+    li_icq,
     manders,
     pearson,
     spearman,
@@ -177,3 +178,46 @@ def test_costes_constant_inputs_are_safe():
     t_a, t_b = costes_threshold(a, b)
     # no crash; thresholds are well-defined floats
     assert np.isfinite(t_a) and np.isfinite(t_b)
+
+
+def test_icq_identical_is_half(rng):
+    a = rng.random((64, 64))
+    assert li_icq(a, a.copy()) == pytest.approx(0.5)
+
+
+def test_icq_anti_correlated_is_minus_half(rng):
+    a = rng.random((64, 64))
+    assert li_icq(a, -a) == pytest.approx(-0.5)
+
+
+def test_icq_independent_near_zero(rng):
+    a = rng.random((128, 128))
+    b = rng.random((128, 128))
+    assert abs(li_icq(a, b)) < 0.05
+
+
+def test_icq_3d_works(rng):
+    a = rng.random((8, 16, 16))
+    assert li_icq(a, a) == pytest.approx(0.5)
+
+
+def test_icq_mask_excludes_pixels(rng):
+    a = rng.random((32, 32))
+    b = -a
+    mask = np.zeros_like(a, dtype=bool)
+    mask[16:] = True
+    # within mask, b is exactly -a -> anti-correlated
+    assert li_icq(a, b, mask=mask) == pytest.approx(-0.5)
+
+
+def test_icq_constant_input_is_nan():
+    a = np.zeros((10, 10))
+    b = np.ones((10, 10))
+    assert np.isnan(li_icq(a, b))
+
+
+def test_icq_in_valid_range(rng):
+    a = rng.random((128, 128))
+    b = 0.5 * a + 0.5 * rng.random((128, 128))
+    icq = li_icq(a, b)
+    assert -0.5 <= icq <= 0.5

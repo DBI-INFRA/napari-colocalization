@@ -21,7 +21,30 @@ def test_default_metric_is_spearman_only(make_napari_viewer):
     widget = ColocalizationWidget(viewer)
     assert widget._cb_pcc.isChecked() is False
     assert widget._cb_srcc.isChecked() is True
+    assert widget._cb_icq.isChecked() is False
     assert widget._cb_mcc.isChecked() is False
+
+
+def test_run_icq_populates_table(make_napari_viewer, qtbot, rng):
+    viewer = make_napari_viewer()
+    a = rng.random((32, 32)).astype(np.float32)
+    layer_a = viewer.add_image(a, name='a')
+    layer_b = viewer.add_image(a.copy(), name='b')
+    widget = ColocalizationWidget(viewer)
+    widget._image_a_combo.value = layer_a
+    widget._image_b_combo.value = layer_b
+    widget._cb_srcc.setChecked(False)
+    widget._cb_icq.setChecked(True)
+
+    widget._on_run_clicked()
+    qtbot.waitUntil(lambda: widget._table.rowCount() > 0, timeout=10000)
+    headers = [
+        widget._table.horizontalHeaderItem(c).text()
+        for c in range(widget._table.columnCount())
+    ]
+    icq_col = headers.index('icq')
+    icq_value = float(widget._table.item(0, icq_col).text())
+    assert icq_value == pytest.approx(0.5)
 
 
 def test_pairwise_defaults_pick_distinct_layers(make_napari_viewer, rng):
