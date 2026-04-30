@@ -390,6 +390,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#li-icq" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Li ICQ
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#manders-mcc" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -523,6 +534,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#li-icq" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Li ICQ
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#manders-mcc" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -639,6 +661,33 @@ on the masked, flattened intensities. Both the rank correlation
 coefficient and the p-value are returned.</p>
 <p>The plugin defaults to <strong>Spearman only</strong> because it gives a sensible
 result on a wider range of microscopy data than PCC alone.</p>
+<h2 id="li-icq">Li ICQ<a class="headerlink" href="#li-icq" title="Permanent link">&para;</a></h2>
+<p>The Intensity Correlation Quotient introduced by Li et al. (2004).
+For each pixel <code>i</code> form the <em>covariance contribution</em>
+<code>P_i = (a_i - mean(a)) * (b_i - mean(b))</code>: this product is positive
+when both channels co-vary at that pixel (both above or both below
+their means) and negative when they anti-vary. ICQ is the fraction of
+non-zero <code>P_i</code> that are positive, re-centred to lie on
+<code>[-0.5, 0.5]</code>:</p>
+<div class="arithmatex">\[
+\mathrm{ICQ} = \frac{|\{i : P_i &gt; 0\}|}{N} - 0.5
+\]</div>
+<p>Range: −0.5 (perfectly segregated staining) → 0 (random) → +0.5
+(perfectly dependent staining). Unlike PCC and Spearman, ICQ measures
+<em>sign agreement</em> with respect to the channel means rather than
+magnitude correlation, which makes it robust to many of the intensity
+artefacts that affect PCC (offsets, soft saturation) while still being
+sensitive to dependent staining.</p>
+<p><strong>When to use it.</strong> Reported alongside PCC/SRCC as a quick sanity check
+on the <em>shape</em> of the dependence: an ICQ near 0 with a high PCC is a
+warning that the PCC is being driven by a few extreme pixel pairs
+rather than a population-wide co-variation.</p>
+<p><strong>Watch out for.</strong> ICQ does not have a standard p-value, only the
+scalar; we report the value alone. Like the other correlation metrics
+it is restricted to the analysed region (whole image, shape, or
+label).</p>
+<p>We compute it locally in :func:<code>_metrics.li_icq</code> (no scikit-image
+equivalent).</p>
 <h2 id="manders-mcc">Manders (MCC)<a class="headerlink" href="#manders-mcc" title="Permanent link">&para;</a></h2>
 <p>Two coefficients, M1 and M2, that ask: <em>"what fraction of the intensity
 in one channel is co-located with above-threshold signal in the other
@@ -711,6 +760,10 @@ shuffled pixel blocks) is <strong>not</strong> implemented in v1.</p>
 <td>Spearman</td>
 </tr>
 <tr>
+<td>"Do the channels co-vary in the <em>same direction</em> relative to their means, ignoring magnitude?"</td>
+<td>Li ICQ</td>
+</tr>
+<tr>
 <td>"What fraction of A's signal sits where B is bright?"</td>
 <td>Manders M1</td>
 </tr>
@@ -738,6 +791,9 @@ reporting more than one is good practice.</p>
 <li>Dunn, K.W., Kamocka, M.M., McDonald, J.H. (2011). <em>A practical guide to
   evaluating colocalization in biological microscopy.</em> Am. J. Physiol.
   Cell Physiol. 300(4), C723-C742.</li>
+<li>Li, Q. et al. (2004). <em>A Syntaxin 1, Galpha(o), and N-type Calcium
+  Channel Complex at a Presynaptic Nerve Terminal: Analysis by
+  Quantitative Immunocolocalization.</em> J. Neurosci. 24(16), 4070-4081.</li>
 <li><a href="https://imagej.net/imaging/colocalization-analysis">ImageJ colocalization analysis</a></li>
 <li><a href="https://imagej.net/plugins/coloc-2">ImageJ Coloc 2 plugin</a></li>
 </ul>
