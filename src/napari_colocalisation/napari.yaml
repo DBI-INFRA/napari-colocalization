@@ -1,24 +1,24 @@
-name: napari-colocalisation
-display_name: Colocalisation
+name: napari-colocalization
+display_name: Colocalization
 visibility: hidden
 contributions:
   commands:
-    - id: napari-colocalisation.make_widget
-      python_name: napari_colocalisation:ColocalisationWidget
-      title: Open Colocalisation Analysis
-    - id: napari-colocalisation.make_sample_data
-      python_name: napari_colocalisation._sample_data:make_sample_data
-      title: Load 2D colocalisation sample
-    - id: napari-colocalisation.make_sample_data_3d
-      python_name: napari_colocalisation._sample_data:make_sample_data_3d
-      title: Load 3D colocalisation sample
+    - id: napari-colocalization.make_widget
+      python_name: napari_colocalization:ColocalizationWidget
+      title: Open Colocalization Analysis
+    - id: napari-colocalization.make_sample_data
+      python_name: napari_colocalization._sample_data:make_sample_data
+      title: Load 2D colocalization sample
+    - id: napari-colocalization.make_sample_data_3d
+      python_name: napari_colocalization._sample_data:make_sample_data_3d
+      title: Load 3D colocalization sample
   widgets:
-    - command: napari-colocalisation.make_widget
-      display_name: Colocalisation Analysis
+    - command: napari-colocalization.make_widget
+      display_name: Colocalization Analysis
   sample_data:
-    - command: napari-colocalisation.make_sample_data
-      display_name: Colocalisation sample (2D)
+    - command: napari-colocalization.make_sample_data
+      display_name: Colocalization sample (2D)
       key: coloc_sample_v1
-    - command: napari-colocalisation.make_sample_data_3d
-      display_name: Colocalisation sample (3D)
+    - command: napari-colocalization.make_sample_data_3d
+      display_name: Colocalization sample (3D)
       key: coloc_sample_v1_3d

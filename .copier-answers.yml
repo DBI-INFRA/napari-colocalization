@@ -1,10 +1,10 @@
 # Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
 _commit: v2.1.1
 _src_path: https://github.com/napari/napari-plugin-template
-display_name: Colocalisation
+display_name: Colocalization
 email: ''
 full_name: Jesko Wagner
-github_repository_url: https://github.com/jeskowagner/napari-colocalisation
+github_repository_url: https://github.com/jeskowagner/napari-colocalization
 github_username_or_organization: jeskowagner
 include_reader_plugin: false
 include_sample_data_plugin: true
@@ -13,6 +13,6 @@ include_writer_plugin: false
 install_dependabot: false
 install_precommit: true
 license: MIT
-module_name: napari_colocalisation
-plugin_name: napari-colocalisation
-short_description: Colocalisation analysis of multi-channel images
+module_name: napari_colocalization
+plugin_name: napari-colocalization
+short_description: Colocalization analysis of multi-channel images

@@ -89,7 +89,7 @@ def iter_regions(label_mask):
     Examples
     --------
     >>> import numpy as np
-    >>> from napari_colocalisation._masking import iter_regions
+    >>> from napari_colocalization._masking import iter_regions
     >>> mask = np.zeros((4, 4), dtype=int)
     >>> mask[:2, :2] = 1
     >>> mask[2:, 2:] = 2

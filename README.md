@@ -1,31 +1,31 @@
 <p align="center">
   <!-- TODO: replace with final logo -->
-  <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalisation/main/docs/img/logo.png" alt="napari-colocalisation logo" width="160"/>
+  <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalization/main/docs/img/logo.png" alt="napari-colocalization logo" width="160"/>
 </p>
 
-# napari-colocalisation
+# napari-colocalization
 
-[![License MIT](https://img.shields.io/pypi/l/napari-colocalisation.svg?color=green)](https://github.com/DBI-INFRA/napari-colocalisation/raw/main/LICENSE)
-[![PyPI](https://img.shields.io/pypi/v/napari-colocalisation.svg?color=green)](https://pypi.org/project/napari-colocalisation)
-[![Python Version](https://img.shields.io/pypi/pyversions/napari-colocalisation.svg?color=green)](https://python.org)
-[![tests](https://github.com/DBI-INFRA/napari-colocalisation/workflows/tests/badge.svg)](https://github.com/DBI-INFRA/napari-colocalisation/actions)
-[![codecov](https://codecov.io/gh/DBI-INFRA/napari-colocalisation/branch/main/graph/badge.svg)](https://codecov.io/gh/DBI-INFRA/napari-colocalisation)
-[![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/napari-colocalisation)](https://napari-hub.org/plugins/napari-colocalisation)
+[![License MIT](https://img.shields.io/pypi/l/napari-colocalization.svg?color=green)](https://github.com/DBI-INFRA/napari-colocalization/raw/main/LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/napari-colocalization.svg?color=green)](https://pypi.org/project/napari-colocalization)
+[![Python Version](https://img.shields.io/pypi/pyversions/napari-colocalization.svg?color=green)](https://python.org)
+[![tests](https://github.com/DBI-INFRA/napari-colocalization/workflows/tests/badge.svg)](https://github.com/DBI-INFRA/napari-colocalization/actions)
+[![codecov](https://codecov.io/gh/DBI-INFRA/napari-colocalization/branch/main/graph/badge.svg)](https://codecov.io/gh/DBI-INFRA/napari-colocalization)
+[![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/napari-colocalization)](https://napari-hub.org/plugins/napari-colocalization)
 [![npe2](https://img.shields.io/badge/plugin-npe2-blue?link=https://napari.org/stable/plugins/index.html)](https://napari.org/stable/plugins/index.html)
 
 > ⚠️ **Under construction — pre-alpha.** APIs, UI, and outputs may change
 > without notice. Not recommended for production analysis yet; use at your
 > own risk and please report rough edges via the
-> [issue tracker](https://github.com/DBI-INFRA/napari-colocalisation/issues).
+> [issue tracker](https://github.com/DBI-INFRA/napari-colocalization/issues).
 
-Interactive intensity-colocalisation analysis for [napari](https://napari.org).
+Interactive intensity-colocalization analysis for [napari](https://napari.org).
 Pick two channels (or one multi-channel image), optionally restrict the
 analysis to a region drawn as shapes or labels, choose your metric, and get a
 results table plus an intensity-vs-intensity scatter plot — all without leaving
 napari.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalisation/main/docs/img/widget_overview.png" alt="napari-colocalisation widget" width="780"/>
+  <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalization/main/docs/img/widget_overview.png" alt="napari-colocalization widget" width="780"/>
 </p>
 
 ## Features
@@ -46,32 +46,32 @@ napari.
 ## Installation
 
 ```bash
-pip install napari-colocalisation
+pip install napari-colocalization
 ```
 
 If napari isn't already installed, install both at once:
 
 ```bash
-pip install "napari-colocalisation[all]"
+pip install "napari-colocalization[all]"
 ```
 
 For the latest development version:
 
 ```bash
-pip install git+https://github.com/DBI-INFRA/napari-colocalisation.git
+pip install git+https://github.com/DBI-INFRA/napari-colocalization.git
 ```
 
 ## Quick start
 
 1. Launch napari.
-2. Load sample data: **File → Open Sample → napari-colocalisation →
-   Colocalisation sample (2D)** (a 3D sample is also provided).
+2. Load sample data: **File → Open Sample → napari-colocalization →
+   Colocalization sample (2D)** (a 3D sample is also provided).
 
    <p align="center">
-     <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalisation/main/docs/img/quickstart_sample.png" alt="Open Sample menu" width="520"/>
+     <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalization/main/docs/img/quickstart_sample.png" alt="Open Sample menu" width="520"/>
    </p>
 
-3. Open the widget: **Plugins → Colocalisation Analysis**. Two image layers
+3. Open the widget: **Plugins → Colocalization Analysis**. Two image layers
    `channel_a` and `channel_b` are auto-selected for pairwise mode.
 
 4. Click **Run**. The results table populates with a single row (the whole
@@ -79,11 +79,11 @@ pip install git+https://github.com/DBI-INFRA/napari-colocalisation.git
    metric values overlaid.
 
    <p align="center">
-     <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalisation/main/docs/img/quickstart_run.png" alt="Run result" width="780"/>
+     <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalization/main/docs/img/quickstart_run.png" alt="Run result" width="780"/>
    </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalisation/main/docs/img/widget_overview.png" alt="napari-colocalisation widget" width="780"/>
+  <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalization/main/docs/img/widget_overview.png" alt="napari-colocalization widget" width="780"/>
 </p>
 
 5. *(Optional)* Add a Shapes layer, draw a few rectangles or polygons, set
@@ -92,7 +92,7 @@ pip install git+https://github.com/DBI-INFRA/napari-colocalisation.git
    viewer.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalisation/main/docs/img/widget_shapes.png" alt="napari-colocalisation widget" width="780"/>
+  <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalization/main/docs/img/widget_shapes.png" alt="napari-colocalization widget" width="780"/>
 </p>
 
 See [docs/usage.md](docs/usage.md) for the full walkthrough.
@@ -109,7 +109,7 @@ See [docs/usage.md](docs/usage.md) for the full walkthrough.
 ## Related projects
 
 - [Coloc 2](https://imagej.net/plugins/coloc-2) — the reference ImageJ
-  colocalisation plugin; this plugin follows it in spirit.
+  colocalization plugin; this plugin follows it in spirit.
 - [scikit-image colocalization metrics](https://scikit-image.org/docs/stable/auto_examples/applications/plot_colocalization_metrics.html)
   — the underlying implementations of PCC and Manders.
 
@@ -135,9 +135,9 @@ Please keep test coverage at or above the current level when submitting a PR.
 ## License
 
 Distributed under the terms of the [MIT](http://opensource.org/licenses/MIT)
-licence; `napari-colocalisation` is free and open-source software.
+licence; `napari-colocalization` is free and open-source software.
 
 ## Issues
 
 Found a bug or have a feature request? Please
-[open an issue](https://github.com/DBI-INFRA/napari-colocalisation/issues).
+[open an issue](https://github.com/DBI-INFRA/napari-colocalization/issues).

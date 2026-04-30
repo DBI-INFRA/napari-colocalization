@@ -1,6 +1,6 @@
 ---
 name: "\U0001F680 Feature Request"
-about: Submit a proposal/request for a new napari-colocalisation feature
+about: Submit a proposal/request for a new napari-colocalization feature
 title: ''
 labels: feature
 assignees: ''

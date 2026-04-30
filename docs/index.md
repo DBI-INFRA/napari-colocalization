@@ -4,26 +4,26 @@ hide:
 ---
 
 <figure markdown="span">
-  ![napari-colocalisation logo](img/logo.png){ width=160 }
+  ![napari-colocalization logo](img/logo.png){ width=160 }
 </figure>
 
-# napari-colocalisation
+# napari-colocalization
 
 !!! warning "Under construction — pre-alpha"
 
     APIs, UI, and outputs may change without notice. Not recommended
     for production analysis yet; use at your own risk and please
     report rough edges via the
-    [issue tracker](https://github.com/DBI-INFRA/napari-colocalisation/issues).
+    [issue tracker](https://github.com/DBI-INFRA/napari-colocalization/issues).
 
-Interactive intensity-colocalisation analysis for [napari](https://napari.org).
+Interactive intensity-colocalization analysis for [napari](https://napari.org).
 Pick two channels (or one multi-channel image), optionally restrict the
 analysis to a region drawn as shapes or labels, choose your metric, and get a
 results table plus an intensity-vs-intensity scatter plot — all without
 leaving napari.
 
 <figure markdown="span">
-  ![napari-colocalisation widget](img/widget_overview.png){ width=780 }
+  ![napari-colocalization widget](img/widget_overview.png){ width=780 }
 </figure>
 
 ## Features
@@ -44,13 +44,13 @@ leaving napari.
 ## Installation
 
 ```bash
-pip install napari-colocalisation
+pip install napari-colocalization
 ```
 
 If napari isn't already installed, install both at once:
 
 ```bash
-pip install "napari-colocalisation[all]"
+pip install "napari-colocalization[all]"
 ```
 
 ## Where next?
@@ -66,5 +66,5 @@ pip install "napari-colocalisation[all]"
 ## Source code
 
 The plugin lives at
-[github.com/DBI-INFRA/napari-colocalisation](https://github.com/DBI-INFRA/napari-colocalisation).
+[github.com/DBI-INFRA/napari-colocalization](https://github.com/DBI-INFRA/napari-colocalization).
 File issues or feature requests on the tracker there.

@@ -1,4 +1,4 @@
-"""Pure-numpy colocalisation metrics.
+"""Pure-numpy colocalization metrics.
 
 No napari / qtpy imports here — every function in this module
 operates on ndarrays so it can be tested headlessly and reused
@@ -50,7 +50,7 @@ def pearson(a, b, mask=None):
     Examples
     --------
     >>> import numpy as np
-    >>> from napari_colocalisation._metrics import pearson
+    >>> from napari_colocalization._metrics import pearson
     >>> rng = np.random.default_rng(0)
     >>> a = rng.random((64, 64))
     >>> pearson(a, a)[0]
@@ -92,7 +92,7 @@ def spearman(a, b, mask=None):
     Examples
     --------
     >>> import numpy as np
-    >>> from napari_colocalisation._metrics import spearman
+    >>> from napari_colocalization._metrics import spearman
     >>> a = np.linspace(0.1, 10.0, 1000)
     >>> spearman(a, a ** 3)[0]    # monotonic non-linear
     1.0
@@ -105,7 +105,7 @@ def spearman(a, b, mask=None):
 
 
 def manders(a, b, threshold_a, threshold_b, mask=None):
-    """Manders' colocalisation coefficients M1 and M2.
+    """Manders' colocalization coefficients M1 and M2.
 
     M1 is the fraction of the channel-A intensity that lies in
     pixels where channel B is above ``threshold_b``. M2 is the
@@ -139,7 +139,7 @@ def manders(a, b, threshold_a, threshold_b, mask=None):
     Examples
     --------
     >>> import numpy as np
-    >>> from napari_colocalisation._metrics import manders
+    >>> from napari_colocalization._metrics import manders
     >>> a = np.zeros((10, 10)); a[:, :] = 1.0
     >>> b = np.zeros((10, 10)); b[:5, :] = 1.0   # half of A overlaps B
     >>> m1, m2 = manders(a, b, threshold_a=0.5, threshold_b=0.5)

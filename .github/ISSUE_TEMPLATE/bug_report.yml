@@ -1,5 +1,5 @@
 name: "\U0001F41B Bug Report"
-description: Report a bug encountered while using napari-colocalisation
+description: Report a bug encountered while using napari-colocalization
 labels:
   - "bug"
 

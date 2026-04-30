@@ -3,7 +3,7 @@ import csv
 import numpy as np
 import pytest
 
-from napari_colocalisation import ColocalisationWidget
+from napari_colocalization import ColocalizationWidget
 
 
 @pytest.fixture
@@ -13,12 +13,12 @@ def rng():
 
 def test_widget_instantiates(make_napari_viewer):
     viewer = make_napari_viewer()
-    assert ColocalisationWidget(viewer) is not None
+    assert ColocalizationWidget(viewer) is not None
 
 
 def test_default_metric_is_spearman_only(make_napari_viewer):
     viewer = make_napari_viewer()
-    widget = ColocalisationWidget(viewer)
+    widget = ColocalizationWidget(viewer)
     assert widget._cb_pcc.isChecked() is False
     assert widget._cb_srcc.isChecked() is True
     assert widget._cb_mcc.isChecked() is False
@@ -29,14 +29,14 @@ def test_pairwise_defaults_pick_distinct_layers(make_napari_viewer, rng):
     a = rng.random((16, 16)).astype(np.float32)
     layer_a = viewer.add_image(a, name='a')
     layer_b = viewer.add_image(a.copy(), name='b')
-    widget = ColocalisationWidget(viewer)
+    widget = ColocalizationWidget(viewer)
     assert widget._image_a_combo.value is layer_a
     assert widget._image_b_combo.value is layer_b
 
 
 def test_mode_toggle_shows_correct_inputs(make_napari_viewer):
     viewer = make_napari_viewer()
-    widget = ColocalisationWidget(viewer)
+    widget = ColocalizationWidget(viewer)
     assert widget._pairwise_group.isHidden() is False
     assert widget._all_group.isHidden() is True
     widget._mode_all.setChecked(True)
@@ -46,7 +46,7 @@ def test_mode_toggle_shows_correct_inputs(make_napari_viewer):
 
 def test_threshold_section_visibility_follows_mcc(make_napari_viewer):
     viewer = make_napari_viewer()
-    widget = ColocalisationWidget(viewer)
+    widget = ColocalizationWidget(viewer)
     assert widget._threshold_group.isHidden() is True
     widget._cb_mcc.setChecked(True)
     assert widget._threshold_group.isHidden() is False
@@ -75,7 +75,7 @@ def test_region_combo_lists_only_shapes_and_labels(make_napari_viewer, rng):
     viewer.add_image(a, name='img')  # should NOT appear
     viewer.add_shapes(name='roi_shapes')
     viewer.add_labels(np.zeros((10, 10), dtype=np.int32), name='roi_labels')
-    widget = ColocalisationWidget(viewer)
+    widget = ColocalizationWidget(viewer)
     options = _region_options(widget)
     assert options[0] == 'None'
     assert 'roi_shapes' in options
@@ -87,7 +87,7 @@ def test_region_combo_updates_on_layer_added_and_removed(
     make_napari_viewer,
 ):
     viewer = make_napari_viewer()
-    widget = ColocalisationWidget(viewer)
+    widget = ColocalizationWidget(viewer)
     assert _region_options(widget) == ['None']
 
     shapes = viewer.add_shapes(name='roi')
@@ -100,7 +100,7 @@ def test_region_combo_updates_on_layer_added_and_removed(
 def test_region_combo_updates_on_rename(make_napari_viewer):
     viewer = make_napari_viewer()
     shapes = viewer.add_shapes(name='before')
-    widget = ColocalisationWidget(viewer)
+    widget = ColocalizationWidget(viewer)
     assert 'before' in _region_options(widget)
     shapes.name = 'after'
     assert 'after' in _region_options(widget)
@@ -112,7 +112,7 @@ def test_run_pairwise_populates_table(make_napari_viewer, qtbot, rng):
     a = rng.random((32, 32)).astype(np.float32)
     layer_a = viewer.add_image(a, name='a')
     layer_b = viewer.add_image(a.copy(), name='b')
-    widget = ColocalisationWidget(viewer)
+    widget = ColocalizationWidget(viewer)
     widget._image_a_combo.value = layer_a
     widget._image_b_combo.value = layer_b
     widget._cb_pcc.setChecked(True)
@@ -139,7 +139,7 @@ def test_run_all_to_all_populates_table(make_napari_viewer, qtbot, rng):
     a = rng.random((32, 32)).astype(np.float32)
     stack = np.stack([a, a, a], axis=0)
     layer = viewer.add_image(stack, name='stack')
-    widget = ColocalisationWidget(viewer)
+    widget = ColocalizationWidget(viewer)
     widget._mode_all.setChecked(True)
     widget._stack_combo.value = layer
     widget._channel_axis_spin.setValue(0)
@@ -156,7 +156,7 @@ def test_export_csv_writes_file(make_napari_viewer, qtbot, rng, tmp_path):
     a = rng.random((16, 16)).astype(np.float32)
     layer_a = viewer.add_image(a, name='a')
     layer_b = viewer.add_image(a.copy(), name='b')
-    widget = ColocalisationWidget(viewer)
+    widget = ColocalizationWidget(viewer)
     widget._image_a_combo.value = layer_a
     widget._image_b_combo.value = layer_b
     widget._cb_mcc.setChecked(False)
@@ -185,7 +185,7 @@ def test_run_with_label_mask_yields_one_row_per_region(
     label[:10, :] = 1
     label[10:, :] = 2
     label_layer = viewer.add_labels(label, name='regions')
-    widget = ColocalisationWidget(viewer)
+    widget = ColocalizationWidget(viewer)
     widget._image_a_combo.value = layer_a
     widget._image_b_combo.value = layer_b
     _select_region_layer(widget, label_layer)
@@ -201,7 +201,7 @@ def test_results_hidden_until_run(make_napari_viewer, qtbot, rng):
     a = rng.random((16, 16)).astype(np.float32)
     layer_a = viewer.add_image(a, name='a')
     layer_b = viewer.add_image(a.copy(), name='b')
-    widget = ColocalisationWidget(viewer)
+    widget = ColocalizationWidget(viewer)
     assert widget._results_group.isHidden() is True
     assert widget._export_button.isHidden() is True
 
@@ -229,7 +229,7 @@ def _build_two_shape_widget(make_napari_viewer, qtbot, rng):
         shape_type='polygon',
         name='regions',
     )
-    widget = ColocalisationWidget(viewer)
+    widget = ColocalizationWidget(viewer)
     widget._image_a_combo.value = layer_a
     widget._image_b_combo.value = layer_b
     _select_region_layer(widget, shapes)

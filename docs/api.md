@@ -1,6 +1,6 @@
 # Python API
 
-The pure-compute layer of `napari-colocalisation` is independent of napari
+The pure-compute layer of `napari-colocalization` is independent of napari
 and Qt — you can import the metric, masking, and analysis functions from
 a script or notebook and use them on plain ndarrays.
 
@@ -14,20 +14,20 @@ time.
 ## Module layout
 
 ```
-napari_colocalisation
+napari_colocalization
 ├── _metrics.py     pearson, spearman, manders, costes_threshold
 ├── _masking.py     shapes_to_label_mask, labels_to_label_mask, iter_regions
 ├── _analysis.py    analyse_pairwise, analyse_all_to_all, COLUMNS
 ├── _sample_data.py make_sample_data, make_sample_data_3d
-└── _widget.py      ColocalisationWidget (Qt-only)
+└── _widget.py      ColocalizationWidget (Qt-only)
 ```
 
 The leading underscore is a convention from the napari plugin template;
 the symbols below are stable and intended to be imported.
 
-## Metrics — `napari_colocalisation._metrics`
+## Metrics — `napari_colocalization._metrics`
 
-::: napari_colocalisation._metrics
+::: napari_colocalization._metrics
     options:
       members:
         - pearson
@@ -37,9 +37,9 @@ the symbols below are stable and intended to be imported.
       show_root_heading: false
       heading_level: 3
 
-## Masking — `napari_colocalisation._masking`
+## Masking — `napari_colocalization._masking`
 
-::: napari_colocalisation._masking
+::: napari_colocalization._masking
     options:
       members:
         - shapes_to_label_mask
@@ -48,7 +48,7 @@ the symbols below are stable and intended to be imported.
       show_root_heading: false
       heading_level: 3
 
-## Analysis — `napari_colocalisation._analysis`
+## Analysis — `napari_colocalization._analysis`
 
 `COLUMNS` is the canonical column order shared by the table, the CSV
 export, and the row dicts:
@@ -59,7 +59,7 @@ export, and the row dicts:
  'm1', 'm2', 'threshold_a', 'threshold_b')
 ```
 
-::: napari_colocalisation._analysis
+::: napari_colocalization._analysis
     options:
       members:
         - analyse_pairwise
@@ -67,9 +67,9 @@ export, and the row dicts:
       show_root_heading: false
       heading_level: 3
 
-## Sample data — `napari_colocalisation._sample_data`
+## Sample data — `napari_colocalization._sample_data`
 
-::: napari_colocalisation._sample_data
+::: napari_colocalization._sample_data
     options:
       members:
         - make_sample_data
@@ -82,7 +82,7 @@ export, and the row dicts:
 ```python
 import numpy as np
 import pandas as pd
-from napari_colocalisation._analysis import analyse_pairwise, COLUMNS
+from napari_colocalization._analysis import analyse_pairwise, COLUMNS
 
 a = np.load('channel_a.npy')
 b = np.load('channel_b.npy')
@@ -97,7 +97,7 @@ rows = analyse_pairwise(
 )
 
 df = pd.DataFrame(rows, columns=COLUMNS)
-df.to_csv('colocalisation_per_cell.csv', index=False)
+df.to_csv('colocalization_per_cell.csv', index=False)
 print(df.describe())
 ```
 
@@ -107,5 +107,5 @@ print(df.describe())
   intended to be stable across point releases.
 - Internal helpers prefixed with `_` (private functions inside each
   module) may change without notice.
-- `ColocalisationWidget` (`_widget.py`) is the GUI surface and not part
+- `ColocalizationWidget` (`_widget.py`) is the GUI surface and not part
   of the scripting API; for scripts, drive `analyse_*` directly.

@@ -1,15 +1,15 @@
 # Usage guide
 
-This page walks through every control in the **Colocalisation Analysis**
+This page walks through every control in the **Colocalization Analysis**
 dock widget, top to bottom.
 
 > Documentation index: [Home](index.md) · **Usage** · [Metrics](metrics.md) · [Python API](api.md)
 
 ## Opening the widget
 
-In napari: **Plugins → Colocalisation Analysis**. The widget docks on the
+In napari: **Plugins → Colocalization Analysis**. The widget docks on the
 right by default. To follow along without your own data, load a sample:
-**File → Open Sample → napari-colocalisation → Colocalisation sample (2D)**
+**File → Open Sample → napari-colocalization → Colocalization sample (2D)**
 (a 3D version is also available).
 
 <figure markdown="span">

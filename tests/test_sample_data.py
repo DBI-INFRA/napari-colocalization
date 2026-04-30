@@ -1,7 +1,7 @@
 import numpy as np
 
-from napari_colocalisation._metrics import manders, pearson
-from napari_colocalisation._sample_data import (
+from napari_colocalization._metrics import manders, pearson
+from napari_colocalization._sample_data import (
     make_sample_data,
     make_sample_data_3d,
 )

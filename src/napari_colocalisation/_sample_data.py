@@ -1,4 +1,4 @@
-"""Synthetic two-channel sample data with structured colocalisation.
+"""Synthetic two-channel sample data with structured colocalization.
 
 The 2D and 3D samples follow the same recipe: gaussian blobs at
 random positions, with channel B copying 60% of channel A's blobs

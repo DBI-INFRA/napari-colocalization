@@ -3,7 +3,7 @@ import types
 import numpy as np
 import pytest
 
-from napari_colocalisation._masking import (
+from napari_colocalization._masking import (
     iter_regions,
     labels_to_label_mask,
     shapes_to_label_mask,

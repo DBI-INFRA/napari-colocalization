@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from napari_colocalisation._metrics import (
+from napari_colocalization._metrics import (
     costes_threshold,
     manders,
     pearson,

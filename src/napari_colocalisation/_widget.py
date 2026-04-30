@@ -1,4 +1,4 @@
-"""Top-level dock widget for the colocalisation plugin.
+"""Top-level dock widget for the colocalization plugin.
 
 A single QWidget that wires the pure-compute layer (_metrics,
 _masking, _analysis) to napari layers via magicgui combos, runs
@@ -62,7 +62,7 @@ def _format_cell(value):
     return str(value)
 
 
-class ColocalisationWidget(QWidget):
+class ColocalizationWidget(QWidget):
     """Dock widget: configuration + Run + results table + scatter."""
 
     def __init__(self, viewer: 'napari.viewer.Viewer'):
@@ -738,7 +738,7 @@ class ColocalisationWidget(QWidget):
             show_info('No results to export.')
             return
         path, _ = QFileDialog.getSaveFileName(
-            self, 'Save results CSV', 'colocalisation.csv', 'CSV (*.csv)'
+            self, 'Save results CSV', 'colocalization.csv', 'CSV (*.csv)'
         )
         if not path:
             return

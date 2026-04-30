@@ -1,8 +1,8 @@
-site_name: napari-colocalisation
-site_description: Intensity colocalisation analysis for napari.
-site_url: https://DBI-INFRA.github.io/napari-colocalisation/
-repo_url: https://github.com/DBI-INFRA/napari-colocalisation
-repo_name: DBI-INFRA/napari-colocalisation
+site_name: napari-colocalization
+site_description: Intensity colocalization analysis for napari.
+site_url: https://DBI-INFRA.github.io/napari-colocalization/
+repo_url: https://github.com/DBI-INFRA/napari-colocalization
+repo_name: DBI-INFRA/napari-colocalization
 edit_uri: edit/main/docs/
 
 theme:

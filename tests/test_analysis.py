@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from napari_colocalisation._analysis import (
+from napari_colocalization._analysis import (
     COLUMNS,
     analyse_all_to_all,
     analyse_pairwise,

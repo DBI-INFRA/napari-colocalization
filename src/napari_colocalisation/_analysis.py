@@ -114,7 +114,7 @@ def analyse_pairwise(
     Examples
     --------
     >>> import numpy as np
-    >>> from napari_colocalisation._analysis import analyse_pairwise
+    >>> from napari_colocalization._analysis import analyse_pairwise
     >>> rng = np.random.default_rng(0)
     >>> a = rng.random((32, 32)); b = a.copy()
     >>> rows = analyse_pairwise(a, b, metrics=('pcc',))

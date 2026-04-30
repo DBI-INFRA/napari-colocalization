@@ -6,7 +6,7 @@ the Costes auto-threshold used for Manders.
 > Documentation index: [Home](index.md) · [Usage](usage.md) · **Metrics** · [Python API](api.md)
 
 For a deeper treatment, see the
-[ImageJ colocalisation analysis page](https://imagej.net/imaging/colocalization-analysis)
+[ImageJ colocalization analysis page](https://imagej.net/imaging/colocalization-analysis)
 that this plugin took its design cues from.
 
 ## Pearson (PCC)
@@ -97,7 +97,7 @@ after applying the chosen thresholds.
 Manders' coefficients depend on a per-channel threshold separating
 "signal" from "background". Picking the threshold by eye is subjective;
 the iterative method introduced by Costes et al. (2004) gives a
-reproducible answer that is widely cited in the colocalisation
+reproducible answer that is widely cited in the colocalization
 literature.
 
 Algorithm (as implemented in `_metrics.costes_threshold`):
@@ -149,5 +149,5 @@ reporting more than one is good practice.
 - Dunn, K.W., Kamocka, M.M., McDonald, J.H. (2011). *A practical guide to
   evaluating colocalization in biological microscopy.* Am. J. Physiol.
   Cell Physiol. 300(4), C723-C742.
-- [ImageJ colocalisation analysis](https://imagej.net/imaging/colocalization-analysis)
+- [ImageJ colocalization analysis](https://imagej.net/imaging/colocalization-analysis)
 - [ImageJ Coloc 2 plugin](https://imagej.net/plugins/coloc-2)

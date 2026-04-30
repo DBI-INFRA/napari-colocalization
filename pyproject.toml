@@ -1,7 +1,7 @@
 [project]
-name = "napari-colocalisation"
+name = "napari-colocalization"
 dynamic = ["version"]
-description = "Colocalisation analysis of multi-channel images"
+description = "Colocalization analysis of multi-channel images"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -39,7 +39,7 @@ dependencies = [
 
 [project.optional-dependencies]
 # Allow easily installation with the full, default napari installation
-# (including Qt backend) using napari-colocalisation[all].
+# (including Qt backend) using napari-colocalization[all].
 all = ["napari[all]"]
 
 [dependency-groups]
@@ -58,13 +58,13 @@ docs = [
 ]
 
 [project.entry-points."napari.manifest"]
-napari-colocalisation = "napari_colocalisation:napari.yaml"
+napari-colocalization = "napari_colocalization:napari.yaml"
 
 [project.urls]
-"Bug Tracker" = "https://github.com/jeskowagner/napari-colocalisation/issues"
-"Documentation" = "https://github.com/jeskowagner/napari-colocalisation#README.md"
-"Source Code" = "https://github.com/jeskowagner/napari-colocalisation"
-"User Support" = "https://github.com/jeskowagner/napari-colocalisation/issues"
+"Bug Tracker" = "https://github.com/jeskowagner/napari-colocalization/issues"
+"Documentation" = "https://github.com/jeskowagner/napari-colocalization#README.md"
+"Source Code" = "https://github.com/jeskowagner/napari-colocalization"
+"User Support" = "https://github.com/jeskowagner/napari-colocalization/issues"
 
 [build-system]
 requires = ["setuptools>=77.0.3", "setuptools_scm"]
@@ -80,7 +80,7 @@ where = ["src"]
 "*" = ["*.yaml"]
 
 [tool.setuptools_scm]
-write_to = "src/napari_colocalisation/_version.py"
+write_to = "src/napari_colocalization/_version.py"
 fallback_version = "0.0.1+nogit"
 
 [tool.pytest.ini_options]
