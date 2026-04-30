@@ -30,8 +30,8 @@ napari.
 
 ## Features
 
-- **Three correlation metrics**: Pearson (PCC), Spearman rank (SRCC), and
-  Manders' coefficients M1/M2 (MCC).
+- **Four correlation metrics**: Pearson (PCC), Spearman rank (SRCC), Li
+  Intensity Correlation Quotient (ICQ), and Manders' coefficients M1/M2 (MCC).
 - **Pairwise or all-to-all** mode: analyse two grayscale layers, or every
   channel pair within a single multi-channel layer.
 - **2D and 3D** support natively (no time-series for now).
@@ -100,10 +100,10 @@ See [docs/usage.md](docs/usage.md) for the full walkthrough.
 ## Documentation
 
 - **[Usage guide](docs/usage.md)** — every control in the widget, in order.
-- **[Metrics](docs/metrics.md)** — what PCC, SRCC and MCC mean, when to use
+- **[Metrics](docs/metrics.md)** — what PCC, SRCC, ICQ and MCC mean, when to use
   which, and how the Costes auto-threshold works.
 - **[Python API](docs/api.md)** — calling the pure-compute layer
-  (`pearson`, `spearman`, `manders`, `costes_threshold`,
+  (`pearson`, `spearman`, `li_icq`, `manders`, `costes_threshold`,
   `analyse_pairwise`, `analyse_all_to_all`) from scripts or notebooks.
 
 ## Related projects
