@@ -2783,12 +2783,13 @@ count.</p>
 <a id="napari_colocalization._sample_data"></a>
     <div class="doc doc-contents first">
 
-        <p>Synthetic two-channel sample data with structured colocalization.</p>
-<p>The 2D and 3D samples follow the same recipe: gaussian blobs at
-random positions, with channel B copying 60% of channel A's blobs
-plus a few independent blobs and gaussian noise. This gives a
-realistic "partially co-occurring" signal with PCC ~ 0.7 and
-Manders M1, M2 ~ 0.6.</p>
+        <p>Synthetic two-channel sample data for colocalization.</p>
+<p>Synthetic samples (2D, 3D): gaussian blobs with channel B copying
+60 % of channel A's blobs plus independent blobs and noise, giving
+PCC ~ 0.7 and Manders M1/M2 ~ 0.6.</p>
+<p>CBS006RBM: red and blue channels with ~50 % colocalization,
+from the Colocalization Benchmark Source.
+The TIFF is downloaded once and cached in ~/.cache/napari-colocalization/.</p>
 
 
 
