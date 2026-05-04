@@ -1,10 +1,12 @@
-"""Synthetic two-channel sample data with structured colocalization.
+"""Synthetic two-channel sample data for colocalization.
 
-The 2D and 3D samples follow the same recipe: gaussian blobs at
-random positions, with channel B copying 60% of channel A's blobs
-plus a few independent blobs and gaussian noise. This gives a
-realistic "partially co-occurring" signal with PCC ~ 0.7 and
-Manders M1, M2 ~ 0.6.
+Synthetic samples (2D, 3D): gaussian blobs with channel B copying
+60 % of channel A's blobs plus independent blobs and noise, giving
+PCC ~ 0.7 and Manders M1/M2 ~ 0.6.
+
+CBS006RBM: red and blue channels with ~50 % colocalization,
+from the Colocalization Benchmark Source.
+The TIFF is downloaded once and cached in ~/.cache/napari-colocalization/.
 """
 
 import numpy as np
@@ -99,6 +101,52 @@ def make_sample_data_3d():
             {
                 'name': 'channel_b_3d',
                 'colormap': 'magenta',
+                'blending': 'additive',
+            },
+            'image',
+        ),
+    ]
+
+
+def make_sample_data_cbs006rbm():
+    """Real 2D sample from the Colocalization Benchmark Source (CBS006RBM).
+
+    Red and blue channels with ~50 % colocalization.
+    Downloaded once and cached under ~/.cache/napari-colocalization/.
+
+    Source: https://colocalization-benchmark.com/
+    """
+    import io
+    import urllib.request
+    import zipfile
+    from pathlib import Path
+
+    from skimage.io import imread
+
+    _URL = 'https://colocalization-benchmark.com/download/cbs006rbm.tiff.zip'
+    _TIFF = 'CBS006RBM.tiff'
+
+    cache_dir = Path.home() / '.cache' / 'napari-colocalization'
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    tiff_path = cache_dir / _TIFF
+
+    if not tiff_path.exists():
+        with urllib.request.urlopen(_URL) as response:
+            raw = response.read()
+        with zipfile.ZipFile(io.BytesIO(raw)) as zf:
+            tiff_path.write_bytes(zf.read(_TIFF))
+
+    img = imread(str(tiff_path))  # (H, W, 3) uint8 RGB
+    red = img[:, :, 0].astype(np.float32) / 255.0
+    blue = img[:, :, 2].astype(np.float32) / 255.0
+
+    return [
+        (red, {'name': 'CBS006RBM_red', 'colormap': 'red'}, 'image'),
+        (
+            blue,
+            {
+                'name': 'CBS006RBM_blue',
+                'colormap': 'blue',
                 'blending': 'additive',
             },
             'image',
