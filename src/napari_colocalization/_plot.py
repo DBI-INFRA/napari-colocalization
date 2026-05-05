@@ -3,15 +3,13 @@
 The canvas plots channel-A intensity against channel-B intensity
 for the currently selected (region, channel-pair) and overlays
 horizontal/vertical lines at the Manders thresholds when
-available. Subsampled to keep redraws responsive on large images.
+available. Uses hexbin to stay responsive on large images.
 """
 
 import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from qtpy.QtWidgets import QSizePolicy
-
-MAX_POINTS = 5000
 
 
 class ScatterCanvas(FigureCanvasQTAgg):
@@ -21,7 +19,9 @@ class ScatterCanvas(FigureCanvasQTAgg):
         # constrained_layout reflows axis labels and titles on
         # every resize event, so the plot does not get cropped
         # when the dock widget is narrow.
-        self._figure = Figure(figsize=(4, 3), constrained_layout=True)
+        self._figure = Figure(
+            figsize=(4, 3), constrained_layout=True, facecolor='black'
+        )
         super().__init__(self._figure)
         self._ax = self._figure.add_subplot(111)
         # Expanding policies let the canvas grow into the layout
@@ -30,8 +30,23 @@ class ScatterCanvas(FigureCanvasQTAgg):
         self.setMinimumHeight(200)
         self.clear()
 
+    def _apply_dark_style(self):
+        """Apply black background / white axis styling and remove ticks."""
+        self._figure.patch.set_facecolor('black')
+        self._ax.set_facecolor('black')
+        for spine in self._ax.spines.values():
+            spine.set_color('white')
+        self._ax.title.set_color('white')
+        self._ax.xaxis.label.set_color('white')
+        self._ax.yaxis.label.set_color('white')
+        # remove ticks and tick labels
+        # self._ax.set_xticks([])
+        # self._ax.set_yticks([])
+        self._ax.tick_params(colors='white')
+
     def clear(self):
         self._ax.clear()
+        self._apply_dark_style()
         self._ax.set_xlabel('Channel A intensity')
         self._ax.set_ylabel('Channel B intensity')
         self._ax.text(
@@ -41,7 +56,8 @@ class ScatterCanvas(FigureCanvasQTAgg):
             ha='center',
             va='center',
             transform=self._ax.transAxes,
-            color='grey',
+            color='white',
+            alpha=0.7,
         )
         self.draw_idle()
 
@@ -79,18 +95,36 @@ class ScatterCanvas(FigureCanvasQTAgg):
             xs = np.asarray(a)[mask]
             ys = np.asarray(b)[mask]
 
-        if xs.size > MAX_POINTS:
-            idx = np.random.default_rng(seed=0).choice(
-                xs.size, size=MAX_POINTS, replace=False
-            )
-            xs = xs[idx]
-            ys = ys[idx]
-
         self._ax.clear()
+        self._apply_dark_style()
         self._ax.set_xlabel('Channel A intensity')
         self._ax.set_ylabel('Channel B intensity')
-        self._ax.scatter(xs, ys, s=4, alpha=0.4)
-        self._ax.set_title(title)
+
+        # Inferno trimmed at the dark end — the bottom of the
+        # default ramp is near-black and disappears against the
+        # black axes facecolor.
+        from matplotlib import cm
+        from matplotlib.colors import ListedColormap
+
+        cmap = ListedColormap(cm.inferno(np.linspace(0.2, 1.0, 256)))
+
+        if xs.size:
+            # hexbin aggregates points into hex cells, so render cost
+            # is O(gridsize²) regardless of N. bins='log' applies log
+            # color mapping so a few dense background cells don't wash
+            # out signal cells. mincnt=1 leaves empty cells transparent
+            # against the black axes facecolor.
+            self._ax.hexbin(
+                xs,
+                ys,
+                gridsize=80,
+                bins='log',
+                cmap=cmap,
+                mincnt=1,
+                linewidths=0,
+            )
+
+        self._ax.set_title(title, color='white')
 
         if (
             threshold_a is not None
@@ -98,8 +132,30 @@ class ScatterCanvas(FigureCanvasQTAgg):
             and np.isfinite(threshold_a)
             and np.isfinite(threshold_b)
         ):
+            # draw threshold lines but avoid letting them expand autoscale
             self._ax.axvline(threshold_a, color='red', linewidth=1)
             self._ax.axhline(threshold_b, color='red', linewidth=1)
+
+        # ensure axes limits are determined by the scatter data alone
+        if xs.size:
+            xmin, xmax = float(xs.min()), float(xs.max())
+            ymin, ymax = float(ys.min()), float(ys.max())
+            # protect against zero-range data
+            if xmax <= xmin:
+                xmin -= 0.5
+                xmax += 0.5
+            if ymax <= ymin:
+                ymin -= 0.5
+                ymax += 0.5
+            # add small padding
+            xpad = 0.02 * (xmax - xmin)
+            ypad = 0.02 * (ymax - ymin)
+            if xpad == 0:
+                xpad = 0.5
+            if ypad == 0:
+                ypad = 0.5
+            self._ax.set_xlim(xmin - xpad, xmax + xpad)
+            self._ax.set_ylim(ymin - ypad, ymax + ypad)
 
         if annotation:
             self._ax.text(
@@ -110,11 +166,29 @@ class ScatterCanvas(FigureCanvasQTAgg):
                 va='top',
                 ha='left',
                 fontsize=8,
+                color='white',
                 bbox={
                     'facecolor': 'white',
-                    'alpha': 0.7,
+                    'alpha': 0.15,
                     'edgecolor': 'none',
                 },
             )
 
         self.draw_idle()
+
+    def save_figure(self, path, width_in, height_in, dpi):
+        """Write the current figure to ``path`` at the given size.
+
+        forward=False resizes for the save only, without propagating to
+        the on-screen canvas (avoids a flicker / dock relayout).
+        """
+        orig_size = self._figure.get_size_inches()
+        self._figure.set_size_inches(width_in, height_in, forward=False)
+        try:
+            self._figure.savefig(
+                path,
+                dpi=dpi,
+                facecolor=self._figure.get_facecolor(),
+            )
+        finally:
+            self._figure.set_size_inches(orig_size, forward=False)

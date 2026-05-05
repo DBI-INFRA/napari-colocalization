@@ -21,8 +21,11 @@ from qtpy.QtWidgets import (
     QButtonGroup,
     QCheckBox,
     QComboBox,
+    QDialog,
+    QDialogButtonBox,
     QDoubleSpinBox,
     QFileDialog,
+    QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -60,6 +63,52 @@ def _format_cell(value):
             return ''
         return f'{value:.4g}'
     return str(value)
+
+
+class FigureExportDialog(QDialog):
+    """Modal dialog asking the user for figure size (inches) and DPI."""
+
+    def __init__(self, parent, width_in, height_in, dpi):
+        super().__init__(parent)
+        self.setWindowTitle('Export figure')
+        self._width = QDoubleSpinBox()
+        self._width.setRange(1.0, 50.0)
+        self._width.setDecimals(2)
+        self._width.setSingleStep(0.5)
+        self._width.setSuffix(' in')
+        self._width.setValue(width_in)
+        self._height = QDoubleSpinBox()
+        self._height.setRange(1.0, 50.0)
+        self._height.setDecimals(2)
+        self._height.setSingleStep(0.5)
+        self._height.setSuffix(' in')
+        self._height.setValue(height_in)
+        self._dpi = QSpinBox()
+        self._dpi.setRange(50, 1200)
+        self._dpi.setSingleStep(50)
+        self._dpi.setValue(dpi)
+        form = QFormLayout()
+        form.addRow('Width:', self._width)
+        form.addRow('Height:', self._height)
+        form.addRow('DPI:', self._dpi)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout = QVBoxLayout()
+        layout.addLayout(form)
+        layout.addWidget(buttons)
+        self.setLayout(layout)
+
+    def width_in(self):
+        return float(self._width.value())
+
+    def height_in(self):
+        return float(self._height.value())
+
+    def dpi(self):
+        return int(self._dpi.value())
 
 
 class ColocalizationWidget(QWidget):
@@ -270,8 +319,18 @@ class ColocalizationWidget(QWidget):
     def _build_export_row(self):
         self._export_button = QPushButton('Export CSV…')
         self._export_button.clicked.connect(self._on_export_clicked)
-        self._export_button.setVisible(False)
-        return self._export_button
+        self._export_figure_button = QPushButton('Export figure…')
+        self._export_figure_button.clicked.connect(
+            self._on_export_figure_clicked
+        )
+        self._export_row = QWidget()
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 0, 0, 0)
+        row.addWidget(self._export_button)
+        row.addWidget(self._export_figure_button)
+        self._export_row.setLayout(row)
+        self._export_row.setVisible(False)
+        return self._export_row
 
     # -- UI state callbacks ---------------------------------------------
 
@@ -573,7 +632,7 @@ class ColocalizationWidget(QWidget):
             rows, channel_arrays, label_mask
         )
         self._results_group.setVisible(bool(rows))
-        self._export_button.setVisible(bool(rows))
+        self._export_row.setVisible(bool(rows))
         if self._plot_context:
             self._table.clearSelection()
             self._table.selectRow(0)
@@ -749,6 +808,29 @@ class ColocalizationWidget(QWidget):
         if not path:
             return
         self.write_csv(path, self._results)
+        show_info(f'Wrote {path}')
+
+    def _on_export_figure_clicked(self):
+        if not self._results:
+            show_info('No figure to export.')
+            return
+        fig = self._scatter._figure
+        cur_w, cur_h = (float(v) for v in fig.get_size_inches())
+        cur_dpi = int(fig.get_dpi())
+        dlg = FigureExportDialog(self, cur_w, cur_h, cur_dpi)
+        if dlg.exec_() != QDialog.Accepted:
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            'Save figure',
+            'colocalization.png',
+            'PNG (*.png);;PDF (*.pdf);;SVG (*.svg);;TIFF (*.tif *.tiff)',
+        )
+        if not path:
+            return
+        self._scatter.save_figure(
+            path, dlg.width_in(), dlg.height_in(), dlg.dpi()
+        )
         show_info(f'Wrote {path}')
 
     @staticmethod
