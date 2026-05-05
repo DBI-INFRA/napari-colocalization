@@ -554,15 +554,15 @@ report rough edges via the
 <p>Interactive intensity-colocalization analysis for <a href="https://napari.org">napari</a>.
 Pick two channels (or one multi-channel image), optionally restrict the
 analysis to a region drawn as shapes or labels, choose your metric, and get a
-results table plus an intensity-vs-intensity scatter plot — all without
+results table plus an intensity-vs-intensity density plot — all without
 leaving napari.</p>
 <figure>
   <img alt="napari-colocalization widget" src="img/widget_overview.png" width="780" />
 </figure>
 <h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Three correlation metrics</strong>: Pearson (PCC), Spearman rank (SRCC), and
-  Manders' coefficients M1/M2 (MCC).</li>
+<li><strong>Four correlation metrics</strong>: Pearson (PCC), Spearman rank (SRCC), Li's
+  Intensity Correlation Quotient (ICQ), and Manders' coefficients M1/M2 (MCC).</li>
 <li><strong>Pairwise or all-to-all</strong> mode: analyse two grayscale layers, or every
   channel pair within a single multi-channel layer.</li>
 <li><strong>2D and 3D</strong> support natively (no time-series for now).</li>
@@ -570,9 +570,10 @@ leaving napari.</p>
   region is reported on its own row.</li>
 <li><strong>Manders thresholds</strong>: choose <strong>Costes auto</strong> (iterative regression-based)
   or <strong>Manual</strong>.</li>
-<li><strong>Interactive results</strong>: in-widget table, scatter plot of the selected row,
+<li><strong>Interactive results</strong>: in-widget table, density plot of the selected row,
   multi-row selection that highlights all matching shapes/labels in the viewer.</li>
-<li><strong>CSV export</strong> of the current table.</li>
+<li><strong>CSV export</strong> of the current table, plus <strong>figure export</strong> of the
+  density plot (PNG / PDF / SVG / TIFF, configurable size and DPI).</li>
 </ul>
 <h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>napari-colocalization
@@ -583,8 +584,8 @@ leaving napari.</p>
 <h2 id="where-next">Where next?<a class="headerlink" href="#where-next" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong><a href="usage/">Usage guide</a></strong> — every control in the widget, in order.</li>
-<li><strong><a href="metrics/">Metrics</a></strong> — what PCC, SRCC and MCC mean, when to use
-  which, and how the Costes auto-threshold works.</li>
+<li><strong><a href="metrics/">Metrics</a></strong> — what PCC, SRCC, ICQ and MCC mean, when to
+  use which, and how the Costes auto-threshold works.</li>
 <li><strong><a href="api/">Python API</a></strong> — calling the pure-compute layer
   (<code>pearson</code>, <code>spearman</code>, <code>manders</code>, <code>costes_threshold</code>,
   <code>analyse_pairwise</code>, <code>analyse_all_to_all</code>) from scripts or notebooks.

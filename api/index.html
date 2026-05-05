@@ -642,6 +642,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#napari_colocalization._sample_data.make_sample_data_cbs006rbm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        make_sample_data_cbs006rbm
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -953,6 +964,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#napari_colocalization._sample_data.make_sample_data_cbs006rbm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        make_sample_data_cbs006rbm
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1016,8 +1038,9 @@ time.</p>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── _metrics.py     pearson, spearman, li_icq, manders, costes_threshold
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── _masking.py     shapes_to_label_mask, labels_to_label_mask, iter_regions
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├── _analysis.py    analyse_pairwise, analyse_all_to_all, COLUMNS
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>├── _sample_data.py make_sample_data, make_sample_data_3d
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>└── _widget.py      ColocalizationWidget (Qt-only)
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>├── _sample_data.py make_sample_data, make_sample_data_3d,
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│                   make_sample_data_cbs006rbm
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>└── _widget.py      ColocalizationWidget (Qt-only)
 </code></pre></div>
 <p>The leading underscore is a convention from the napari plugin template;
 the symbols below are stable and intended to be imported.</p>
@@ -2774,6 +2797,9 @@ count.</p>
     </div>
 
 </div><h2 id="sample-data-napari_colocalization_sample_data">Sample data — <code>napari_colocalization._sample_data</code><a class="headerlink" href="#sample-data-napari_colocalization_sample_data" title="Permanent link">&para;</a></h2>
+<p><code>make_sample_data_cbs006rbm</code> downloads the CBS006RBM benchmark image
+from the <a href="https://colocalization-benchmark.com">Colocalization Benchmark Source</a>
+on first use and caches it under <code>~/.cache/napari-colocalization/</code>.</p>
 
 
 <div class="doc doc-object doc-module">
@@ -2845,6 +2871,29 @@ The TIFF is downloaded once and cached in ~/.cache/napari-colocalization/.</p>
     <div class="doc doc-contents ">
 
         <p>3D sample: 32x128x128 (Z, Y, X) volumes of gaussian blobs.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="napari_colocalization._sample_data.make_sample_data_cbs006rbm" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">make_sample_data_cbs006rbm</span>
+
+
+<a href="#napari_colocalization._sample_data.make_sample_data_cbs006rbm" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">make_sample_data_cbs006rbm</span><span class="p">()</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>2D sample from the Colocalization Benchmark Source (CBS006RBM).</p>
+<p>Red and blue channels with ~50 % colocalization.
+Downloaded once and cached under ~/.cache/napari-colocalization/.</p>
+<p>Source: https://colocalization-benchmark.com/</p>
 
 
     </div>
