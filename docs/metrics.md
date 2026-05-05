@@ -1,6 +1,6 @@
 # Metrics
 
-Background on the three correlation metrics computed by the plugin, plus
+Background on the four correlation metrics computed by the plugin, plus
 the Costes auto-threshold used for Manders.
 
 > Documentation index: [Home](index.md) · [Usage](usage.md) · **Metrics** · [Python API](api.md)

@@ -88,7 +88,7 @@ axis removed).
 ## Correlation metrics
 
 Four checkboxes for **Pearson**, **Spearman**, **Li ICQ** and **Manders**. By default
-only **Spearman** is enabled — it is the most outlier-robust of the three,
+only **Spearman** is enabled — it is the most outlier-robust of the four,
 and a common starting point.
 
 You can pick any subset; missing metrics are reported as `NaN` in the

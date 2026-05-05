@@ -94,8 +94,8 @@ def analyse_pairwise(
     label_mask : numpy.ndarray of int, optional
         Integer label image (0 = background, 1..N = regions).
         ``None`` means analyse the whole image as one region.
-    metrics : sequence of {'pcc', 'srcc', 'mcc'}, optional
-        Which metrics to compute. Defaults to all three.
+    metrics : sequence of {'pcc', 'srcc', 'icq', 'mcc'}, optional
+        Which metrics to compute. Defaults to all four.
     threshold_method : {'costes', 'manual'}, default 'costes'
         Only used when ``'mcc'`` is in ``metrics``. ``'costes'``
         runs :func:`._metrics.costes_threshold` per region;
