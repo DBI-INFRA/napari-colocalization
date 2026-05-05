@@ -66,7 +66,7 @@ pip install git+https://github.com/DBI-INFRA/napari-colocalization.git
 1. Launch napari.
 2. Load sample data: **File → Open Sample → napari-colocalization →
    Colocalization sample (2D)**. A 3D synthetic sample and **CBS006RBM**
-   — a real two-channel benchmark image from the
+   — a two-channel benchmark image from the
    [Colocalization Benchmark Source](https://colocalization-benchmark.com)
    — are also provided.
 

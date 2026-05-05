@@ -1,6 +1,6 @@
 """Regenerate the README/docs screenshots.
 
-Drives a real napari viewer (desktop display required) into known
+Drives a napari viewer (desktop display required) into known
 states and saves PNGs into ``docs/img/``.
 
 Skipped intentionally:

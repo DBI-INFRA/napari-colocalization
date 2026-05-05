@@ -10,7 +10,7 @@ dock widget, top to bottom.
 In napari: **Plugins → Colocalization Analysis**. The widget docks on the
 right by default. To follow along without your own data, load a sample:
 **File → Open Sample → napari-colocalization → Colocalization sample (2D)**.
-A 3D synthetic version is also provided, plus **CBS006RBM** — a real
+A 3D synthetic version is also provided, plus **CBS006RBM** — a
 two-channel benchmark image (~50 % colocalization) downloaded once and
 cached under `~/.cache/napari-colocalization/` from the
 [Colocalization Benchmark Source](https://colocalization-benchmark.com).

@@ -14,7 +14,7 @@ contributions:
       title: Load 3D colocalization sample
     - id: napari-colocalization.make_sample_data_cbs006rbm
       python_name: napari_colocalization._sample_data:make_sample_data_cbs006rbm
-      title: Load CBS006RBM real colocalization sample
+      title: Load CBS006RBM colocalization sample
   widgets:
     - command: napari-colocalization.make_widget
       display_name: Colocalization Analysis
