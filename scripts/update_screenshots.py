@@ -96,14 +96,6 @@ def shot_widget_overview(qapp, viewer, widget):
     _grab(viewer, OUT / 'widget_overview.png')
 
 
-def shot_quickstart_run(qapp, viewer, widget):
-    _load_sample(viewer)
-    _spin(qapp)
-    widget._on_run_clicked()
-    _wait_for_results(qapp, widget)
-    _grab(viewer, OUT / 'quickstart_run.png')
-
-
 def shot_widget_shapes(qapp, viewer, widget):
     _load_sample(viewer)
     _spin(qapp)
@@ -131,7 +123,6 @@ def shot_widget_shapes(qapp, viewer, widget):
 SHOTS = [
     ('usage_widget_initial', shot_usage_widget_initial),
     ('widget_overview', shot_widget_overview),
-    ('quickstart_run', shot_quickstart_run),
     ('widget_shapes', shot_widget_shapes),
 ]
 

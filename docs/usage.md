@@ -9,8 +9,11 @@ dock widget, top to bottom.
 
 In napari: **Plugins → Colocalization Analysis**. The widget docks on the
 right by default. To follow along without your own data, load a sample:
-**File → Open Sample → napari-colocalization → Colocalization sample (2D)**
-(a 3D version is also available).
+**File → Open Sample → napari-colocalization → Colocalization sample (2D)**.
+A 3D synthetic version is also provided, plus **CBS006RBM** — a real
+two-channel benchmark image (~50 % colocalization) downloaded once and
+cached under `~/.cache/napari-colocalization/` from the
+[Colocalization Benchmark Source](https://colocalization-benchmark.com).
 
 <figure markdown="span">
   ![Widget at first open](img/usage_widget_initial.png){ width=380 }
@@ -20,8 +23,8 @@ right by default. To follow along without your own data, load a sample:
 The widget has two halves separated by a draggable divider:
 
 - **Configuration** (top) — what to analyse and how.
-- **Results** (bottom) — Run button, table, scatter plot, CSV export.
-  Hidden until the first run.
+- **Results** (bottom) — Run button, table, density plot, CSV export, and
+  figure export. Hidden until the first run.
 
 Each half has its own scrollbar; if a section overflows you can drag the
 divider or resize the dock to redistribute space.
@@ -137,15 +140,18 @@ One row per **(channel pair, region)** combination. Columns:
 Click any column header to sort. The table sorts ascending on `region` by
 default. Multi-row selection works with **Ctrl-click** / **Shift-click**.
 
-### Scatter plot
+### Density plot
 
-Renders the channel-A intensity vs channel-B intensity for the **most
-recently selected** row. Vertical / horizontal red lines mark the Manders
-thresholds when those metrics were computed. The metric values for the
-selected row are written in the upper-left corner.
+A 2D **hexbin** density plot of channel-A vs channel-B intensity for the
+**most recently selected** row. Hex cell colour is on a log scale (so a
+few dense background cells don't wash out signal cells), and empty cells
+are transparent against the black background. Vertical / horizontal red
+lines mark the Manders thresholds when those metrics were computed. The
+metric values for the selected row are written in the upper-left corner.
 
-For large regions the scatter is subsampled to 5000 random pixels for
-responsiveness; the metrics in the annotation are computed on all pixels.
+Hexbin aggregates pixels into a fixed grid, so render cost is bounded
+regardless of region size — every pixel in the region contributes,
+nothing is subsampled.
 
 ### Region highlighting
 
@@ -158,7 +164,7 @@ When you select rows in the table:
   labels remain visible (napari only emphasises one label at a time).
 - **None source** — no viewer highlighting.
 
-Ctrl-clicking the only selected row deselects it; the scatter plot clears
+Ctrl-clicking the only selected row deselects it; the density plot clears
 and the viewer highlight is removed.
 
 ### Export CSV…
@@ -166,11 +172,19 @@ and the viewer highlight is removed.
 Saves the current table as CSV via a file dialog. Column order matches the
 table. Missing values are written as empty cells.
 
+### Export figure…
+
+Saves the current density plot as an image. A small dialog asks for
+**width** and **height** in inches and **DPI** before opening a file
+dialog; the file extension chooses the format (PNG, PDF, SVG, or TIFF).
+The black axes background is preserved. The on-screen canvas is not
+resized — only the saved file uses the chosen dimensions.
+
 ## Layout tips
 
 - The divider between **Configuration** and **Results** is draggable —
   pull it down if your config has many active options.
-- The divider between the **table** and the **scatter** is also
+- The divider between the **table** and the **density plot** is also
   draggable. The default 60/40 split favours the table.
 - Both halves of the widget have scrollbars when their content overflows;
   the widget stays usable even in narrow docks.

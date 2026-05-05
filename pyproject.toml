@@ -89,7 +89,7 @@ addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
 xfail_strict = true
 filterwarnings = [
     # napari's pydantic models still use json_encoders (removed in
-    # pydantic v3). Upstream issue, nothing we can do here.
+    # pydantic v3).
     "ignore:.*json_encoders.*:DeprecationWarning",
 ]
 log_cli_level = "INFO"

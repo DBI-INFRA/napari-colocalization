@@ -21,8 +21,7 @@
 Interactive intensity-colocalization analysis for [napari](https://napari.org).
 Pick two channels (or one multi-channel image), optionally restrict the
 analysis to a region drawn as shapes or labels, choose your metric, and get a
-results table plus an intensity-vs-intensity scatter plot — all without leaving
-napari.
+results table plus an intensity-vs-intensity density plot.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalization/main/docs/img/widget_overview.png" alt="napari-colocalization widget" width="780"/>
@@ -39,9 +38,10 @@ napari.
   region is reported on its own row.
 - **Manders thresholds**: choose **Costes auto** (iterative regression-based)
   or **Manual**.
-- **Interactive results**: in-widget table, scatter plot of the selected row,
+- **Interactive results**: in-widget table, density plot of the selected row,
   multi-row selection that highlights all matching shapes/labels in the viewer.
-- **CSV export** of the current table.
+- **CSV export** of the current table, plus **figure export** of the
+  density plot (PNG / PDF / SVG / TIFF, configurable size and DPI).
 
 ## Installation
 
@@ -65,7 +65,10 @@ pip install git+https://github.com/DBI-INFRA/napari-colocalization.git
 
 1. Launch napari.
 2. Load sample data: **File → Open Sample → napari-colocalization →
-   Colocalization sample (2D)** (a 3D sample is also provided).
+   Colocalization sample (2D)**. A 3D synthetic sample and **CBS006RBM**
+   — a real two-channel benchmark image from the
+   [Colocalization Benchmark Source](https://colocalization-benchmark.com)
+   — are also provided.
 
    <p align="center">
      <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalization/main/docs/img/quickstart_sample.png" alt="Open Sample menu" width="520"/>
@@ -75,12 +78,8 @@ pip install git+https://github.com/DBI-INFRA/napari-colocalization.git
    `channel_a` and `channel_b` are auto-selected for pairwise mode.
 
 4. Click **Run**. The results table populates with a single row (the whole
-   image), and the scatter plot below shows the intensity pairs with the
+   image), and the density plot below shows the intensity pairs with the
    metric values overlaid.
-
-   <p align="center">
-     <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalization/main/docs/img/quickstart_run.png" alt="Run result" width="780"/>
-   </p>
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalization/main/docs/img/widget_overview.png" alt="napari-colocalization widget" width="780"/>

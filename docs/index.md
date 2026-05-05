@@ -19,7 +19,7 @@ hide:
 Interactive intensity-colocalization analysis for [napari](https://napari.org).
 Pick two channels (or one multi-channel image), optionally restrict the
 analysis to a region drawn as shapes or labels, choose your metric, and get a
-results table plus an intensity-vs-intensity scatter plot — all without
+results table plus an intensity-vs-intensity density plot — all without
 leaving napari.
 
 <figure markdown="span">
@@ -28,8 +28,8 @@ leaving napari.
 
 ## Features
 
-- **Three correlation metrics**: Pearson (PCC), Spearman rank (SRCC), and
-  Manders' coefficients M1/M2 (MCC).
+- **Four correlation metrics**: Pearson (PCC), Spearman rank (SRCC), Li's
+  Intensity Correlation Quotient (ICQ), and Manders' coefficients M1/M2 (MCC).
 - **Pairwise or all-to-all** mode: analyse two grayscale layers, or every
   channel pair within a single multi-channel layer.
 - **2D and 3D** support natively (no time-series for now).
@@ -37,9 +37,10 @@ leaving napari.
   region is reported on its own row.
 - **Manders thresholds**: choose **Costes auto** (iterative regression-based)
   or **Manual**.
-- **Interactive results**: in-widget table, scatter plot of the selected row,
+- **Interactive results**: in-widget table, density plot of the selected row,
   multi-row selection that highlights all matching shapes/labels in the viewer.
-- **CSV export** of the current table.
+- **CSV export** of the current table, plus **figure export** of the
+  density plot (PNG / PDF / SVG / TIFF, configurable size and DPI).
 
 ## Installation
 
@@ -56,8 +57,8 @@ pip install "napari-colocalization[all]"
 ## Where next?
 
 - **[Usage guide](usage.md)** — every control in the widget, in order.
-- **[Metrics](metrics.md)** — what PCC, SRCC and MCC mean, when to use
-  which, and how the Costes auto-threshold works.
+- **[Metrics](metrics.md)** — what PCC, SRCC, ICQ and MCC mean, when to
+  use which, and how the Costes auto-threshold works.
 - **[Python API](api.md)** — calling the pure-compute layer
   (`pearson`, `spearman`, `manders`, `costes_threshold`,
   `analyse_pairwise`, `analyse_all_to_all`) from scripts or notebooks.

@@ -109,7 +109,7 @@ def make_sample_data_3d():
 
 
 def make_sample_data_cbs006rbm():
-    """Real 2D sample from the Colocalization Benchmark Source (CBS006RBM).
+    """2D sample from the Colocalization Benchmark Source (CBS006RBM).
 
     Red and blue channels with ~50 % colocalization.
     Downloaded once and cached under ~/.cache/napari-colocalization/.
