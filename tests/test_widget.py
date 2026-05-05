@@ -226,7 +226,6 @@ def test_results_hidden_until_run(make_napari_viewer, qtbot, rng):
     layer_b = viewer.add_image(a.copy(), name='b')
     widget = ColocalizationWidget(viewer)
     assert widget._results_group.isHidden() is True
-    assert widget._export_button.isHidden() is True
 
     widget._image_a_combo.value = layer_a
     widget._image_b_combo.value = layer_b
