@@ -15,6 +15,9 @@ contributions:
     - id: napari-colocalization.make_sample_data_cbs006rbm
       python_name: napari_colocalization._sample_data:make_sample_data_cbs006rbm
       title: Load CBS006RBM colocalization sample
+    - id: napari-colocalization.make_sample_data_coloc
+      python_name: napari_colocalization._sample_data:make_sample_data_coloc
+      title: Load red/green confocal colocalization sample
   widgets:
     - command: napari-colocalization.make_widget
       display_name: Colocalization Analysis
@@ -28,3 +31,6 @@ contributions:
     - command: napari-colocalization.make_sample_data_cbs006rbm
       display_name: CBS006RBM (colocalization benchmark)
       key: coloc_sample_cbs006rbm
+    - command: napari-colocalization.make_sample_data_coloc
+      display_name: Confocal red/green dyes (tutorial)
+      key: coloc_sample_rg

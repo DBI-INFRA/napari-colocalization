@@ -7,6 +7,11 @@ PCC ~ 0.7 and Manders M1/M2 ~ 0.6.
 CBS006RBM: red and blue channels with ~50 % colocalization,
 from the Colocalization Benchmark Source.
 The TIFF is downloaded once and cached in ~/.cache/napari-colocalization/.
+
+colocsample1bRGB: a confocal Z-stack (33 x 152 x 172) with red and
+green dyes that strongly colocalise. Downloaded once from the Fiji
+sample server and cached under ~/.cache/napari-colocalization/; this
+is the image used by the ROI colocalization tutorial.
 """
 
 import numpy as np
@@ -147,6 +152,80 @@ def make_sample_data_cbs006rbm():
             {
                 'name': 'CBS006RBM_blue',
                 'colormap': 'blue',
+                'blending': 'additive',
+            },
+            'image',
+        ),
+    ]
+
+
+_COLOC_URL = 'https://samples.fiji.sc/colocsample1bRGB_BG.tif'
+_COLOC_TIFF = 'colocsample1bRGB_BG.tif'
+
+
+def coloc_sample_path():
+    """Download (once) and return the cached ``colocsample1bRGB_BG.tif``.
+
+    The TIFF is fetched from the Fiji sample server on first use and
+    cached under ``~/.cache/napari-colocalization/``; subsequent calls
+    reuse the cached copy.
+
+    Returns
+    -------
+    path : pathlib.Path
+        Filesystem path to the cached multi-channel TIFF.
+    """
+    import urllib.request
+    from pathlib import Path
+
+    cache_dir = Path.home() / '.cache' / 'napari-colocalization'
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    tiff_path = cache_dir / _COLOC_TIFF
+
+    if not tiff_path.exists():
+        with urllib.request.urlopen(_COLOC_URL) as response:
+            tiff_path.write_bytes(response.read())
+    return tiff_path
+
+
+def load_coloc_sample():
+    """Load the colocalization sample as ``(red, green)`` arrays.
+
+    Reads the confocal Z-stack (downloading and caching it on first use,
+    see :func:`coloc_sample_path`) and returns its red and green channels
+    as separate ``float32`` volumes scaled to ``[0, 1]``. The (empty)
+    blue channel is dropped. These two strongly colocalising dyes are the
+    starting point for the ROI colocalization tutorial.
+
+    Returns
+    -------
+    red, green : numpy.ndarray
+        Same-shape ``(Z, Y, X)`` float32 arrays in ``[0, 1]``.
+    """
+    from skimage.io import imread
+
+    img = imread(str(coloc_sample_path()))  # (Z, Y, X, 3) uint8 RGB
+    red = img[..., 0].astype(np.float32) / 255.0
+    green = img[..., 1].astype(np.float32) / 255.0
+    return red, green
+
+
+def make_sample_data_coloc():
+    """2D-stack sample: red and green confocal dyes that colocalise.
+
+    The ``colocsample1bRGB_BG.tif`` confocal Z-stack (33 x 152 x 172),
+    downloaded once from the Fiji sample server and cached locally, split
+    into its red and green channels. The two dyes strongly colocalise
+    (whole-stack PCC ~ 0.75).
+    """
+    red, green = load_coloc_sample()
+    return [
+        (red, {'name': 'coloc_red', 'colormap': 'red'}, 'image'),
+        (
+            green,
+            {
+                'name': 'coloc_green',
+                'colormap': 'green',
                 'blending': 'additive',
             },
             'image',

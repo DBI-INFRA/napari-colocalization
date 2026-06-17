@@ -4,6 +4,7 @@ from napari_colocalization._metrics import manders, pearson
 from napari_colocalization._sample_data import (
     make_sample_data,
     make_sample_data_3d,
+    make_sample_data_coloc,
 )
 
 
@@ -56,3 +57,14 @@ def test_sample_data_3d_pcc_is_in_partially_colocalised_band():
     a, b = layers[0][0], layers[1][0]
     pcc, _ = pearson(a, b)
     assert 0.4 < pcc < 0.95
+
+def test_make_sample_data_coloc_channels_are_colocalised():
+    layers = make_sample_data_coloc()
+    assert len(layers) == 2
+    for data, meta, layer_type in layers:
+        assert layer_type == 'image'
+        assert isinstance(meta, dict)
+        assert isinstance(data, np.ndarray)
+    a, b = layers[0][0], layers[1][0]
+    pcc, _ = pearson(a, b)
+    assert pcc > 0.5
