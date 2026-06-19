@@ -434,6 +434,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#other-auto-thresholds-otsu-li" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Other auto-thresholds (Otsu, Li, …)
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -633,6 +644,17 @@
     <span class="md-ellipsis">
       
         Costes' auto-threshold
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other-auto-thresholds-otsu-li" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Other auto-thresholds (Otsu, Li, …)
       
     </span>
   </a>
@@ -900,6 +922,17 @@ auto-threshold was found along.</p>
 <p>The Costes randomisation significance test is available on the
 <strong>Diagnostics</strong> tab (see below).</p>
 </blockquote>
+<h3 id="other-auto-thresholds-otsu-li">Other auto-thresholds (Otsu, Li, …)<a class="headerlink" href="#other-auto-thresholds-otsu-li" title="Permanent link">&para;</a></h3>
+<p>Besides Costes, the threshold method can be any of the standard
+histogram thresholds — <strong>Otsu, Li, Triangle, Yen, Mean, IsoData</strong> (the
+<code>skimage.filters.threshold_*</code> family, as ImageJ's Auto Threshold offers
+in JACoP B). Each channel is thresholded <strong>independently</strong> from its own
+intensity histogram, giving the <em>thresholded</em> Manders coefficients
+(tM1/tM2). These are a good choice when the two channels have clearly
+bimodal (signal vs background) histograms; Costes is preferable when the
+relationship between the channels is the thing you want the threshold to
+respect. A channel with no contrast (constant within the region) has no
+defined auto-threshold, so its M1/M2 are reported as blank/<code>NaN</code>.</p>
 <h2 id="diagnostics">Diagnostics<a class="headerlink" href="#diagnostics" title="Permanent link">&para;</a></h2>
 <p>The metrics above each collapse colocalization to a number per region.
 The <strong>Diagnostics</strong> tab instead produces a <em>plot</em> for a single channel
