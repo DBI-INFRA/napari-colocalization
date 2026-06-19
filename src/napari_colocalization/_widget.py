@@ -163,8 +163,6 @@ class ColocalizationWidget(QWidget):
         self._region_layer = None
         self._region_source = 'none'
         self._threshold_method = 'costes'
-        self._diag_region_layer = None
-        self._diag_region_source = 'none'
         # Full-resolution arrays / mask of the last run, kept so the
         # "Add coloc mask" output layer can be built from a selected row.
         self._channel_arrays = {}
@@ -266,6 +264,40 @@ class ColocalizationWidget(QWidget):
             layout.addWidget(widget)
         return layout
 
+    @staticmethod
+    def _make_table(columns):
+        """A read-only, row-selectable, sortable results table."""
+        table = QTableWidget(0, len(columns))
+        table.setHorizontalHeaderLabels(list(columns))
+        table.setSelectionBehavior(QTableWidget.SelectRows)
+        table.setEditTriggers(QTableWidget.NoEditTriggers)
+        table.setSortingEnabled(True)
+        return table
+
+    @staticmethod
+    def _new_region_combo():
+        combo = QComboBox()
+        combo.addItem('None', None)
+        return combo
+
+    def _fill_table(self, table, rows, columns, formatter, *, user_role=False):
+        """Populate ``table`` from ``rows`` using ``formatter`` per cell.
+
+        ``user_role`` stores each item's source row index in
+        ``Qt.UserRole`` (the intensity table needs it to map a selected
+        row back to its plot context, even after sorting).
+        """
+        table.setSortingEnabled(False)
+        table.setRowCount(len(rows))
+        for r, row in enumerate(rows):
+            for c, key in enumerate(columns):
+                item = QTableWidgetItem(formatter(row.get(key)))
+                if user_role:
+                    item.setData(Qt.UserRole, r)
+                table.setItem(r, c, item)
+        table.setSortingEnabled(True)
+        table.resizeColumnsToContents()
+
     def _build_mode_group(self):
         self._mode_pairwise = QRadioButton('Pairwise (two layers)')
         self._mode_all = QRadioButton('All-to-all (one layer + channel axis)')
@@ -320,10 +352,9 @@ class ColocalizationWidget(QWidget):
         return self._all_group
 
     def _build_region_group(self):
-        self._region_combo = QComboBox()
-        # Populated dynamically by _refresh_region_combo from the
-        # viewer's Shapes + Labels layers, with a leading None entry.
-        self._region_combo.addItem('None', None)
+        # Populated by _refresh_region_combo from the viewer's Shapes +
+        # Labels layers, keeping the leading None entry.
+        self._region_combo = self._new_region_combo()
         return self._make_group('Region (optional)', self._region_combo)
 
     def _build_metrics_group(self):
@@ -402,12 +433,8 @@ class ColocalizationWidget(QWidget):
 
     def _build_results_group(self):
         self._results_group = QGroupBox('Results')
-        self._table = QTableWidget(0, len(COLUMNS))
-        self._table.setHorizontalHeaderLabels(list(COLUMNS))
-        self._table.setSelectionBehavior(QTableWidget.SelectRows)
-        self._table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self._table.setSortingEnabled(True)
-        # Qt's default sort indicator is descending on column 0;
+        self._table = self._make_table(COLUMNS)
+        # Qt defaults the sort indicator to descending on column 0;
         # ascending matches users' expectation of "region 0, 1, 2".
         self._table.sortByColumn(0, Qt.AscendingOrder)
         self._table.itemSelectionChanged.connect(self._on_row_selected)
@@ -728,6 +755,14 @@ class ColocalizationWidget(QWidget):
 
     # -- run -----------------------------------------------------------
 
+    def _run_in_background(self, worker, button, on_ready, on_error):
+        """Disable ``button``, wire the worker's signals, and start it."""
+        button.setEnabled(False)
+        worker.returned.connect(on_ready)
+        worker.errored.connect(on_error)
+        worker.finished.connect(lambda: button.setEnabled(True))
+        worker.start()
+
     def _on_run_clicked(self):
         params = self.gather_params()
         if params is None:
@@ -735,12 +770,12 @@ class ColocalizationWidget(QWidget):
         self._region_layer = params.get('region_layer')
         self._region_source = params.get('region_source', 'none')
         self._threshold_method = params.get('threshold_method', 'costes')
-        self._run_button.setEnabled(False)
-        worker = self._run_worker(params)
-        worker.returned.connect(self._on_results_ready)
-        worker.errored.connect(self._on_worker_error)
-        worker.finished.connect(lambda: self._run_button.setEnabled(True))
-        worker.start()
+        self._run_in_background(
+            self._run_worker(params),
+            self._run_button,
+            self._on_results_ready,
+            self._on_worker_error,
+        )
 
     @staticmethod
     @thread_worker
@@ -853,15 +888,9 @@ class ColocalizationWidget(QWidget):
     # -- table / plot --------------------------------------------------
 
     def _populate_table(self, rows):
-        self._table.setSortingEnabled(False)
-        self._table.setRowCount(len(rows))
-        for r, row in enumerate(rows):
-            for c, key in enumerate(COLUMNS):
-                item = QTableWidgetItem(_format_cell(row.get(key)))
-                item.setData(Qt.UserRole, r)
-                self._table.setItem(r, c, item)
-        self._table.setSortingEnabled(True)
-        self._table.resizeColumnsToContents()
+        self._fill_table(
+            self._table, rows, COLUMNS, _format_cell, user_role=True
+        )
 
     def _build_plot_context(
         self, rows, channel_arrays, label_mask, slice_axis=None
@@ -1083,23 +1112,24 @@ class ColocalizationWidget(QWidget):
         if not self._results:
             show_warning('No figure to export.')
             return
-        fig = self._scatter._figure
-        cur_w, cur_h = (float(v) for v in fig.get_size_inches())
-        cur_dpi = int(fig.get_dpi())
-        dlg = FigureExportDialog(self, cur_w, cur_h, cur_dpi)
+        self._export_canvas_figure(self._scatter, 'colocalization.png')
+
+    def _export_canvas_figure(self, canvas, default_name):
+        """Prompt for size/DPI and path, then save the canvas figure."""
+        figure = canvas._figure
+        width, height = (float(v) for v in figure.get_size_inches())
+        dlg = FigureExportDialog(self, width, height, int(figure.get_dpi()))
         if dlg.exec_() != QDialog.Accepted:
             return
         path, _ = QFileDialog.getSaveFileName(
             self,
             'Save figure',
-            'colocalization.png',
+            default_name,
             'PNG (*.png);;PDF (*.pdf);;SVG (*.svg);;TIFF (*.tif *.tiff)',
         )
         if not path:
             return
-        self._scatter.save_figure(
-            path, dlg.width_in(), dlg.height_in(), dlg.dpi()
-        )
+        canvas.save_figure(path, dlg.width_in(), dlg.height_in(), dlg.dpi())
         show_info(f'Wrote {path}')
 
     def _on_add_mask_clicked(self):
@@ -1178,10 +1208,7 @@ class ColocalizationWidget(QWidget):
         )
 
     def _build_diag_region_group(self):
-        # Mirror the Intensity tab's region selector exactly: its own
-        # "Region (optional)" group rather than an unlabelled combo.
-        self._diag_region_combo = QComboBox()
-        self._diag_region_combo.addItem('None', None)
+        self._diag_region_combo = self._new_region_combo()
         return self._make_group('Region (optional)', self._diag_region_combo)
 
     def _build_diag_method_group(self):
@@ -1283,7 +1310,7 @@ class ColocalizationWidget(QWidget):
             show_warning(f'Shape mismatch: {a.shape} vs {b.shape}.')
             return None
         try:
-            label_mask, region_layer = self._resolve_region(
+            label_mask, _ = self._resolve_region(
                 a.shape, combo=self._diag_region_combo
             )
         except ValueError as exc:
@@ -1294,11 +1321,8 @@ class ColocalizationWidget(QWidget):
         mask = None if label_mask is None else (label_mask > 0)
         method = self._diag_method_combo.currentData()
         block_size = int(self._costes_block.value())
-        # Validate method preconditions here, synchronously, rather than
-        # letting the worker raise — a worker exception both logs a
-        # traceback and triggers _on_diag_worker_error, surfacing the
-        # same problem twice. The compute functions still raise as a
-        # safety net for non-widget callers.
+        # Validate preconditions synchronously: a worker exception would
+        # both log a traceback and trigger the warning, surfacing twice.
         if method == 'costes' and any(
             dim // block_size < 1 for dim in a.shape
         ):
@@ -1312,7 +1336,6 @@ class ColocalizationWidget(QWidget):
             'a': a,
             'b': b,
             'mask': mask,
-            'region_layer': region_layer,
             'channel_a': layer_a.name,
             'channel_b': layer_b.name,
             'n_iter': int(self._costes_niter.value()),
@@ -1324,13 +1347,12 @@ class ColocalizationWidget(QWidget):
         params = self._gather_diag_params()
         if params is None:
             return
-        self._diag_region_layer = params.get('region_layer')
-        self._diag_run_button.setEnabled(False)
-        worker = self._diag_worker(params)
-        worker.returned.connect(self._on_diag_results_ready)
-        worker.errored.connect(self._on_diag_worker_error)
-        worker.finished.connect(lambda: self._diag_run_button.setEnabled(True))
-        worker.start()
+        self._run_in_background(
+            self._diag_worker(params),
+            self._diag_run_button,
+            self._on_diag_results_ready,
+            self._on_diag_worker_error,
+        )
 
     @staticmethod
     @thread_worker
@@ -1412,24 +1434,7 @@ class ColocalizationWidget(QWidget):
         self._viewer.add_image(scrambled, name=f'{layer_b.name} (scrambled)')
 
     def _on_diag_export_clicked(self):
-        fig = self._diagnostic_canvas._figure
-        cur_w, cur_h = (float(v) for v in fig.get_size_inches())
-        cur_dpi = int(fig.get_dpi())
-        dlg = FigureExportDialog(self, cur_w, cur_h, cur_dpi)
-        if dlg.exec_() != QDialog.Accepted:
-            return
-        path, _ = QFileDialog.getSaveFileName(
-            self,
-            'Save figure',
-            'diagnostic.png',
-            'PNG (*.png);;PDF (*.pdf);;SVG (*.svg);;TIFF (*.tif *.tiff)',
-        )
-        if not path:
-            return
-        self._diagnostic_canvas.save_figure(
-            path, dlg.width_in(), dlg.height_in(), dlg.dpi()
-        )
-        show_info(f'Wrote {path}')
+        self._export_canvas_figure(self._diagnostic_canvas, 'diagnostic.png')
 
     # == Object-based tab ==============================================
 
@@ -1507,8 +1512,7 @@ class ColocalizationWidget(QWidget):
         return self._obj_labels_group
 
     def _build_obj_region_group(self):
-        self._obj_region_combo = QComboBox()
-        self._obj_region_combo.addItem('None', None)
+        self._obj_region_combo = self._new_region_combo()
         self._obj_region_group = self._make_group(
             'Region (optional)', self._obj_region_combo
         )
@@ -1535,11 +1539,7 @@ class ColocalizationWidget(QWidget):
         return row
 
     def _build_obj_results_group(self):
-        self._object_table = QTableWidget(0, len(OBJECT_COLUMNS))
-        self._object_table.setHorizontalHeaderLabels(list(OBJECT_COLUMNS))
-        self._object_table.setSelectionBehavior(QTableWidget.SelectRows)
-        self._object_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self._object_table.setSortingEnabled(True)
+        self._object_table = self._make_table(OBJECT_COLUMNS)
         self._obj_summary_label = QLabel('')
         self._obj_summary_label.setWordWrap(True)
         group = QGroupBox('Object results')
@@ -1614,12 +1614,12 @@ class ColocalizationWidget(QWidget):
         if params is None:
             return
         self._clear_object_overlays()
-        self._obj_run_button.setEnabled(False)
-        worker = self._object_worker(params)
-        worker.returned.connect(self._on_object_results_ready)
-        worker.errored.connect(self._on_object_worker_error)
-        worker.finished.connect(lambda: self._obj_run_button.setEnabled(True))
-        worker.start()
+        self._run_in_background(
+            self._object_worker(params),
+            self._obj_run_button,
+            self._on_object_results_ready,
+            self._on_object_worker_error,
+        )
 
     @staticmethod
     @thread_worker
@@ -1737,15 +1737,9 @@ class ColocalizationWidget(QWidget):
         show_warning(f'Object analysis failed: {exc}')
 
     def _populate_object_table(self, rows):
-        self._object_table.setSortingEnabled(False)
-        self._object_table.setRowCount(len(rows))
-        for r, row in enumerate(rows):
-            for c, key in enumerate(OBJECT_COLUMNS):
-                self._object_table.setItem(
-                    r, c, QTableWidgetItem(_format_object_cell(row.get(key)))
-                )
-        self._object_table.setSortingEnabled(True)
-        self._object_table.resizeColumnsToContents()
+        self._fill_table(
+            self._object_table, rows, OBJECT_COLUMNS, _format_object_cell
+        )
 
     @staticmethod
     def _object_summary_text(summary, name_a, name_b):

@@ -21,6 +21,11 @@ def _flatten_with_mask(a, b, mask):
     return a[mask], b[mask]
 
 
+def _degenerate(a_flat, b_flat):
+    """True when a correlation is undefined: <2 samples or no variance."""
+    return a_flat.size < 2 or a_flat.std() == 0 or b_flat.std() == 0
+
+
 def pearson(a, b, mask=None):
     """Pearson correlation coefficient and two-tailed p-value.
 
@@ -59,7 +64,7 @@ def pearson(a, b, mask=None):
     a = np.asarray(a)
     b = np.asarray(b)
     a_flat, b_flat = _flatten_with_mask(a, b, mask)
-    if a_flat.size < 2 or a_flat.std() == 0 or b_flat.std() == 0:
+    if _degenerate(a_flat, b_flat):
         return float('nan'), float('nan')
     pcc, pval = measure.pearson_corr_coeff(a, b, mask=mask)
     return float(pcc), float(pval)
@@ -98,7 +103,7 @@ def spearman(a, b, mask=None):
     1.0
     """
     a_flat, b_flat = _flatten_with_mask(a, b, mask)
-    if a_flat.size < 2 or a_flat.std() == 0 or b_flat.std() == 0:
+    if _degenerate(a_flat, b_flat):
         return float('nan'), float('nan')
     result = stats.spearmanr(a_flat, b_flat)
     return float(result.statistic), float(result.pvalue)
@@ -163,7 +168,7 @@ def li_icq(a, b, mask=None):
     -0.5
     """
     a_flat, b_flat = _flatten_with_mask(a, b, mask)
-    if a_flat.size < 2 or a_flat.std() == 0 or b_flat.std() == 0:
+    if _degenerate(a_flat, b_flat):
         return float('nan')
     products = (a_flat - a_flat.mean()) * (b_flat - b_flat.mean())
     nonzero = products != 0
@@ -358,7 +363,7 @@ def costes_regression(a, b, mask=None):
     a_flat, b_flat = _flatten_with_mask(a, b, mask)
     a_flat = a_flat.astype(np.float64, copy=False)
     b_flat = b_flat.astype(np.float64, copy=False)
-    if a_flat.size < 2 or a_flat.std() == 0 or b_flat.std() == 0:
+    if _degenerate(a_flat, b_flat):
         return float('nan'), float('nan')
     mean_a = a_flat.mean()
     mean_b = b_flat.mean()

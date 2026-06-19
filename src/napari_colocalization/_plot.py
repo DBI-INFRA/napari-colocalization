@@ -25,6 +25,28 @@ def _style_axes_dark(ax):
     ax.tick_params(colors='white')
 
 
+def _hexbin_cmap():
+    """Inferno with the near-black low end trimmed (visible on black)."""
+    from matplotlib import cm
+    from matplotlib.colors import ListedColormap
+
+    return ListedColormap(cm.inferno(np.linspace(0.2, 1.0, 256)))
+
+
+def _save_figure(figure, path, width_in, height_in, dpi):
+    """Write ``figure`` to ``path`` at the given size, then restore it.
+
+    ``forward=False`` resizes for the save only, without propagating to
+    the on-screen canvas (avoids a flicker / dock relayout).
+    """
+    orig_size = figure.get_size_inches()
+    figure.set_size_inches(width_in, height_in, forward=False)
+    try:
+        figure.savefig(path, dpi=dpi, facecolor=figure.get_facecolor())
+    finally:
+        figure.set_size_inches(orig_size, forward=False)
+
+
 class ScatterCanvas(FigureCanvasQTAgg):
     """Two-axis scatter of paired intensities."""
 
@@ -124,13 +146,7 @@ class ScatterCanvas(FigureCanvasQTAgg):
         self._ax.set_xlabel('Channel A intensity')
         self._ax.set_ylabel('Channel B intensity')
 
-        # Inferno trimmed at the dark end — the bottom of the
-        # default ramp is near-black and disappears against the
-        # black axes facecolor.
-        from matplotlib import cm
-        from matplotlib.colors import ListedColormap
-
-        cmap = ListedColormap(cm.inferno(np.linspace(0.2, 1.0, 256)))
+        cmap = _hexbin_cmap()
 
         if xs.size:
             # hexbin aggregates points into hex cells, so render cost
@@ -227,21 +243,8 @@ class ScatterCanvas(FigureCanvasQTAgg):
         self.draw_idle()
 
     def save_figure(self, path, width_in, height_in, dpi):
-        """Write the current figure to ``path`` at the given size.
-
-        forward=False resizes for the save only, without propagating to
-        the on-screen canvas (avoids a flicker / dock relayout).
-        """
-        orig_size = self._figure.get_size_inches()
-        self._figure.set_size_inches(width_in, height_in, forward=False)
-        try:
-            self._figure.savefig(
-                path,
-                dpi=dpi,
-                facecolor=self._figure.get_facecolor(),
-            )
-        finally:
-            self._figure.set_size_inches(orig_size, forward=False)
+        """Write the current figure to ``path`` at the given size."""
+        _save_figure(self._figure, path, width_in, height_in, dpi)
 
 
 class DiagnosticCanvas(FigureCanvasQTAgg):
@@ -251,14 +254,6 @@ class DiagnosticCanvas(FigureCanvasQTAgg):
     clears the figure and lays out the subplot(s) that diagnostic
     needs (a histogram, a line, or two scatter panels).
     """
-
-    # Inferno trimmed at the dark end so faint cells don't vanish
-    # against the black facecolor — shared with ScatterCanvas's look.
-    def _hexbin_cmap(self):
-        from matplotlib import cm
-        from matplotlib.colors import ListedColormap
-
-        return ListedColormap(cm.inferno(np.linspace(0.2, 1.0, 256)))
 
     def __init__(self):
         self._figure = Figure(
@@ -338,7 +333,7 @@ class DiagnosticCanvas(FigureCanvasQTAgg):
         """Li ICA: two panels of intensity vs covariance product."""
         self._figure.clear()
         self._figure.patch.set_facecolor('black')
-        cmap = self._hexbin_cmap()
+        cmap = _hexbin_cmap()
         for i, (channel, name) in enumerate(((a, names[0]), (b, names[1]))):
             ax = self._figure.add_subplot(1, 2, i + 1)
             _style_axes_dark(ax)
@@ -360,11 +355,4 @@ class DiagnosticCanvas(FigureCanvasQTAgg):
 
     def save_figure(self, path, width_in, height_in, dpi):
         """Write the current figure to ``path`` at the given size."""
-        orig_size = self._figure.get_size_inches()
-        self._figure.set_size_inches(width_in, height_in, forward=False)
-        try:
-            self._figure.savefig(
-                path, dpi=dpi, facecolor=self._figure.get_facecolor()
-            )
-        finally:
-            self._figure.set_size_inches(orig_size, forward=False)
+        _save_figure(self._figure, path, width_in, height_in, dpi)

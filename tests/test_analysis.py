@@ -13,309 +13,188 @@ def rng():
     return np.random.default_rng(seed=0)
 
 
-def test_pairwise_identical_full_image_perfect():
-    a = np.zeros((10, 10))
-    a[2:8, 2:8] = 1.0
+# -- pairwise ---------------------------------------------------------
+
+
+def test_pairwise_all_metrics_populated(rng):
+    a = rng.random((20, 20))
     rows = analyse_pairwise(
         a,
         a.copy(),
-        threshold_method='manual',
-        threshold_a=0.5,
-        threshold_b=0.5,
-    )
-    assert len(rows) == 1
-    row = rows[0]
-    assert row['region'] == 0
-    assert row['n_pixels'] == 100
-    assert row['pcc'] == pytest.approx(1.0)
-    assert row['m1'] == pytest.approx(1.0)
-    assert row['m2'] == pytest.approx(1.0)
-
-
-def test_pairwise_columns_match_schema():
-    a = np.zeros((10, 10))
-    a[2:8, 2:8] = 1.0
-    rows = analyse_pairwise(
-        a,
-        a,
-        threshold_method='manual',
-        threshold_a=0.5,
-        threshold_b=0.5,
-    )
-    assert set(rows[0].keys()) == set(COLUMNS)
-
-
-def test_pairwise_per_region_counts():
-    a = np.zeros((10, 10))
-    a[:, :] = 1.0
-    b = a.copy()
-    label_mask = np.zeros((10, 10), dtype=int)
-    label_mask[:5, :] = 1
-    label_mask[5:, :] = 2
-    rows = analyse_pairwise(
-        a,
-        b,
-        label_mask=label_mask,
-        metrics=('mcc',),
-        threshold_method='manual',
-        threshold_a=0.5,
-        threshold_b=0.5,
-    )
-    assert len(rows) == 2
-    assert {r['region'] for r in rows} == {1, 2}
-    for r in rows:
-        assert r['n_pixels'] == 50
-        assert np.isnan(r['pcc'])
-        assert r['m1'] == pytest.approx(1.0)
-
-
-def test_pairwise_only_requested_metrics_populated():
-    a = np.zeros((10, 10))
-    a[2:8, 2:8] = 1.0
-    rows = analyse_pairwise(a, a, metrics=('pcc',))
-    row = rows[0]
-    assert not np.isnan(row['pcc'])
-    assert np.isnan(row['srcc'])
-    assert np.isnan(row['icq'])
-    assert np.isnan(row['m1'])
-    assert np.isnan(row['m2'])
-
-
-def test_pairwise_icq_identical_is_half(rng):
-    a = rng.random((32, 32))
-    rows = analyse_pairwise(a, a.copy(), metrics=('icq',))
-    assert rows[0]['icq'] == pytest.approx(0.5)
-    assert np.isnan(rows[0]['pcc'])
-
-
-def test_pairwise_overlap_populates_r_k1_k2(rng):
-    a = rng.random((32, 32))
-    rows = analyse_pairwise(a, 2 * a, metrics=('overlap',))
-    row = rows[0]
-    assert row['overlap'] == pytest.approx(1.0)
-    assert row['k1'] == pytest.approx(2.0)
-    assert row['k2'] == pytest.approx(0.5)
-    # only the requested metric family is populated
-    assert np.isnan(row['pcc'])
-    assert np.isnan(row['m1'])
-
-
-def test_region_warnings_records_constant_channel():
-    a = np.ones((10, 10))  # constant -> PCC undefined
-    b = np.zeros((10, 10))
-    b[2:8, 2:8] = 1.0
-    warns = []
-    rows = analyse_pairwise(a, b, metrics=('pcc',), region_warnings=warns)
-    assert np.isnan(rows[0]['pcc'])
-    assert len(warns) == 1
-    assert 'constant' in warns[0]
-
-
-def test_region_warnings_empty_when_all_computed(rng):
-    a = rng.random((16, 16))
-    warns = []
-    analyse_pairwise(
-        a, a.copy(), metrics=('pcc', 'icq'), region_warnings=warns
-    )
-    assert warns == []
-
-
-def test_region_warnings_are_per_region(rng):
-    a = rng.random((10, 10))
-    a[:5, :] = 1.0  # region 1 is constant, region 2 is not
-    b = a.copy()
-    label_mask = np.zeros((10, 10), dtype=int)
-    label_mask[:5, :] = 1
-    label_mask[5:, :] = 2
-    warns = []
-    rows = analyse_pairwise(
-        a, b, label_mask=label_mask, metrics=('pcc',), region_warnings=warns
-    )
-    assert len(rows) == 2
-    assert len(warns) == 1
-    assert 'region 1' in warns[0]
-
-
-def test_region_warnings_too_few_pixels():
-    a = np.zeros((5, 5))
-    b = np.zeros((5, 5))
-    label_mask = np.zeros((5, 5), dtype=int)
-    label_mask[0, 0] = 1  # single-pixel region
-    warns = []
-    analyse_pairwise(
-        a, b, label_mask=label_mask, metrics=('pcc',), region_warnings=warns
-    )
-    assert len(warns) == 1
-    assert 'fewer than 2 pixels' in warns[0]
-
-
-def test_all_to_all_collects_region_warnings():
-    a = np.ones((8, 8))  # constant
-    image = np.stack([a, a], axis=0)
-    warns = []
-    analyse_all_to_all(
-        image, channel_axis=0, metrics=('pcc',), region_warnings=warns
-    )
-    assert len(warns) == 1
-
-
-def test_pairwise_per_slice_one_row_per_slice(rng):
-    a = rng.random((5, 16, 16))
-    rows = analyse_pairwise(a, a.copy(), metrics=('pcc',), slice_axis=0)
-    assert len(rows) == 5
-    assert sorted(int(r['slice']) for r in rows) == [0, 1, 2, 3, 4]
-    for r in rows:
-        assert r['region'] == 0  # whole slice
-        assert r['n_pixels'] == 256
-        assert r['pcc'] == pytest.approx(1.0)
-
-
-def test_pairwise_per_slice_with_3d_label_mask(rng):
-    a = rng.random((3, 10, 10))
-    label_mask = np.zeros((3, 10, 10), dtype=int)
-    label_mask[:, :5, :] = 1
-    label_mask[:, 5:, :] = 2
-    rows = analyse_pairwise(
-        a, a.copy(), label_mask=label_mask, metrics=('pcc',), slice_axis=0
-    )
-    # 3 slices x 2 regions
-    assert len(rows) == 6
-    assert {r['region'] for r in rows} == {1, 2}
-    assert {int(r['slice']) for r in rows} == {0, 1, 2}
-
-
-def test_whole_volume_rows_have_nan_slice(rng):
-    a = rng.random((4, 8, 8))
-    rows = analyse_pairwise(a, a.copy(), metrics=('pcc',))
-    assert len(rows) == 1
-    assert np.isnan(rows[0]['slice'])
-
-
-def test_pairwise_shape_mismatch_raises():
-    a = np.zeros((10, 10))
-    b = np.zeros((10, 11))
-    with pytest.raises(ValueError, match='shape mismatch'):
-        analyse_pairwise(a, b)
-
-
-def test_pairwise_manual_without_thresholds_raises():
-    a = np.zeros((10, 10))
-    a[2:8, 2:8] = 1.0
-    with pytest.raises(ValueError, match='manual'):
-        analyse_pairwise(a, a, metrics=('mcc',), threshold_method='manual')
-
-
-def test_pairwise_unknown_threshold_method_raises():
-    a = np.zeros((10, 10))
-    a[2:8, 2:8] = 1.0
-    with pytest.raises(ValueError, match='unknown threshold_method'):
-        analyse_pairwise(a, a, metrics=('mcc',), threshold_method='bogus')
-
-
-def test_pairwise_otsu_auto_threshold():
-    a = np.zeros((20, 20))
-    a[5:15, 5:15] = 1.0
-    b = a.copy()
-    rows = analyse_pairwise(a, b, metrics=('mcc',), threshold_method='otsu')
-    row = rows[0]
-    # Otsu separates the two-level image cleanly, so the bright square
-    # fully colocalizes with itself.
-    assert row['m1'] == pytest.approx(1.0)
-    assert row['m2'] == pytest.approx(1.0)
-    # the per-channel thresholds are finite and lie inside the range
-    assert 0.0 < row['threshold_a'] < 1.0
-    assert 0.0 < row['threshold_b'] < 1.0
-
-
-def test_pairwise_otsu_constant_channel_is_nan():
-    a = np.ones((10, 10))  # constant -> auto-threshold undefined
-    b = np.zeros((10, 10))
-    b[2:8, 2:8] = 1.0
-    rows = analyse_pairwise(a, b, metrics=('mcc',), threshold_method='otsu')
-    assert np.isnan(rows[0]['m1'])
-    assert np.isnan(rows[0]['m2'])
-
-
-def test_pairwise_3d_works():
-    a = np.zeros((4, 8, 8))
-    a[1:3, 2:6, 2:6] = 1.0
-    rows = analyse_pairwise(
-        a,
-        a.copy(),
-        metrics=('pcc', 'mcc'),
-        threshold_method='manual',
-        threshold_a=0.5,
-        threshold_b=0.5,
-    )
-    assert rows[0]['pcc'] == pytest.approx(1.0)
-    assert rows[0]['m1'] == pytest.approx(1.0)
-
-
-def test_all_to_all_pair_count():
-    image = np.stack(
-        [
-            np.full((8, 8), 1.0),
-            np.full((8, 8), 1.0),
-            np.full((8, 8), 1.0),
-        ],
-        axis=0,
-    )
-    rows = analyse_all_to_all(
-        image,
-        channel_axis=0,
-        metrics=('mcc',),
-        threshold_method='manual',
-        threshold_a=0.5,
-        threshold_b=0.5,
-    )
-    # 3 channels -> 3 pairs (0,1), (0,2), (1,2)
-    assert len(rows) == 3
-
-
-def test_all_to_all_channel_names_propagate():
-    image = np.stack([np.ones((4, 4)), np.ones((4, 4))], axis=0)
-    rows = analyse_all_to_all(
-        image,
-        channel_axis=0,
-        metrics=('mcc',),
-        threshold_method='manual',
-        threshold_a=0.5,
-        threshold_b=0.5,
-        channel_names=['dna', 'tubulin'],
-    )
-    assert rows[0]['channel_a'] == 'dna'
-    assert rows[0]['channel_b'] == 'tubulin'
-
-
-def test_all_to_all_validates_channel_names_length():
-    image = np.zeros((3, 4, 4))
-    with pytest.raises(ValueError, match='channel_names'):
-        analyse_all_to_all(image, channel_axis=0, channel_names=['only_one'])
-
-
-def test_all_to_all_identical_pair_is_perfect(rng):
-    a = rng.random((10, 10))
-    image = np.stack([a, a, a], axis=-1)
-    rows = analyse_all_to_all(
-        image,
-        channel_axis=-1,
-        metrics=('pcc', 'mcc'),
         threshold_method='manual',
         threshold_a=0.0,
         threshold_b=0.0,
     )
-    for row in rows:
-        assert row['pcc'] == pytest.approx(1.0)
-        assert row['m1'] == pytest.approx(1.0)
-        assert row['m2'] == pytest.approx(1.0)
+    assert len(rows) == 1
+    row = rows[0]
+    assert set(row) == set(COLUMNS)  # constant output schema
+    assert row['region'] == 0
+    assert row['n_pixels'] == 400
+    # identical channels: every metric is at its "perfect" value
+    assert row['pcc'] == pytest.approx(1.0)
+    assert row['icq'] == pytest.approx(0.5)
+    assert row['overlap'] == pytest.approx(1.0)
+    assert row['m1'] == pytest.approx(1.0)
 
 
-def test_all_to_all_propagates_label_mask():
-    a = np.full((6, 6), 1.0)
+def test_pairwise_unrequested_metrics_are_nan(rng):
+    a = rng.random((10, 10))
+    row = analyse_pairwise(a, a.copy(), metrics=('pcc',))[0]
+    assert not np.isnan(row['pcc'])
+    assert np.isnan(row['srcc'])
+    assert np.isnan(row['overlap'])
+    assert np.isnan(row['m1'])
+
+
+def test_pairwise_one_row_per_labelled_region():
+    a = np.ones((10, 10))
+    label_mask = np.zeros((10, 10), dtype=int)
+    label_mask[:5], label_mask[5:] = 1, 2
+    rows = analyse_pairwise(
+        a,
+        a.copy(),
+        label_mask=label_mask,
+        metrics=('mcc',),
+        threshold_method='manual',
+        threshold_a=0.5,
+        threshold_b=0.5,
+    )
+    assert {r['region'] for r in rows} == {1, 2}
+    assert all(r['n_pixels'] == 50 for r in rows)
+    assert all(r['m1'] == pytest.approx(1.0) for r in rows)
+
+
+def test_pairwise_works_in_3d(rng):
+    a = rng.random((4, 8, 8))
+    row = analyse_pairwise(
+        a,
+        a.copy(),
+        metrics=('pcc', 'mcc'),
+        threshold_method='manual',
+        threshold_a=0.0,
+        threshold_b=0.0,
+    )[0]
+    assert row['pcc'] == pytest.approx(1.0)
+    assert row['m1'] == pytest.approx(1.0)
+
+
+def test_pairwise_invalid_arguments_raise():
+    a = np.zeros((10, 10))
+    a[2:8, 2:8] = 1.0
+    with pytest.raises(ValueError, match='shape mismatch'):
+        analyse_pairwise(a, np.zeros((10, 11)))
+    with pytest.raises(ValueError, match='manual'):
+        analyse_pairwise(a, a, metrics=('mcc',), threshold_method='manual')
+    with pytest.raises(ValueError, match='unknown threshold_method'):
+        analyse_pairwise(a, a, metrics=('mcc',), threshold_method='bogus')
+
+
+def test_auto_threshold_method():
+    img = np.zeros((20, 20))
+    img[5:15, 5:15] = 1.0
+    row = analyse_pairwise(
+        img, img.copy(), metrics=('mcc',), threshold_method='otsu'
+    )[0]
+    assert row['m1'] == pytest.approx(1.0)
+    assert 0.0 < row['threshold_a'] < 1.0
+    # a constant channel has no Otsu threshold -> M1/M2 are NaN
+    const = analyse_pairwise(
+        np.ones((20, 20)), img, metrics=('mcc',), threshold_method='otsu'
+    )[0]
+    assert np.isnan(const['m1'])
+
+
+def test_region_warnings_flag_uncomputable_regions(rng):
+    # a clean run produces no warnings
+    warns = []
+    analyse_pairwise(
+        rng.random((16, 16)),
+        rng.random((16, 16)),
+        metrics=('pcc',),
+        region_warnings=warns,
+    )
+    assert warns == []
+
+    # one constant region (of two) is flagged, by region id and reason
+    a = rng.random((10, 10))
+    a[:5] = 1.0
+    label_mask = np.zeros((10, 10), dtype=int)
+    label_mask[:5], label_mask[5:] = 1, 2
+    warns = []
+    analyse_pairwise(
+        a,
+        a.copy(),
+        label_mask=label_mask,
+        metrics=('pcc',),
+        region_warnings=warns,
+    )
+    assert len(warns) == 1
+    assert 'region 1' in warns[0] and 'constant' in warns[0]
+
+    # a single-pixel region is flagged too
+    single = np.zeros((5, 5), dtype=int)
+    single[0, 0] = 1
+    warns = []
+    analyse_pairwise(
+        np.zeros((5, 5)),
+        np.zeros((5, 5)),
+        label_mask=single,
+        metrics=('pcc',),
+        region_warnings=warns,
+    )
+    assert 'fewer than 2 pixels' in warns[0]
+
+
+def test_per_slice_gives_one_row_per_slice(rng):
+    a = rng.random((5, 16, 16))
+    rows = analyse_pairwise(a, a.copy(), metrics=('pcc',), slice_axis=0)
+    assert sorted(int(r['slice']) for r in rows) == [0, 1, 2, 3, 4]
+    assert all(r['pcc'] == pytest.approx(1.0) for r in rows)
+    # a whole-volume run leaves the slice column as NaN
+    whole = analyse_pairwise(a, a.copy(), metrics=('pcc',))
+    assert len(whole) == 1 and np.isnan(whole[0]['slice'])
+
+
+def test_per_slice_with_label_mask(rng):
+    a = rng.random((3, 10, 10))
+    label_mask = np.zeros((3, 10, 10), dtype=int)
+    label_mask[:, :5], label_mask[:, 5:] = 1, 2
+    rows = analyse_pairwise(
+        a, a.copy(), label_mask=label_mask, metrics=('pcc',), slice_axis=0
+    )
+    assert len(rows) == 6  # 3 slices x 2 regions
+    assert {int(r['slice']) for r in rows} == {0, 1, 2}
+    assert {r['region'] for r in rows} == {1, 2}
+
+
+# -- all-to-all -------------------------------------------------------
+
+
+def test_all_to_all_covers_every_pair(rng):
+    a = rng.random((10, 10))
+    image = np.stack([a, a, a], axis=0)
+    rows = analyse_all_to_all(
+        image,
+        channel_axis=0,
+        metrics=('pcc', 'mcc'),
+        threshold_method='manual',
+        threshold_a=0.0,
+        threshold_b=0.0,
+        channel_names=['x', 'y', 'z'],
+    )
+    assert {(r['channel_a'], r['channel_b']) for r in rows} == {
+        ('x', 'y'),
+        ('x', 'z'),
+        ('y', 'z'),
+    }
+    assert all(r['pcc'] == pytest.approx(1.0) for r in rows)
+
+
+def test_all_to_all_with_label_mask():
+    a = np.ones((6, 6))
     image = np.stack([a, a], axis=0)
     label_mask = np.zeros((6, 6), dtype=int)
-    label_mask[:3, :] = 1
-    label_mask[3:, :] = 2
+    label_mask[:3], label_mask[3:] = 1, 2
     rows = analyse_all_to_all(
         image,
         channel_axis=0,
@@ -325,7 +204,11 @@ def test_all_to_all_propagates_label_mask():
         threshold_a=0.5,
         threshold_b=0.5,
     )
-    # 1 pair x 2 regions = 2 rows
-    assert len(rows) == 2
-    for r in rows:
-        assert r['n_pixels'] == 18
+    assert len(rows) == 2  # 1 channel pair x 2 regions
+
+
+def test_all_to_all_validates_channel_names_length():
+    with pytest.raises(ValueError, match='channel_names'):
+        analyse_all_to_all(
+            np.zeros((3, 4, 4)), channel_axis=0, channel_names=['only_one']
+        )

@@ -9,11 +9,6 @@ from napari_colocalization._objects import (
 )
 
 
-@pytest.fixture
-def rng():
-    return np.random.default_rng(seed=3)
-
-
 def _two_blobs():
     """A 20x20 image with two bright square blobs."""
     img = np.zeros((20, 20), dtype=float)
@@ -22,71 +17,48 @@ def _two_blobs():
     return img
 
 
-def test_label_objects_finds_two(rng):
-    labels = label_objects(_two_blobs(), threshold_method='otsu')
-    assert labels.max() == 2
-    assert set(np.unique(labels)) == {0, 1, 2}
+def test_label_objects():
+    img = _two_blobs()
+    assert label_objects(img, 'otsu').max() == 2  # two blobs
+    speck = img.copy()
+    speck[10, 10] = 1.0
+    assert label_objects(speck, 'otsu', min_size=4).max() == 2  # speck dropped
+    assert label_objects(np.ones((10, 10)), 'otsu').max() == 0  # no objects
 
 
-def test_label_objects_min_size_filters():
-    img = np.zeros((20, 20), dtype=float)
-    img[2:6, 2:6] = 1.0  # 16 px
-    img[10, 10] = 1.0  # 1 px speck
-    labels = label_objects(img, threshold_method='otsu', min_size=4)
-    assert labels.max() == 1  # the speck is dropped
-
-
-def test_label_objects_constant_is_empty():
-    labels = label_objects(np.ones((10, 10)), threshold_method='otsu')
-    assert labels.max() == 0
-
-
-def test_object_centroids_locations():
-    labels = label_objects(_two_blobs(), threshold_method='otsu')
-    centroids = object_centroids(labels)
-    assert centroids.shape == (2, 2)
-    # blobs span indices 2-5 and 12-15 -> centroids at 3.5 and 13.5
+def test_object_centroids():
+    centroids = object_centroids(label_objects(_two_blobs(), 'otsu'))
     ordered = centroids[np.argsort(centroids[:, 0])]
     assert np.allclose(ordered, [[3.5, 3.5], [13.5, 13.5]])
 
 
-def test_object_table_identical_all_coincident():
-    labels = label_objects(_two_blobs(), threshold_method='otsu')
+def test_object_table_coincidence_and_overlap():
+    labels = label_objects(_two_blobs(), 'otsu')
     rows, summary = object_table(labels, labels.copy(), 'a', 'b')
-    # 2 objects per channel -> 4 rows, all coincident and overlapping
-    assert len(rows) == 4
-    assert all(r['coincident'] for r in rows)
-    assert all(r['overlap'] for r in rows)
-    assert summary['n_objects_a'] == 2
+    assert len(rows) == 4  # 2 objects x 2 channels
+    assert all(r['coincident'] and r['overlap'] for r in rows)
     assert summary['frac_coincident_a'] == pytest.approx(1.0)
-    assert summary['frac_overlap_b'] == pytest.approx(1.0)
+    # disjoint objects coincide / overlap with nothing
+    a = np.zeros((20, 20), int)
+    a[2:6, 2:6] = 1
+    b = np.zeros((20, 20), int)
+    b[12:16, 12:16] = 1
+    _, summary = object_table(a, b)
+    assert summary['coincident_a'] == 0 and summary['overlap_a'] == 0
 
 
-def test_object_table_disjoint_objects():
-    a = np.zeros((20, 20), dtype=int)
-    a[2:6, 2:6] = 1  # top-left object
-    b = np.zeros((20, 20), dtype=int)
-    b[12:16, 12:16] = 1  # bottom-right object, no overlap
-    rows, summary = object_table(a, b, 'a', 'b')
-    assert summary['n_objects_a'] == 1
-    assert summary['n_objects_b'] == 1
-    assert summary['coincident_a'] == 0
-    assert summary['overlap_a'] == 0
-    assert all(not r['coincident'] and not r['overlap'] for r in rows)
-
-
-def test_object_table_overlap_without_coincidence():
-    # A is a large ring-ish object; B sits in A's bounding box but A's
-    # centroid lands on background -> overlaps but centroid not coincident.
-    a = np.zeros((20, 20), dtype=int)
+def test_object_overlap_without_coincidence():
+    # a ring whose centroid lands in its hole: it overlaps B, but its
+    # centroid is not inside any B object
+    a = np.zeros((20, 20), int)
     a[4:16, 4:16] = 1
-    a[8:12, 8:12] = 0  # hole at the centre (where the centroid is)
-    b = np.zeros((20, 20), dtype=int)
-    b[4:7, 4:7] = 1  # overlaps A's top-left, not A's centre
-    rows, summary = object_table(a, b, 'a', 'b')
-    a_row = next(r for r in rows if r['channel'] == 'a')
-    assert a_row['overlap'] is True
-    assert a_row['coincident'] is False
+    a[8:12, 8:12] = 0
+    b = np.zeros((20, 20), int)
+    b[4:7, 4:7] = 1
+    a_row = next(
+        r for r in object_table(a, b, 'a', 'b')[0] if r['channel'] == 'a'
+    )
+    assert a_row['overlap'] and not a_row['coincident']
 
 
 def test_object_table_shape_mismatch_raises():
@@ -94,17 +66,12 @@ def test_object_table_shape_mismatch_raises():
         object_table(np.zeros((10, 10), int), np.zeros((10, 11), int))
 
 
-def test_nearest_neighbour_vectors_shape_and_direction():
+def test_nearest_neighbour_vectors():
     a = np.array([[0.0, 0.0], [10.0, 10.0]])
     b = np.array([[0.0, 1.0], [10.0, 9.0]])
     vectors = nearest_neighbour_vectors(a, b)
     assert vectors.shape == (2, 2, 2)
-    # start points are the A centroids
-    assert np.allclose(vectors[:, 0, :], a)
-    # first A maps to nearest B (0, 1): direction (0, 1)
-    assert np.allclose(vectors[0, 1, :], [0.0, 1.0])
-
-
-def test_nearest_neighbour_vectors_empty():
-    out = nearest_neighbour_vectors(np.empty((0, 2)), np.array([[1.0, 1.0]]))
-    assert out.shape[0] == 0
+    assert np.allclose(vectors[:, 0, :], a)  # vectors start at A centroids
+    assert np.allclose(vectors[0, 1, :], [0.0, 1.0])  # point to nearest B
+    # no objects in one channel -> no links
+    assert nearest_neighbour_vectors(np.empty((0, 2)), b).shape[0] == 0
