@@ -291,3 +291,30 @@ def test_costes_regression_degenerate_is_nan():
     b = np.ones((10, 10))
     slope, intercept = costes_regression(a, b)
     assert np.isnan(slope) and np.isnan(intercept)
+
+
+def test_costes_regression_is_orthogonal_not_ols(rng):
+    # Noisy, unequal-variance data so OLS and orthogonal disagree.
+    a = rng.random(5000)
+    b = 0.4 * a + 0.6 * rng.random(5000)
+    slope, intercept = costes_regression(a, b)
+    # closed-form orthogonal (total-least-squares) slope, as Coloc 2
+    var_a, var_b = a.var(), b.var()
+    cov = ((a - a.mean()) * (b - b.mean())).mean()
+    m_orth = (var_b - var_a + np.sqrt((var_b - var_a) ** 2 + 4 * cov**2)) / (
+        2 * cov
+    )
+    assert slope == pytest.approx(m_orth)
+    assert intercept == pytest.approx(b.mean() - m_orth * a.mean())
+    # and it is genuinely different from the OLS (np.polyfit) slope
+    m_ols = np.polyfit(a, b, 1)[0]
+    assert abs(slope - m_ols) > 1e-3
+
+
+def test_costes_threshold_steep_slope_in_range(rng):
+    # slope ~3 (|m| >= 1) exercises the channel-B stepping branch.
+    a = rng.random((128, 128))
+    b = 3 * a + 0.1 * rng.random((128, 128))
+    t_a, t_b = costes_threshold(a, b)
+    assert a.min() <= t_a <= a.max()
+    assert b.min() <= t_b <= b.max()

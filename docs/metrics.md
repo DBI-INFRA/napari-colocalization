@@ -172,31 +172,35 @@ the iterative method introduced by Costes et al. (2004) gives a
 reproducible answer that is widely cited in the colocalization
 literature.
 
-Algorithm (as implemented in `_metrics.costes_threshold`):
+Algorithm (as implemented in `_metrics.costes_threshold`, matched to
+Fiji's **Coloc 2** `AutoThresholdRegression`):
 
-1. Fit a least-squares regression line `b = m·a + c` on the masked pixel
-   pairs.
-2. Walk a candidate threshold `T_a` downward from `max(a)`. At each step,
-   set `T_b = m·T_a + c` so the threshold pair lies on the regression
-   line.
-3. The "below-threshold" set is every pixel with `a ≤ T_a` **or**
-   `b ≤ T_b`. Compute its Pearson correlation.
-4. Stop at the first `T_a` where that PCC drops to zero or below — the
-   below-threshold pixels are now uncorrelated, i.e. background. Return
-   `(T_a, T_b)`.
+1. Fit an **orthogonal** (total-least-squares) regression line
+   `b = m·a + c` over the masked pixels — *not* an ordinary least-squares
+   fit. Orthogonal regression treats the two channels symmetrically
+   (neither is the independent variable) and avoids the slope bias OLS
+   shows when the predictor channel is noisy.
+2. Move a candidate threshold along that line by **bisection**, keeping
+   the pair on the line (`T_b = m·T_a + c`). The channel that is stepped
+   is the one giving finer resolution — channel A when `|m| < 1`, else
+   channel B.
+3. At each candidate, compute the Pearson correlation of the
+   below-threshold pixels (`a < T_a` **or** `b < T_b`). Bisect downward
+   while that correlation is positive and upward when it is non-positive,
+   converging on the threshold where the background pixels stop
+   correlating.
 
-Falls back to `(max(a), max(b))` if the regression slope is non-positive
-(no linear co-occurrence to threshold for) and to `(min(a), min(b))` if
-the iteration runs to completion without ever hitting PCC ≤ 0.
+Falls back to `(max(a), max(b))` when the regression slope is
+non-positive or undefined (no linear co-occurrence to threshold for).
 
 The selected thresholds appear in the `threshold_a` / `threshold_b`
 columns of the results table and as red reference lines on the scatter
-plot. The regression line from step 1 is overlaid as a cyan dashed line
+plot. The orthogonal regression line is overlaid as a cyan dashed line
 (via `_metrics.costes_regression`) so you can see the axis the
 auto-threshold was found along.
 
-> The Costes randomisation test (statistical significance of PCC by
-> shuffled pixel blocks) is **not** implemented in v1.
+> The Costes randomisation significance test is available on the
+> **Diagnostics** tab (see below).
 
 ## Diagnostics
 

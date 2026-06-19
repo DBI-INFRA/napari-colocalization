@@ -314,11 +314,21 @@ def overlap(a, b, mask=None):
 
 
 def costes_regression(a, b, mask=None):
-    """Least-squares line ``b = slope * a + intercept``.
+    """Orthogonal-regression line ``b = slope * a + intercept``.
 
-    This is the regression that :func:`costes_threshold` walks
-    along to find the auto-threshold; it is exposed separately so
-    callers (e.g. the cytofluorogram) can draw the same line.
+    This is the line :func:`costes_threshold` walks along; it is
+    exposed separately so callers (e.g. the cytofluorogram) can
+    draw the same line. To match Fiji's **Coloc 2** we use
+    **orthogonal** (total-least-squares) regression rather than an
+    ordinary least-squares fit — the relationship is symmetric
+    (neither channel is the independent variable), and OLS would
+    bias the slope when the predictor channel is noisy. The slope
+    is the principal axis of the intensity covariance:
+
+    .. math::
+        m = \\frac{\\sigma_b^2 - \\sigma_a^2 +
+            \\sqrt{(\\sigma_b^2 - \\sigma_a^2)^2 + 4\\sigma_{ab}^2}}
+            {2\\sigma_{ab}}, \\quad c = \\bar b - m\\,\\bar a
 
     Parameters
     ----------
@@ -331,32 +341,68 @@ def costes_regression(a, b, mask=None):
     -------
     slope, intercept : float
         Regression coefficients, or ``(nan, nan)`` when the region
-        has fewer than two samples or zero variance in ``a``.
+        has fewer than two samples, zero variance in either
+        channel, or zero covariance (no line to fit).
+
+    References
+    ----------
+    Costes, S.V. et al. (2004). *Automatic and quantitative
+    measurement of protein-protein colocalization in live cells.*
+    Biophys. J. 86(6), 3993-4003. Implementation matched to Fiji
+    Coloc 2 ``AutoThresholdRegression``.
     """
     a_flat, b_flat = _flatten_with_mask(a, b, mask)
     a_flat = a_flat.astype(np.float64, copy=False)
     b_flat = b_flat.astype(np.float64, copy=False)
-    if a_flat.size < 2 or a_flat.std() == 0:
+    if a_flat.size < 2 or a_flat.std() == 0 or b_flat.std() == 0:
         return float('nan'), float('nan')
-    slope, intercept = np.polyfit(a_flat, b_flat, 1)
+    mean_a = a_flat.mean()
+    mean_b = b_flat.mean()
+    var_a = a_flat.var()
+    var_b = b_flat.var()
+    cov = ((a_flat - mean_a) * (b_flat - mean_b)).mean()
+    if cov == 0:
+        return float('nan'), float('nan')
+    slope = (var_b - var_a + np.sqrt((var_b - var_a) ** 2 + 4 * cov**2)) / (
+        2 * cov
+    )
+    intercept = mean_b - slope * mean_a
     return float(slope), float(intercept)
 
 
-def costes_threshold(a, b, mask=None, n_steps=256):
+def _below_pearson(a_flat, b_flat, t_a, t_b):
+    """Pearson r of pixels below threshold (``a < t_a`` OR ``b < t_b``).
+
+    Matches Coloc 2's ``ThresholdMode.Below`` (strict ``<``, OR).
+    Returns ``nan`` when the below-set is degenerate.
+    """
+    below = (a_flat < t_a) | (b_flat < t_b)
+    if int(below.sum()) < 2:
+        return float('nan')
+    a_sub = a_flat[below]
+    b_sub = b_flat[below]
+    if a_sub.std() == 0 or b_sub.std() == 0:
+        return float('nan')
+    return float(np.corrcoef(a_sub, b_sub)[0, 1])
+
+
+def costes_threshold(a, b, mask=None, max_iter=100):
     """Costes' iterative auto-threshold for Manders' M1 / M2.
 
-    Implements the algorithm of Costes et al. (2004):
+    Follows Fiji **Coloc 2** (``AutoThresholdRegression``):
 
-    1. Fit a least-squares regression line ``b = m * a + c`` over
-       the analysed region.
-    2. Walk a candidate threshold ``T_a`` downward from
-       ``max(a)``. At each step, set ``T_b = m * T_a + c`` so the
-       threshold pair lies on the regression line.
-    3. The "below-threshold" subset is every pixel with
-       ``a <= T_a`` **or** ``b <= T_b``. Compute its Pearson
-       correlation. Stop at the first ``T_a`` where that PCC
-       drops to zero or below — at that point the below-threshold
-       pixels are no longer correlated, i.e. background.
+    1. Fit the :func:`costes_regression` orthogonal line
+       ``b = m*a + c``.
+    2. Step a candidate threshold by **bisection**. The threshold
+       pair always lies on the line; the channel that is stepped
+       is the one giving finer resolution — channel A when
+       ``|m| < 1`` (then ``T_b = m*T_a + c``) else channel B (then
+       ``T_a = (T_b - c)/m``).
+    3. At each candidate, compute the Pearson correlation of the
+       below-threshold pixels (``a < T_a`` **or** ``b < T_b``).
+       Bisect downward while that correlation is positive and
+       upward when it is non-positive (or undefined), converging on
+       the threshold where the background pixels stop correlating.
 
     Parameters
     ----------
@@ -364,22 +410,17 @@ def costes_threshold(a, b, mask=None, n_steps=256):
         Same-shape intensity arrays.
     mask : array_like of bool, optional
         Restrict the regression and search to this region.
-    n_steps : int, default 256
-        Number of candidate thresholds along ``[min(a), max(a)]``.
+    max_iter : int, default 100
+        Maximum bisection iterations (Coloc 2 default); the search
+        also stops once the step falls below one intensity unit.
 
     Returns
     -------
     threshold_a, threshold_b : float
-        Per-channel thresholds suitable to feed into
-        :func:`manders`. Falls back to ``(max(a), max(b))`` when
-        the regression slope is non-positive (no co-occurrence to
-        threshold for) and to ``(min(a), min(b))`` when the
-        iteration never reaches ``PCC <= 0``.
-
-    Notes
-    -----
-    The Costes randomisation significance test (which scrambles
-    pixel blocks to produce a p-value for PCC) is not implemented.
+        Per-channel thresholds for :func:`manders`, clamped to the
+        data range. Falls back to ``(max(a), max(b))`` when the
+        regression slope is non-positive or undefined (no
+        co-occurrence to threshold for).
 
     References
     ----------
@@ -400,31 +441,48 @@ def costes_threshold(a, b, mask=None, n_steps=256):
         return float(a_flat.max()), float(b_flat.max())
 
     slope, intercept = costes_regression(a_flat, b_flat)
-    a_max = float(a_flat.max())
-    a_min = float(a_flat.min())
-    b_max = float(b_flat.max())
+    a_max, a_min = float(a_flat.max()), float(a_flat.min())
+    b_max, b_min = float(b_flat.max()), float(b_flat.min())
 
-    if slope <= 0:
+    if not np.isfinite(slope) or slope <= 0:
         return a_max, b_max
-    if a_max == a_min:
-        return a_max, float(slope * a_max + intercept)
 
-    step = (a_max - a_min) / n_steps
-    t_a = a_max
-    last_t_a, last_t_b = a_max, float(slope * a_max + intercept)
+    # Step the channel that resolves the line best (Coloc 2: ch1 when
+    # |m| < 1, else ch2), mapping the stepped value onto the other
+    # channel via the orthogonal line.
+    if abs(slope) < 1:
 
-    while t_a > a_min:
-        t_b = float(slope * t_a + intercept)
-        below = (a_flat <= t_a) | (b_flat <= t_b)
-        n_below = int(below.sum())
-        if n_below >= 2:
-            a_sub = a_flat[below]
-            b_sub = b_flat[below]
-            if a_sub.std() > 0 and b_sub.std() > 0:
-                pcc = float(np.corrcoef(a_sub, b_sub)[0, 1])
-                if pcc <= 0:
-                    return float(t_a), t_b
-        last_t_a, last_t_b = float(t_a), t_b
-        t_a -= step
+        def map_thresholds(value):
+            t_a = min(max(value, a_min), a_max)
+            return t_a, min(max(slope * t_a + intercept, b_min), b_max)
 
-    return last_t_a, last_t_b
+        threshold, upper, span = 0.5 * (a_max + a_min), a_max, a_max - a_min
+    else:
+
+        def map_thresholds(value):
+            t_b = min(max(value, b_min), b_max)
+            return min(max((t_b - intercept) / slope, a_min), a_max), t_b
+
+        threshold, upper, span = 0.5 * (b_max + b_min), b_max, b_max - b_min
+
+    # Bisection: positive below-r -> threshold too high, step down;
+    # non-positive or undefined -> step up. Step halves each round.
+    # Coloc 2 stops at a step of one integer intensity level; we use a
+    # tolerance relative to the data span so it also works on
+    # float-valued (e.g. 0..1 normalised) images.
+    tol = span * 1e-4
+    thr_diff = abs(upper - threshold)
+    t_a, t_b = map_thresholds(threshold)
+    for _ in range(max_iter):
+        if thr_diff < tol:
+            break
+        t_a, t_b = map_thresholds(threshold)
+        r = _below_pearson(a_flat, b_flat, t_a, t_b)
+        thr_diff *= 0.5
+        if np.isnan(r) or r < 0:
+            threshold += thr_diff
+        else:
+            threshold -= thr_diff
+
+    t_a, t_b = map_thresholds(threshold)
+    return float(t_a), float(t_b)
