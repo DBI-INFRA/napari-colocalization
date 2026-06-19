@@ -28,19 +28,23 @@ leaving napari.
 
 ## Features
 
-- **Four correlation metrics**: Pearson (PCC), Spearman rank (SRCC), Li's
-  Intensity Correlation Quotient (ICQ), and Manders' coefficients M1/M2 (MCC).
-- **Pairwise or all-to-all** mode: analyse two grayscale layers, or every
-  channel pair within a single multi-channel layer.
-- **2D and 3D** support natively (no time-series for now).
+- **Five colocalization metrics**: Pearson (PCC), Spearman rank (SRCC), Li
+  Intensity Correlation Quotient (ICQ), Manders' overlap coefficient with
+  split coefficients (r, k1, k2), and Manders' coefficients M1/M2 (MCC).
+- **Pairwise or all-to-all** mode, **2D and 3D**, with optional
+  **per-Z-slice** analysis (one row per plane).
 - **Region-restricted analysis** via a Shapes or Labels layer - each non-zero
   region is reported on its own row.
-- **Manders thresholds**: choose **Costes auto** (iterative regression-based)
-  or **Manual**.
-- **Interactive results**: in-widget table, density plot of the selected row,
-  multi-row selection that highlights all matching shapes/labels in the viewer.
-- **CSV export** of the current table, plus **figure export** of the
-  density plot (PNG / PDF / SVG / TIFF, configurable size and DPI).
+- **Manders thresholds**: **Costes auto** (orthogonal-regression bisection,
+  matched to Fiji Coloc 2), a per-channel **auto-threshold** (Otsu, Li,
+  Triangle, Yen, Mean, IsoData), or **Manual**.
+- **Diagnostics tab**: Costes randomization significance test, Van Steensel
+  cross-correlation function, and Li intensity correlation analysis.
+- **Object-based tab**: centre-particle coincidence and object overlap, with
+  centroid Points and nearest-neighbour Vectors drawn into the viewer.
+- **Interactive results**: in-widget table, cytofluorogram of the selected
+  row (with optional fixed axes), and viewer highlighting / output layers.
+- **CSV export** of the current table, plus **figure export** of the plots.
 
 ## Installation
 
@@ -57,12 +61,13 @@ pip install "napari-colocalization[all]"
 ## Where next?
 
 - **[Usage guide](usage.md)** - every control in the widget, in order.
-- **[Metrics](metrics.md)** - what PCC, SRCC, ICQ and MCC mean, when to
-  use which, and how the Costes auto-threshold works.
-- **[Python API](api.md)** - calling the pure-compute layer
-  (`pearson`, `spearman`, `manders`, `costes_threshold`,
-  `analyse_pairwise`, `analyse_all_to_all`) from scripts or notebooks.
-  Reference is auto-generated from the source docstrings.
+- **[Metrics](metrics.md)** - what the metrics mean, when to use which, how
+  the Costes auto-threshold works, and the diagnostics.
+- **[Python API](api.md)** - calling the pure-compute layer (`pearson`,
+  `spearman`, `li_icq`, `manders`, `overlap`, `costes_threshold`,
+  `analyse_pairwise`/`analyse_all_to_all`, plus the `_diagnostics` and
+  `_objects` functions) from scripts or notebooks. Reference is
+  auto-generated from the source docstrings.
 
 ## Source code
 

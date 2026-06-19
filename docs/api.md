@@ -23,7 +23,7 @@ napari_colocalization
 ├── _objects.py     label_objects, object_table, object_centroids,
 │                   nearest_neighbour_vectors
 ├── _sample_data.py make_sample_data, make_sample_data_3d,
-│                   make_sample_data_cbs006rbm
+│                   make_sample_data_cbs006rbm, make_sample_data_coloc
 └── _widget.py      ColocalizationWidget (Qt-only)
 ```
 
@@ -62,12 +62,14 @@ the symbols below are stable and intended to be imported.
 export, and the row dicts:
 
 ```python
-('region', 'channel_a', 'channel_b', 'n_pixels',
+('region', 'slice', 'channel_a', 'channel_b', 'n_pixels',
  'pcc', 'pcc_pvalue', 'srcc', 'srcc_pvalue',
  'icq',
  'overlap', 'k1', 'k2',
  'm1', 'm2', 'threshold_a', 'threshold_b')
 ```
+
+(`slice` is the plane index for per-Z-slice runs, and ``NaN`` otherwise.)
 
 ::: napari_colocalization._analysis
     options:
@@ -122,6 +124,7 @@ on first use and caches it under `~/.cache/napari-colocalization/`.
         - make_sample_data
         - make_sample_data_3d
         - make_sample_data_cbs006rbm
+        - make_sample_data_coloc
       show_root_heading: false
       heading_level: 3
 

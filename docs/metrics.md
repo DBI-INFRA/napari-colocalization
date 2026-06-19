@@ -1,7 +1,8 @@
 # Metrics
 
-Background on the four correlation metrics computed by the plugin, plus
-the Costes auto-threshold used for Manders.
+Background on the colocalization metrics the plugin computes (Pearson,
+Spearman, Li ICQ, the Manders overlap coefficient and M1/M2), the Costes
+auto-threshold used for Manders, and the single-pair diagnostics.
 
 > Documentation index: [Home](index.md) · [Usage](usage.md) · **Metrics** · [Python API](api.md)
 
