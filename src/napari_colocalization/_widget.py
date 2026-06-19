@@ -1,11 +1,12 @@
 """Top-level dock widget for the colocalization plugin.
 
-A single QWidget that wires the pure-compute layer (_metrics,
-_masking, _analysis) to napari layers via magicgui combos, runs
-the analysis on a background thread, and shows results in a
-table + embedded scatter plot. CSV export is provided for the
-current table. The whole widget is wrapped in a vertical scroll
-area so it stays usable in narrow docks.
+A single QWidget that wires the pure-compute layers (_metrics,
+_masking, _analysis, _diagnostics) to napari layers via magicgui
+combos and runs the work on a background thread. Two tabs: an
+"Intensity correlation" tab with the per-region metric table +
+cytofluorogram and CSV/figure export, and a "Diagnostics" tab that
+renders one single-pair diagnostic plot at a time (Costes
+randomization, Van Steensel CCF, or Li ICA).
 """
 
 import contextlib
@@ -37,6 +38,7 @@ from qtpy.QtWidgets import (
     QSplitter,
     QTableWidget,
     QTableWidgetItem,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -46,9 +48,14 @@ from ._analysis import (
     analyse_all_to_all,
     analyse_pairwise,
 )
+from ._diagnostics import (
+    costes_randomization,
+    li_ica,
+    van_steensel_ccf,
+)
 from ._masking import labels_to_label_mask, shapes_to_label_mask
 from ._metrics import costes_regression
-from ._plot import ScatterCanvas
+from ._plot import DiagnosticCanvas, ScatterCanvas
 
 if TYPE_CHECKING:
     import napari
@@ -123,7 +130,29 @@ class ColocalizationWidget(QWidget):
         self._region_layer = None
         self._region_source = 'none'
         self._threshold_method = 'costes'
+        self._diag_region_layer = None
+        self._diag_region_source = 'none'
 
+        # Analysis families live on separate tabs: the multi-region
+        # intensity table on one, the single-pair diagnostic plots on
+        # the other. Inputs are not shared — diagnostics are always
+        # pairwise, so each tab carries the channel selectors it needs.
+        self._tabs = QTabWidget()
+        self._tabs.addTab(self._build_intensity_tab(), 'Intensity correlation')
+        self._tabs.addTab(self._build_diagnostics_tab(), 'Diagnostics')
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.addWidget(self._tabs)
+
+        self._on_mode_changed()
+        self._on_metrics_changed()
+        self._on_diag_method_changed()
+        self._connect_layer_events()
+
+    # -- layout builders -------------------------------------------------
+
+    def _build_intensity_tab(self):
         # Configuration block — its own scroll area so a tall set
         # of options doesn't squeeze the results panel below.
         config_inner = QWidget()
@@ -164,15 +193,11 @@ class ColocalizationWidget(QWidget):
         self._main_splitter.setStretchFactor(1, 2)
         self._main_splitter.setSizes([400, 500])
 
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 0)
-        outer.addWidget(self._main_splitter)
-
-        self._on_mode_changed()
-        self._on_metrics_changed()
-        self._connect_layer_events()
-
-    # -- layout builders -------------------------------------------------
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self._main_splitter)
+        return tab
 
     @staticmethod
     def _make_group(title, *items, vertical=True):
@@ -417,24 +442,28 @@ class ColocalizationWidget(QWidget):
             self._image_a_combo,
             self._image_b_combo,
             self._stack_combo,
+            self._diag_image_a_combo,
+            self._diag_image_b_combo,
         ):
             self._set_combo_choices(combo, images)
-        self._refresh_region_combo()
+        self._refresh_region_combo(self._region_combo)
+        self._refresh_region_combo(self._diag_region_combo)
 
         # Pairwise default: when magicgui populates A and B with the
         # same first image (or a new layer collapses them), nudge B
         # to a different image so the user can run pairwise without
-        # changing the defaults.
-        if (
-            len(images) >= 2
-            and self._image_a_combo.value is self._image_b_combo.value
+        # changing the defaults. Same for the diagnostics pair.
+        for combo_a, combo_b in (
+            (self._image_a_combo, self._image_b_combo),
+            (self._diag_image_a_combo, self._diag_image_b_combo),
         ):
-            for layer in images:
-                if layer is not self._image_a_combo.value:
-                    self._image_b_combo.value = layer
-                    break
+            if len(images) >= 2 and combo_a.value is combo_b.value:
+                for layer in images:
+                    if layer is not combo_a.value:
+                        combo_b.value = layer
+                        break
 
-    def _refresh_region_combo(self):
+    def _refresh_region_combo(self, region_combo):
         from napari.layers import Labels, Shapes
 
         candidates = [
@@ -442,20 +471,20 @@ class ColocalizationWidget(QWidget):
             for layer in self._viewer.layers
             if isinstance(layer, (Shapes, Labels))
         ]
-        previous = self._region_combo.currentData()
-        self._region_combo.blockSignals(True)
+        previous = region_combo.currentData()
+        region_combo.blockSignals(True)
         try:
-            self._region_combo.clear()
-            self._region_combo.addItem('None', None)
+            region_combo.clear()
+            region_combo.addItem('None', None)
             for layer in candidates:
-                self._region_combo.addItem(layer.name, layer)
+                region_combo.addItem(layer.name, layer)
             if previous is not None:
-                for i in range(self._region_combo.count()):
-                    if self._region_combo.itemData(i) is previous:
-                        self._region_combo.setCurrentIndex(i)
+                for i in range(region_combo.count()):
+                    if region_combo.itemData(i) is previous:
+                        region_combo.setCurrentIndex(i)
                         break
         finally:
-            self._region_combo.blockSignals(False)
+            region_combo.blockSignals(False)
 
     @staticmethod
     def _set_combo_choices(combo, layers):
@@ -480,10 +509,12 @@ class ColocalizationWidget(QWidget):
             out.append('mcc')
         return tuple(out)
 
-    def _resolve_region(self, spatial_shape):
+    def _resolve_region(self, spatial_shape, combo=None):
         from napari.layers import Shapes
 
-        layer = self._region_combo.currentData()
+        if combo is None:
+            combo = self._region_combo
+        layer = combo.currentData()
         if layer is None:
             return None, None
         if isinstance(layer, Shapes):
@@ -916,3 +947,262 @@ class ColocalizationWidget(QWidget):
             writer.writeheader()
             for row in rows:
                 writer.writerow({k: row.get(k) for k in COLUMNS})
+
+    # == Diagnostics tab ===============================================
+
+    def _build_diagnostics_tab(self):
+        inner = QWidget()
+        layout = QVBoxLayout(inner)
+        layout.addWidget(self._build_diag_channels_group())
+        layout.addWidget(self._build_diag_method_group())
+        layout.addWidget(self._build_diag_params())
+        layout.addWidget(self._build_diag_run_row())
+        layout.addWidget(self._build_diag_results_group(), stretch=1)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setWidget(inner)
+
+        tab = QWidget()
+        tab_layout = QVBoxLayout(tab)
+        tab_layout.setContentsMargins(0, 0, 0, 0)
+        tab_layout.addWidget(scroll)
+        return tab
+
+    def _build_diag_channels_group(self):
+        self._diag_image_a_combo = create_widget(
+            label='Image A', annotation='napari.layers.Image'
+        )
+        self._diag_image_b_combo = create_widget(
+            label='Image B', annotation='napari.layers.Image'
+        )
+        self._diag_region_combo = QComboBox()
+        self._diag_region_combo.addItem('None', None)
+        return self._make_group(
+            'Channels & region',
+            self._diag_image_a_combo.native,
+            self._diag_image_b_combo.native,
+            self._diag_region_combo,
+        )
+
+    def _build_diag_method_group(self):
+        self._diag_method_combo = QComboBox()
+        self._diag_method_combo.addItem('Costes randomization', 'costes')
+        self._diag_method_combo.addItem('Van Steensel CCF', 'ccf')
+        self._diag_method_combo.addItem('Li ICA', 'ica')
+        self._diag_method_combo.currentIndexChanged.connect(
+            self._on_diag_method_changed
+        )
+        return self._make_group('Diagnostic', self._diag_method_combo)
+
+    def _build_diag_params(self):
+        self._costes_niter = QSpinBox()
+        self._costes_niter.setRange(10, 100000)
+        self._costes_niter.setValue(200)
+        self._costes_block = QSpinBox()
+        self._costes_block.setRange(1, 512)
+        self._costes_block.setValue(8)
+        self._diag_costes_group = self._make_group(
+            'Costes parameters',
+            self._hbox(QLabel('Iterations'), self._costes_niter),
+            self._hbox(QLabel('Block size (px)'), self._costes_block),
+        )
+
+        self._ccf_max_shift = QSpinBox()
+        self._ccf_max_shift.setRange(1, 500)
+        self._ccf_max_shift.setValue(20)
+        self._diag_ccf_group = self._make_group(
+            'CCF parameters',
+            self._hbox(QLabel('Max shift (px)'), self._ccf_max_shift),
+        )
+
+        self._diag_ica_group = self._make_group(
+            'Li ICA',
+            QLabel('No parameters — plots intensity vs covariance product.'),
+        )
+
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        for group in (
+            self._diag_costes_group,
+            self._diag_ccf_group,
+            self._diag_ica_group,
+        ):
+            layout.addWidget(group)
+        return container
+
+    def _build_diag_run_row(self):
+        self._diag_run_button = QPushButton('Run diagnostic')
+        self._diag_run_button.clicked.connect(self._on_diag_run_clicked)
+        self._diag_export_button = QPushButton('Export figure…')
+        self._diag_export_button.clicked.connect(self._on_diag_export_clicked)
+        row = QWidget()
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self._diag_run_button)
+        layout.addWidget(self._diag_export_button)
+        return row
+
+    def _build_diag_results_group(self):
+        self._diagnostic_canvas = DiagnosticCanvas()
+        self._diag_summary_label = QLabel('')
+        self._diag_summary_label.setWordWrap(True)
+        group = QGroupBox('Diagnostic result')
+        layout = QVBoxLayout()
+        layout.addWidget(self._diagnostic_canvas, stretch=1)
+        layout.addWidget(self._diag_summary_label)
+        group.setLayout(layout)
+        return group
+
+    def _on_diag_method_changed(self):
+        method = self._diag_method_combo.currentData()
+        self._diag_costes_group.setVisible(method == 'costes')
+        self._diag_ccf_group.setVisible(method == 'ccf')
+        self._diag_ica_group.setVisible(method == 'ica')
+
+    def _gather_diag_params(self):
+        layer_a = self._diag_image_a_combo.value
+        layer_b = self._diag_image_b_combo.value
+        if layer_a is None or layer_b is None:
+            show_warning('Select both image layers for the diagnostic.')
+            return None
+        a = np.asarray(layer_a.data)
+        b = np.asarray(layer_b.data)
+        if a.shape != b.shape:
+            show_warning(f'Shape mismatch: {a.shape} vs {b.shape}.')
+            return None
+        try:
+            label_mask, region_layer = self._resolve_region(
+                a.shape, combo=self._diag_region_combo
+            )
+        except ValueError as exc:
+            show_warning(str(exc))
+            return None
+        # Diagnostics are single-ROI: collapse any multi-region label
+        # mask to one boolean "analyse here" mask.
+        mask = None if label_mask is None else (label_mask > 0)
+        method = self._diag_method_combo.currentData()
+        block_size = int(self._costes_block.value())
+        # Validate method preconditions here, synchronously, rather than
+        # letting the worker raise — a worker exception both logs a
+        # traceback and triggers _on_diag_worker_error, surfacing the
+        # same problem twice. The compute functions still raise as a
+        # safety net for non-widget callers.
+        if method == 'costes' and any(
+            dim // block_size < 1 for dim in a.shape
+        ):
+            show_warning('Costes block size is larger than the image.')
+            return None
+        if mask is not None and int(mask.sum()) < 2:
+            show_warning('The selected region has fewer than 2 pixels.')
+            return None
+        return {
+            'method': method,
+            'a': a,
+            'b': b,
+            'mask': mask,
+            'region_layer': region_layer,
+            'channel_a': layer_a.name,
+            'channel_b': layer_b.name,
+            'n_iter': int(self._costes_niter.value()),
+            'block_size': block_size,
+            'max_shift': int(self._ccf_max_shift.value()),
+        }
+
+    def _on_diag_run_clicked(self):
+        params = self._gather_diag_params()
+        if params is None:
+            return
+        self._diag_region_layer = params.get('region_layer')
+        self._diag_run_button.setEnabled(False)
+        worker = self._diag_worker(params)
+        worker.returned.connect(self._on_diag_results_ready)
+        worker.errored.connect(self._on_diag_worker_error)
+        worker.finished.connect(lambda: self._diag_run_button.setEnabled(True))
+        worker.start()
+
+    @staticmethod
+    @thread_worker
+    def _diag_worker(params):
+        method = params['method']
+        a, b, mask = params['a'], params['b'], params['mask']
+        if method == 'costes':
+            result = costes_randomization(
+                a,
+                b,
+                mask=mask,
+                n_iter=params['n_iter'],
+                block_size=params['block_size'],
+            )
+        elif method == 'ccf':
+            shifts, ccf = van_steensel_ccf(
+                a, b, mask=mask, max_shift=params['max_shift']
+            )
+            result = {'shifts': shifts, 'ccf': ccf}
+        else:
+            result = li_ica(a, b, mask=mask)
+        return method, result, params['channel_a'], params['channel_b']
+
+    def _on_diag_results_ready(self, payload):
+        method, result, name_a, name_b = payload
+        title = f'{name_a} vs {name_b}'
+        if method == 'costes':
+            self._diagnostic_canvas.plot_costes(
+                result['observed'],
+                result['null'],
+                result['p_value'],
+                result['z_score'],
+                title=title,
+            )
+            self._diag_summary_label.setText(
+                f'Observed PCC = {result["observed"]:.4g}    '
+                f'p = {result["p_value"]:.4g}    '
+                f'z = {result["z_score"]:.3g}'
+            )
+        elif method == 'ccf':
+            shifts, ccf = result['shifts'], result['ccf']
+            self._diagnostic_canvas.plot_ccf(shifts, ccf, title=title)
+            if np.any(np.isfinite(ccf)):
+                peak = int(np.nanargmax(ccf))
+                self._diag_summary_label.setText(
+                    f'Peak Pearson r = {ccf[peak]:.4g} '
+                    f'at shift {int(shifts[peak])} px'
+                )
+            else:
+                self._diag_summary_label.setText(
+                    'CCF undefined for this input.'
+                )
+        else:
+            self._diagnostic_canvas.plot_ica(
+                result['a'],
+                result['b'],
+                result['products'],
+                names=(name_a, name_b),
+                title=title,
+            )
+            self._diag_summary_label.setText(f'ICQ = {result["icq"]:.4g}')
+
+    def _on_diag_worker_error(self, exc):
+        show_warning(f'Diagnostic failed: {exc}')
+
+    def _on_diag_export_clicked(self):
+        fig = self._diagnostic_canvas._figure
+        cur_w, cur_h = (float(v) for v in fig.get_size_inches())
+        cur_dpi = int(fig.get_dpi())
+        dlg = FigureExportDialog(self, cur_w, cur_h, cur_dpi)
+        if dlg.exec_() != QDialog.Accepted:
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            'Save figure',
+            'diagnostic.png',
+            'PNG (*.png);;PDF (*.pdf);;SVG (*.svg);;TIFF (*.tif *.tiff)',
+        )
+        if not path:
+            return
+        self._diagnostic_canvas.save_figure(
+            path, dlg.width_in(), dlg.height_in(), dlg.dpi()
+        )
+        show_info(f'Wrote {path}')

@@ -198,6 +198,43 @@ auto-threshold was found along.
 > The Costes randomisation test (statistical significance of PCC by
 > shuffled pixel blocks) is **not** implemented in v1.
 
+## Diagnostics
+
+The metrics above each collapse colocalization to a number per region.
+The **Diagnostics** tab instead produces a *plot* for a single channel
+pair (optionally restricted to a region), to inspect the *shape* of the
+relationship. Each is computed in the napari-free `_diagnostics` module.
+
+### Costes randomization (significance test)
+
+Answers "could this PCC have arisen by chance?". Channel B is scrambled
+in blocks `n_iter` times — destroying spatial co-occurrence while
+preserving each channel's intensity histogram and local texture — and
+the PCC is recomputed each time to build a null distribution. The
+observed PCC is plotted against that null, with a right-tailed p-value
+`(#{null ≥ observed} + 1) / (n_iter + 1)` and a z-score. A genuine
+colocalization sits far to the right of the null. The block size should
+approximate the point-spread-function width. Works on 2D and 3D images.
+
+This is the Costes randomization the v1 metrics page noted as missing.
+
+### Van Steensel cross-correlation function (CCF)
+
+Shifts channel B relative to A by ±`max_shift` pixels and plots the PCC
+at each shift. A peak **at** shift 0 indicates colocalization; a central
+**trough** with side peaks indicates mutual exclusion (the channels are
+anti-located by roughly the shift of the side peaks). The summary
+reports the peak Pearson r and the shift it occurs at.
+
+### Li ICA
+
+The scatter behind the [Li ICQ](#li-icq) scalar: for each channel, the
+per-pixel covariance product `(A−Ā)(B−B̄)` is plotted against that
+channel's intensity. Dependent staining produces a characteristic
+rightward (positive-product) skew that grows with intensity; random or
+segregated staining stays centred on zero. The ICQ value is shown
+alongside.
+
 ## Choosing a metric
 
 | Question you're asking | Use |

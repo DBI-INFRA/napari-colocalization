@@ -1,15 +1,28 @@
-"""Embedded matplotlib scatter plot for the results dock.
+"""Embedded matplotlib canvases for the results dock.
 
-The canvas plots channel-A intensity against channel-B intensity
-for the currently selected (region, channel-pair) and overlays
-horizontal/vertical lines at the Manders thresholds when
-available. Uses hexbin to stay responsive on large images.
+``ScatterCanvas`` plots channel-A intensity against channel-B
+intensity for the currently selected (region, channel-pair) and
+overlays the Manders thresholds and Costes regression line. Uses
+hexbin to stay responsive on large images. ``DiagnosticCanvas``
+backs the Diagnostics tab, rendering the Costes randomization null
+distribution, the Van Steensel CCF curve, or the Li ICA scatters.
 """
 
 import numpy as np
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from qtpy.QtWidgets import QSizePolicy
+
+
+def _style_axes_dark(ax):
+    """White-on-black styling matching napari's dark theme."""
+    ax.set_facecolor('black')
+    for spine in ax.spines.values():
+        spine.set_color('white')
+    ax.title.set_color('white')
+    ax.xaxis.label.set_color('white')
+    ax.yaxis.label.set_color('white')
+    ax.tick_params(colors='white')
 
 
 class ScatterCanvas(FigureCanvasQTAgg):
@@ -214,6 +227,132 @@ class ScatterCanvas(FigureCanvasQTAgg):
                 path,
                 dpi=dpi,
                 facecolor=self._figure.get_facecolor(),
+            )
+        finally:
+            self._figure.set_size_inches(orig_size, forward=False)
+
+
+class DiagnosticCanvas(FigureCanvasQTAgg):
+    """Canvas for the Diagnostics tab.
+
+    One canvas reused for every diagnostic; each ``plot_*`` method
+    clears the figure and lays out the subplot(s) that diagnostic
+    needs (a histogram, a line, or two scatter panels).
+    """
+
+    # Inferno trimmed at the dark end so faint cells don't vanish
+    # against the black facecolor — shared with ScatterCanvas's look.
+    def _hexbin_cmap(self):
+        from matplotlib import cm
+        from matplotlib.colors import ListedColormap
+
+        return ListedColormap(cm.inferno(np.linspace(0.2, 1.0, 256)))
+
+    def __init__(self):
+        self._figure = Figure(
+            figsize=(4, 3), constrained_layout=True, facecolor='black'
+        )
+        super().__init__(self._figure)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.setMinimumHeight(220)
+        self.clear()
+
+    def clear(self, message='Run a diagnostic to populate'):
+        self._figure.clear()
+        self._figure.patch.set_facecolor('black')
+        ax = self._figure.add_subplot(111)
+        _style_axes_dark(ax)
+        ax.text(
+            0.5,
+            0.5,
+            message,
+            ha='center',
+            va='center',
+            transform=ax.transAxes,
+            color='white',
+            alpha=0.7,
+        )
+        self.draw_idle()
+
+    def plot_ccf(self, shifts, ccf, title=''):
+        """Van Steensel CCF: Pearson r as a function of pixel shift."""
+        self._figure.clear()
+        self._figure.patch.set_facecolor('black')
+        ax = self._figure.add_subplot(111)
+        _style_axes_dark(ax)
+        ax.plot(shifts, ccf, color='cyan')
+        ax.axvline(0, color='white', linewidth=0.8, alpha=0.5)
+        if np.any(np.isfinite(ccf)):
+            peak = int(np.nanargmax(ccf))
+            ax.plot(shifts[peak], ccf[peak], 'o', color='red')
+        ax.set_xlabel('Shift (px)')
+        ax.set_ylabel('Pearson r')
+        ax.set_title(title, color='white')
+        self.draw_idle()
+
+    def plot_costes(self, observed, null, p_value, z_score, title=''):
+        """Costes randomization: null PCC histogram + observed line."""
+        self._figure.clear()
+        self._figure.patch.set_facecolor('black')
+        ax = self._figure.add_subplot(111)
+        _style_axes_dark(ax)
+        finite = np.asarray(null)[np.isfinite(null)]
+        if finite.size:
+            ax.hist(finite, bins=40, color='gray', alpha=0.8)
+        if np.isfinite(observed):
+            ax.axvline(observed, color='red', linewidth=1.5, label='observed')
+        ax.set_xlabel('Pearson r (scrambled)')
+        ax.set_ylabel('count')
+        ax.set_title(title, color='white')
+        annotation = f'observed = {observed:.4g}'
+        if np.isfinite(p_value):
+            annotation += f'\np = {p_value:.4g}'
+        if np.isfinite(z_score):
+            annotation += f'\nz = {z_score:.3g}'
+        ax.text(
+            0.02,
+            0.98,
+            annotation,
+            transform=ax.transAxes,
+            va='top',
+            ha='left',
+            fontsize=8,
+            color='white',
+            bbox={'facecolor': 'white', 'alpha': 0.15, 'edgecolor': 'none'},
+        )
+        self.draw_idle()
+
+    def plot_ica(self, a, b, products, names=('A', 'B'), title=''):
+        """Li ICA: two panels of intensity vs covariance product."""
+        self._figure.clear()
+        self._figure.patch.set_facecolor('black')
+        cmap = self._hexbin_cmap()
+        for i, (channel, name) in enumerate(((a, names[0]), (b, names[1]))):
+            ax = self._figure.add_subplot(1, 2, i + 1)
+            _style_axes_dark(ax)
+            if np.asarray(channel).size:
+                ax.hexbin(
+                    products,
+                    channel,
+                    gridsize=60,
+                    bins='log',
+                    cmap=cmap,
+                    mincnt=1,
+                    linewidths=0,
+                )
+            ax.axvline(0, color='white', linewidth=0.8, alpha=0.5)
+            ax.set_xlabel('(A-Ā)(B-B̄)')
+            ax.set_ylabel(f'{name} intensity')
+        self._figure.suptitle(title, color='white')
+        self.draw_idle()
+
+    def save_figure(self, path, width_in, height_in, dpi):
+        """Write the current figure to ``path`` at the given size."""
+        orig_size = self._figure.get_size_inches()
+        self._figure.set_size_inches(width_in, height_in, forward=False)
+        try:
+            self._figure.savefig(
+                path, dpi=dpi, facecolor=self._figure.get_facecolor()
             )
         finally:
             self._figure.set_size_inches(orig_size, forward=False)

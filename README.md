@@ -41,6 +41,10 @@ results table plus an intensity-vs-intensity density plot.
   or **Manual**.
 - **Interactive results**: in-widget table, density plot of the selected row,
   multi-row selection that highlights all matching shapes/labels in the viewer.
+- **Diagnostics tab**: single-pair diagnostic plots — Costes randomization
+  significance test (observed PCC vs a scrambled null, with p-value/z-score),
+  Van Steensel cross-correlation function (CCF), and Li intensity correlation
+  analysis (ICA).
 - **CSV export** of the current table, plus **figure export** of the
   density plot (PNG / PDF / SVG / TIFF, configurable size and DPI).
 

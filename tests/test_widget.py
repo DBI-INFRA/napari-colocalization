@@ -303,6 +303,129 @@ def test_results_hidden_until_run(make_napari_viewer, qtbot, rng):
     assert widget._export_button.isHidden() is False
 
 
+def _select_combo_data(combo, data):
+    combo.setCurrentIndex(combo.findData(data))
+
+
+def test_diag_param_groups_follow_method(make_napari_viewer):
+    viewer = make_napari_viewer()
+    widget = ColocalizationWidget(viewer)
+    # Costes is the default selection.
+    assert widget._diag_costes_group.isHidden() is False
+    assert widget._diag_ccf_group.isHidden() is True
+    _select_combo_data(widget._diag_method_combo, 'ccf')
+    assert widget._diag_ccf_group.isHidden() is False
+    assert widget._diag_costes_group.isHidden() is True
+    _select_combo_data(widget._diag_method_combo, 'ica')
+    assert widget._diag_ica_group.isHidden() is False
+
+
+def test_diag_combos_list_images(make_napari_viewer, rng):
+    viewer = make_napari_viewer()
+    a = rng.random((16, 16)).astype(np.float32)
+    layer_a = viewer.add_image(a, name='a')
+    layer_b = viewer.add_image(a.copy(), name='b')
+    widget = ColocalizationWidget(viewer)
+    # diagnostics pair defaults to two distinct image layers
+    assert widget._diag_image_a_combo.value is layer_a
+    assert widget._diag_image_b_combo.value is layer_b
+
+
+def test_diag_ccf_runs_and_summarises(make_napari_viewer, qtbot, rng):
+    viewer = make_napari_viewer()
+    a = rng.random((32, 32)).astype(np.float32)
+    layer_a = viewer.add_image(a, name='a')
+    layer_b = viewer.add_image(a.copy(), name='b')
+    widget = ColocalizationWidget(viewer)
+    widget._diag_image_a_combo.value = layer_a
+    widget._diag_image_b_combo.value = layer_b
+    _select_combo_data(widget._diag_method_combo, 'ccf')
+    widget._ccf_max_shift.setValue(5)
+
+    widget._on_diag_run_clicked()
+    qtbot.waitUntil(
+        lambda: widget._diag_summary_label.text() != '', timeout=10000
+    )
+    assert 'Peak Pearson r' in widget._diag_summary_label.text()
+
+
+def test_diag_costes_runs_and_summarises(make_napari_viewer, qtbot, rng):
+    viewer = make_napari_viewer()
+    a = rng.random((32, 32)).astype(np.float32)
+    layer_a = viewer.add_image(a, name='a')
+    layer_b = viewer.add_image(a.copy(), name='b')
+    widget = ColocalizationWidget(viewer)
+    widget._diag_image_a_combo.value = layer_a
+    widget._diag_image_b_combo.value = layer_b
+    _select_combo_data(widget._diag_method_combo, 'costes')
+    widget._costes_niter.setValue(20)
+    widget._costes_block.setValue(8)
+
+    widget._on_diag_run_clicked()
+    qtbot.waitUntil(
+        lambda: widget._diag_summary_label.text() != '', timeout=15000
+    )
+    assert 'Observed PCC' in widget._diag_summary_label.text()
+
+
+def test_diag_ica_runs_and_summarises(make_napari_viewer, qtbot, rng):
+    viewer = make_napari_viewer()
+    a = rng.random((24, 24)).astype(np.float32)
+    layer_a = viewer.add_image(a, name='a')
+    layer_b = viewer.add_image(a.copy(), name='b')
+    widget = ColocalizationWidget(viewer)
+    widget._diag_image_a_combo.value = layer_a
+    widget._diag_image_b_combo.value = layer_b
+    _select_combo_data(widget._diag_method_combo, 'ica')
+
+    widget._on_diag_run_clicked()
+    qtbot.waitUntil(
+        lambda: widget._diag_summary_label.text() != '', timeout=10000
+    )
+    assert 'ICQ' in widget._diag_summary_label.text()
+
+
+def test_diag_costes_accepts_3d(make_napari_viewer, rng):
+    viewer = make_napari_viewer()
+    a = rng.random((8, 16, 16)).astype(np.float32)  # 3D
+    layer_a = viewer.add_image(a, name='a')
+    layer_b = viewer.add_image(a.copy(), name='b')
+    widget = ColocalizationWidget(viewer)
+    widget._diag_image_a_combo.value = layer_a
+    widget._diag_image_b_combo.value = layer_b
+    _select_combo_data(widget._diag_method_combo, 'costes')
+    widget._costes_block.setValue(8)
+    # Costes now supports 3D, so it is accepted (worker would run).
+    assert widget._gather_diag_params() is not None
+
+
+def test_diag_costes_block_too_large_rejected(make_napari_viewer, rng):
+    viewer = make_napari_viewer()
+    a = rng.random((16, 16)).astype(np.float32)
+    layer_a = viewer.add_image(a, name='a')
+    layer_b = viewer.add_image(a.copy(), name='b')
+    widget = ColocalizationWidget(viewer)
+    widget._diag_image_a_combo.value = layer_a
+    widget._diag_image_b_combo.value = layer_b
+    _select_combo_data(widget._diag_method_combo, 'costes')
+    widget._costes_block.setValue(32)  # larger than the 16 px image
+    # Anticipated precondition: rejected up front, no worker dispatched.
+    assert widget._gather_diag_params() is None
+
+
+def test_diag_ccf_accepts_3d(make_napari_viewer, rng):
+    viewer = make_napari_viewer()
+    a = rng.random((4, 16, 16)).astype(np.float32)  # 3D
+    layer_a = viewer.add_image(a, name='a')
+    layer_b = viewer.add_image(a.copy(), name='b')
+    widget = ColocalizationWidget(viewer)
+    widget._diag_image_a_combo.value = layer_a
+    widget._diag_image_b_combo.value = layer_b
+    _select_combo_data(widget._diag_method_combo, 'ccf')
+    # CCF works in 3D (shift along the last axis), so it is not blocked.
+    assert widget._gather_diag_params() is not None
+
+
 def _build_two_shape_widget(make_napari_viewer, qtbot, rng):
     viewer = make_napari_viewer()
     a = rng.random((20, 20)).astype(np.float32)

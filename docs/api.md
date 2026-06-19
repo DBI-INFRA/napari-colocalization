@@ -19,6 +19,7 @@ napari_colocalization
 │                   costes_threshold, costes_regression
 ├── _masking.py     shapes_to_label_mask, labels_to_label_mask, iter_regions
 ├── _analysis.py    analyse_pairwise, analyse_all_to_all, COLUMNS
+├── _diagnostics.py costes_randomization, van_steensel_ccf, li_ica
 ├── _sample_data.py make_sample_data, make_sample_data_3d,
 │                   make_sample_data_cbs006rbm
 └── _widget.py      ColocalizationWidget (Qt-only)
@@ -71,6 +72,21 @@ export, and the row dicts:
       members:
         - analyse_pairwise
         - analyse_all_to_all
+      show_root_heading: false
+      heading_level: 3
+
+## Diagnostics — `napari_colocalization._diagnostics`
+
+Curve/distribution producers behind the Diagnostics tab. Unlike the
+metrics, a degenerate whole input raises `ValueError` rather than
+returning `NaN`.
+
+::: napari_colocalization._diagnostics
+    options:
+      members:
+        - costes_randomization
+        - van_steensel_ccf
+        - li_ica
       show_root_heading: false
       heading_level: 3
 
