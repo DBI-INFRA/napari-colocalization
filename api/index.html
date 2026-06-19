@@ -808,6 +808,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#napari_colocalization._sample_data.make_sample_data_coloc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        make_sample_data_coloc
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1285,6 +1296,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#napari_colocalization._sample_data.make_sample_data_coloc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        make_sample_data_coloc
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1353,7 +1375,7 @@ time.</p>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>├── _objects.py     label_objects, object_table, object_centroids,
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│                   nearest_neighbour_vectors
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>├── _sample_data.py make_sample_data, make_sample_data_3d,
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│                   make_sample_data_cbs006rbm
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│                   make_sample_data_cbs006rbm, make_sample_data_coloc
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>└── _widget.py      ColocalizationWidget (Qt-only)
 </code></pre></div>
 <p>The leading underscore is a convention from the napari plugin template;
@@ -2816,12 +2838,13 @@ when <code>label_mask</code> is <code>None</code>.</p>
 </div><h2 id="analysis-napari_colocalization_analysis">Analysis - <code>napari_colocalization._analysis</code><a class="headerlink" href="#analysis-napari_colocalization_analysis" title="Permanent link">&para;</a></h2>
 <p><code>COLUMNS</code> is the canonical column order shared by the table, the CSV
 export, and the row dicts:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">(</span><span class="s1">&#39;region&#39;</span><span class="p">,</span> <span class="s1">&#39;channel_a&#39;</span><span class="p">,</span> <span class="s1">&#39;channel_b&#39;</span><span class="p">,</span> <span class="s1">&#39;n_pixels&#39;</span><span class="p">,</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">(</span><span class="s1">&#39;region&#39;</span><span class="p">,</span> <span class="s1">&#39;slice&#39;</span><span class="p">,</span> <span class="s1">&#39;channel_a&#39;</span><span class="p">,</span> <span class="s1">&#39;channel_b&#39;</span><span class="p">,</span> <span class="s1">&#39;n_pixels&#39;</span><span class="p">,</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a> <span class="s1">&#39;pcc&#39;</span><span class="p">,</span> <span class="s1">&#39;pcc_pvalue&#39;</span><span class="p">,</span> <span class="s1">&#39;srcc&#39;</span><span class="p">,</span> <span class="s1">&#39;srcc_pvalue&#39;</span><span class="p">,</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a> <span class="s1">&#39;icq&#39;</span><span class="p">,</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a> <span class="s1">&#39;overlap&#39;</span><span class="p">,</span> <span class="s1">&#39;k1&#39;</span><span class="p">,</span> <span class="s1">&#39;k2&#39;</span><span class="p">,</span>
 <a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a> <span class="s1">&#39;m1&#39;</span><span class="p">,</span> <span class="s1">&#39;m2&#39;</span><span class="p">,</span> <span class="s1">&#39;threshold_a&#39;</span><span class="p">,</span> <span class="s1">&#39;threshold_b&#39;</span><span class="p">)</span>
 </code></pre></div>
+<p>(<code>slice</code> is the plane index for per-Z-slice runs, and <code>NaN</code> otherwise.)</p>
 
 
 <div class="doc doc-object doc-module">
@@ -4584,6 +4607,30 @@ is the image used by the ROI colocalization tutorial.</p>
 <p>Red and blue channels with ~50 % colocalization.
 Downloaded once and cached under ~/.cache/napari-colocalization/.</p>
 <p>Source: https://colocalization-benchmark.com/</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="napari_colocalization._sample_data.make_sample_data_coloc" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">make_sample_data_coloc</span>
+
+
+<a href="#napari_colocalization._sample_data.make_sample_data_coloc" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">make_sample_data_coloc</span><span class="p">()</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>2D-stack sample: red and green confocal dyes that colocalise.</p>
+<p>The <code>colocsample1bRGB_BG.tif</code> confocal Z-stack (33 x 152 x 172),
+downloaded once from the Fiji sample server and cached locally, split
+into its red and green channels. The two dyes strongly colocalise
+(whole-stack PCC ~ 0.75).</p>
 
 
     </div>

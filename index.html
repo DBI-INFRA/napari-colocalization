@@ -561,19 +561,23 @@ leaving napari.</p>
 </figure>
 <h2 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Four correlation metrics</strong>: Pearson (PCC), Spearman rank (SRCC), Li's
-  Intensity Correlation Quotient (ICQ), and Manders' coefficients M1/M2 (MCC).</li>
-<li><strong>Pairwise or all-to-all</strong> mode: analyse two grayscale layers, or every
-  channel pair within a single multi-channel layer.</li>
-<li><strong>2D and 3D</strong> support natively (no time-series for now).</li>
+<li><strong>Five colocalization metrics</strong>: Pearson (PCC), Spearman rank (SRCC), Li
+  Intensity Correlation Quotient (ICQ), Manders' overlap coefficient with
+  split coefficients (r, k1, k2), and Manders' coefficients M1/M2 (MCC).</li>
+<li><strong>Pairwise or all-to-all</strong> mode, <strong>2D and 3D</strong>, with optional
+  <strong>per-Z-slice</strong> analysis (one row per plane).</li>
 <li><strong>Region-restricted analysis</strong> via a Shapes or Labels layer - each non-zero
   region is reported on its own row.</li>
-<li><strong>Manders thresholds</strong>: choose <strong>Costes auto</strong> (iterative regression-based)
-  or <strong>Manual</strong>.</li>
-<li><strong>Interactive results</strong>: in-widget table, density plot of the selected row,
-  multi-row selection that highlights all matching shapes/labels in the viewer.</li>
-<li><strong>CSV export</strong> of the current table, plus <strong>figure export</strong> of the
-  density plot (PNG / PDF / SVG / TIFF, configurable size and DPI).</li>
+<li><strong>Manders thresholds</strong>: <strong>Costes auto</strong> (orthogonal-regression bisection,
+  matched to Fiji Coloc 2), a per-channel <strong>auto-threshold</strong> (Otsu, Li,
+  Triangle, Yen, Mean, IsoData), or <strong>Manual</strong>.</li>
+<li><strong>Diagnostics tab</strong>: Costes randomization significance test, Van Steensel
+  cross-correlation function, and Li intensity correlation analysis.</li>
+<li><strong>Object-based tab</strong>: centre-particle coincidence and object overlap, with
+  centroid Points and nearest-neighbour Vectors drawn into the viewer.</li>
+<li><strong>Interactive results</strong>: in-widget table, cytofluorogram of the selected
+  row (with optional fixed axes), and viewer highlighting / output layers.</li>
+<li><strong>CSV export</strong> of the current table, plus <strong>figure export</strong> of the plots.</li>
 </ul>
 <h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>napari-colocalization
@@ -584,12 +588,13 @@ leaving napari.</p>
 <h2 id="where-next">Where next?<a class="headerlink" href="#where-next" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong><a href="usage/">Usage guide</a></strong> - every control in the widget, in order.</li>
-<li><strong><a href="metrics/">Metrics</a></strong> - what PCC, SRCC, ICQ and MCC mean, when to
-  use which, and how the Costes auto-threshold works.</li>
-<li><strong><a href="api/">Python API</a></strong> - calling the pure-compute layer
-  (<code>pearson</code>, <code>spearman</code>, <code>manders</code>, <code>costes_threshold</code>,
-  <code>analyse_pairwise</code>, <code>analyse_all_to_all</code>) from scripts or notebooks.
-  Reference is auto-generated from the source docstrings.</li>
+<li><strong><a href="metrics/">Metrics</a></strong> - what the metrics mean, when to use which, how
+  the Costes auto-threshold works, and the diagnostics.</li>
+<li><strong><a href="api/">Python API</a></strong> - calling the pure-compute layer (<code>pearson</code>,
+  <code>spearman</code>, <code>li_icq</code>, <code>manders</code>, <code>overlap</code>, <code>costes_threshold</code>,
+  <code>analyse_pairwise</code>/<code>analyse_all_to_all</code>, plus the <code>_diagnostics</code> and
+  <code>_objects</code> functions) from scripts or notebooks. Reference is
+  auto-generated from the source docstrings.</li>
 </ul>
 <h2 id="source-code">Source code<a class="headerlink" href="#source-code" title="Permanent link">&para;</a></h2>
 <p>The plugin lives at
