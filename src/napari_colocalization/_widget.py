@@ -964,6 +964,7 @@ class ColocalizationWidget(QWidget):
         inner = QWidget()
         layout = QVBoxLayout(inner)
         layout.addWidget(self._build_diag_channels_group())
+        layout.addWidget(self._build_diag_region_group())
         layout.addWidget(self._build_diag_method_group())
         layout.addWidget(self._build_diag_params())
         layout.addWidget(self._build_diag_run_row())
@@ -987,14 +988,18 @@ class ColocalizationWidget(QWidget):
         self._diag_image_b_combo = create_widget(
             label='Image B', annotation='napari.layers.Image'
         )
-        self._diag_region_combo = QComboBox()
-        self._diag_region_combo.addItem('None', None)
         return self._make_group(
-            'Channels & region',
+            'Channels (pairwise)',
             self._diag_image_a_combo.native,
             self._diag_image_b_combo.native,
-            self._diag_region_combo,
         )
+
+    def _build_diag_region_group(self):
+        # Mirror the Intensity tab's region selector exactly: its own
+        # "Region (optional)" group rather than an unlabelled combo.
+        self._diag_region_combo = QComboBox()
+        self._diag_region_combo.addItem('None', None)
+        return self._make_group('Region (optional)', self._diag_region_combo)
 
     def _build_diag_method_group(self):
         self._diag_method_combo = QComboBox()
