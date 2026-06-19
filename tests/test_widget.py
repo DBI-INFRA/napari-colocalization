@@ -167,7 +167,7 @@ def test_run_pairwise_populates_table(make_napari_viewer, qtbot, rng):
     widget._image_b_combo.value = layer_b
     widget._cb_pcc.setChecked(True)
     widget._cb_mcc.setChecked(True)
-    widget._th_manual.setChecked(True)
+    _select_combo_data(widget._threshold_combo, 'manual')
     widget._th_a_spin.setValue(0.0)
     widget._th_b_spin.setValue(0.0)
 
@@ -182,6 +182,41 @@ def test_run_pairwise_populates_table(make_napari_viewer, qtbot, rng):
     pcc_col = headers.index('pcc')
     pcc_value = float(widget._table.item(0, pcc_col).text())
     assert pcc_value == pytest.approx(1.0)
+
+
+def test_run_with_otsu_threshold(make_napari_viewer, qtbot, rng):
+    viewer = make_napari_viewer()
+    a = np.zeros((32, 32), dtype=np.float32)
+    a[8:24, 8:24] = 1.0
+    layer_a = viewer.add_image(a, name='a')
+    layer_b = viewer.add_image(a.copy(), name='b')
+    widget = ColocalizationWidget(viewer)
+    widget._image_a_combo.value = layer_a
+    widget._image_b_combo.value = layer_b
+    widget._cb_mcc.setChecked(True)
+    _select_combo_data(widget._threshold_combo, 'otsu')
+    # an auto-threshold method hides the manual T_a/T_b row
+    assert widget._manual_row.isHidden() is True
+
+    widget._on_run_clicked()
+    qtbot.waitUntil(lambda: widget._table.rowCount() > 0, timeout=10000)
+    headers = [
+        widget._table.horizontalHeaderItem(c).text()
+        for c in range(widget._table.columnCount())
+    ]
+    m1 = float(widget._table.item(0, headers.index('m1')).text())
+    assert m1 == pytest.approx(1.0)
+
+
+def test_manual_row_visibility_follows_method(make_napari_viewer):
+    viewer = make_napari_viewer()
+    widget = ColocalizationWidget(viewer)
+    # default 'costes' -> manual row hidden
+    assert widget._manual_row.isHidden() is True
+    _select_combo_data(widget._threshold_combo, 'manual')
+    assert widget._manual_row.isHidden() is False
+    _select_combo_data(widget._threshold_combo, 'li')
+    assert widget._manual_row.isHidden() is True
 
 
 def test_run_all_to_all_populates_table(make_napari_viewer, qtbot, rng):

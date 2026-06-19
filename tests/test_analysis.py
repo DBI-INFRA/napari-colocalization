@@ -180,6 +180,30 @@ def test_pairwise_unknown_threshold_method_raises():
         analyse_pairwise(a, a, metrics=('mcc',), threshold_method='bogus')
 
 
+def test_pairwise_otsu_auto_threshold():
+    a = np.zeros((20, 20))
+    a[5:15, 5:15] = 1.0
+    b = a.copy()
+    rows = analyse_pairwise(a, b, metrics=('mcc',), threshold_method='otsu')
+    row = rows[0]
+    # Otsu separates the two-level image cleanly, so the bright square
+    # fully colocalizes with itself.
+    assert row['m1'] == pytest.approx(1.0)
+    assert row['m2'] == pytest.approx(1.0)
+    # the per-channel thresholds are finite and lie inside the range
+    assert 0.0 < row['threshold_a'] < 1.0
+    assert 0.0 < row['threshold_b'] < 1.0
+
+
+def test_pairwise_otsu_constant_channel_is_nan():
+    a = np.ones((10, 10))  # constant -> auto-threshold undefined
+    b = np.zeros((10, 10))
+    b[2:8, 2:8] = 1.0
+    rows = analyse_pairwise(a, b, metrics=('mcc',), threshold_method='otsu')
+    assert np.isnan(rows[0]['m1'])
+    assert np.isnan(rows[0]['m2'])
+
+
 def test_pairwise_3d_works():
     a = np.zeros((4, 8, 8))
     a[1:3, 2:6, 2:6] = 1.0

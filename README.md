@@ -37,8 +37,9 @@ results table plus an intensity-vs-intensity density plot.
 - **2D and 3D** support natively (no time-series for now).
 - **Region-restricted analysis** via a Shapes or Labels layer — each non-zero
   region is reported on its own row.
-- **Manders thresholds**: choose **Costes auto** (iterative regression-based)
-  or **Manual**.
+- **Manders thresholds**: choose **Costes auto** (orthogonal-regression
+  bisection, matched to Fiji Coloc 2), a per-channel **auto-threshold**
+  (Otsu, Li, Triangle, Yen, Mean, IsoData → thresholded M1/M2), or **Manual**.
 - **Interactive results**: in-widget table, density plot of the selected row,
   multi-row selection that highlights all matching shapes/labels in the viewer.
 - **Diagnostics tab**: single-pair diagnostic plots — Costes randomization

@@ -15,6 +15,7 @@ the caller can summarise how many regions were skipped and why.
 """
 
 import numpy as np
+from skimage import filters
 
 from ._masking import iter_regions
 from ._metrics import (
@@ -80,6 +81,34 @@ def _empty_row(region, channel_a, channel_b, n_pixels):
     }
 
 
+# Per-channel automatic thresholds (à la JACoP B / ImageJ Auto
+# Threshold): each channel is thresholded independently from its own
+# intensity histogram, giving the thresholded Manders tM1/tM2.
+_AUTO_THRESHOLDS = {
+    'otsu': filters.threshold_otsu,
+    'li': filters.threshold_li,
+    'triangle': filters.threshold_triangle,
+    'yen': filters.threshold_yen,
+    'mean': filters.threshold_mean,
+    'isodata': filters.threshold_isodata,
+}
+
+
+def _auto_threshold(func, flat):
+    """Apply a skimage threshold to one channel's masked pixels.
+
+    Returns ``nan`` for a constant/empty channel, where the
+    threshold is undefined (so :func:`._metrics.manders` reports
+    NaN rather than a spurious 0).
+    """
+    if flat.size == 0 or np.ptp(flat) == 0:
+        return float('nan')
+    try:
+        return float(func(flat))
+    except (ValueError, RuntimeError):
+        return float('nan')
+
+
 def _resolve_thresholds(
     a, b, mask, threshold_method, threshold_a, threshold_b
 ):
@@ -92,6 +121,10 @@ def _resolve_thresholds(
         return float(threshold_a), float(threshold_b)
     if threshold_method == 'costes':
         return costes_threshold(a, b, mask=mask)
+    if threshold_method in _AUTO_THRESHOLDS:
+        func = _AUTO_THRESHOLDS[threshold_method]
+        a_flat, b_flat = _flatten_with_mask(a, b, mask)
+        return _auto_threshold(func, a_flat), _auto_threshold(func, b_flat)
     raise ValueError(f"unknown threshold_method '{threshold_method}'")
 
 
@@ -161,10 +194,14 @@ def analyse_pairwise(
         Which metrics to compute. Defaults to all. ``'overlap'``
         adds the threshold-free overlap coefficient and the split
         coefficients k1/k2.
-    threshold_method : {'costes', 'manual'}, default 'costes'
+    threshold_method : str, default 'costes'
         Only used when ``'mcc'`` is in ``metrics``. ``'costes'``
         runs :func:`._metrics.costes_threshold` per region;
-        ``'manual'`` uses the values supplied below.
+        ``'manual'`` uses the values supplied below; or a per-channel
+        auto-threshold name — one of ``'otsu'``, ``'li'``,
+        ``'triangle'``, ``'yen'``, ``'mean'``, ``'isodata'`` (the
+        ``skimage.filters.threshold_*`` family, thresholding each
+        channel independently → Manders tM1/tM2).
     threshold_a, threshold_b : float, optional
         Required when ``threshold_method='manual'``.
     channel_a, channel_b : str, default 'A' and 'B'
@@ -283,8 +320,9 @@ def analyse_all_to_all(
         ``channel_axis`` removed.
     metrics : sequence of {'pcc', 'srcc', 'icq', 'overlap', 'mcc'}, optional
         Forwarded to :func:`analyse_pairwise`.
-    threshold_method : {'costes', 'manual'}, default 'costes'
-        Forwarded to :func:`analyse_pairwise`. Manual thresholds
+    threshold_method : str, default 'costes'
+        Forwarded to :func:`analyse_pairwise` ('costes', 'manual',
+        or an auto-threshold name like 'otsu'). Manual thresholds
         apply identically to every channel pair.
     threshold_a, threshold_b : float, optional
         Forwarded to :func:`analyse_pairwise`.

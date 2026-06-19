@@ -218,6 +218,10 @@ def manders(a, b, threshold_a, threshold_b, mask=None):
     """
     a = np.asarray(a)
     b = np.asarray(b)
+    if not (np.isfinite(threshold_a) and np.isfinite(threshold_b)):
+        # An auto-threshold can be NaN for a constant/empty channel;
+        # M1/M2 are then undefined rather than spuriously 0.
+        return float('nan'), float('nan')
     a_above = a > threshold_a
     b_above = b > threshold_b
     a_flat, b_flat = _flatten_with_mask(a, b, mask)

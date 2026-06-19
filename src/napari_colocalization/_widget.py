@@ -19,7 +19,6 @@ from napari.qt.threading import thread_worker
 from napari.utils.notifications import show_info, show_warning
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
-    QButtonGroup,
     QCheckBox,
     QComboBox,
     QDialog,
@@ -147,6 +146,7 @@ class ColocalizationWidget(QWidget):
 
         self._on_mode_changed()
         self._on_metrics_changed()
+        self._on_threshold_changed()
         self._on_diag_method_changed()
         self._connect_layer_events()
 
@@ -294,28 +294,42 @@ class ColocalizationWidget(QWidget):
         )
 
     def _build_threshold_group(self):
-        self._th_costes = QRadioButton('Costes (auto)')
-        self._th_manual = QRadioButton('Manual')
-        self._th_costes.setChecked(True)
-        button_group = QButtonGroup(self)
-        button_group.addButton(self._th_costes)
-        button_group.addButton(self._th_manual)
-        self._th_costes.toggled.connect(self._on_threshold_changed)
+        self._threshold_combo = QComboBox()
+        for label, key in (
+            ('Costes (auto)', 'costes'),
+            ('Otsu', 'otsu'),
+            ('Li', 'li'),
+            ('Triangle', 'triangle'),
+            ('Yen', 'yen'),
+            ('Mean', 'mean'),
+            ('IsoData', 'isodata'),
+            ('Manual', 'manual'),
+        ):
+            self._threshold_combo.addItem(label, key)
+        self._threshold_combo.currentIndexChanged.connect(
+            self._on_threshold_changed
+        )
         self._th_a_spin = QDoubleSpinBox()
         self._th_b_spin = QDoubleSpinBox()
         for spin in (self._th_a_spin, self._th_b_spin):
             spin.setDecimals(6)
             spin.setRange(-1e9, 1e9)
             spin.setSingleStep(0.01)
+        # Manual T_a/T_b row, shown only when the method is 'manual'.
+        self._manual_row = QWidget()
+        manual_layout = QHBoxLayout(self._manual_row)
+        manual_layout.setContentsMargins(0, 0, 0, 0)
+        for widget in (
+            QLabel('T_a'),
+            self._th_a_spin,
+            QLabel('T_b'),
+            self._th_b_spin,
+        ):
+            manual_layout.addWidget(widget)
         self._threshold_group = self._make_group(
             'Manders threshold',
-            self._hbox(self._th_costes, self._th_manual),
-            self._hbox(
-                QLabel('T_a'),
-                self._th_a_spin,
-                QLabel('T_b'),
-                self._th_b_spin,
-            ),
+            self._hbox(QLabel('Method'), self._threshold_combo),
+            self._manual_row,
         )
         return self._threshold_group
 
@@ -384,9 +398,9 @@ class ColocalizationWidget(QWidget):
         self._threshold_group.setVisible(self._cb_mcc.isChecked())
 
     def _on_threshold_changed(self):
-        manual = self._th_manual.isChecked()
-        self._th_a_spin.setEnabled(manual)
-        self._th_b_spin.setEnabled(manual)
+        self._manual_row.setVisible(
+            self._threshold_combo.currentData() == 'manual'
+        )
 
     def _on_stack_changed(self, layer):
         if layer is None:
@@ -540,11 +554,7 @@ class ColocalizationWidget(QWidget):
             return None
         common = {
             'metrics': metrics,
-            'threshold_method': (
-                'manual'
-                if (self._th_manual.isChecked() and 'mcc' in metrics)
-                else 'costes'
-            ),
+            'threshold_method': self._threshold_combo.currentData(),
             'threshold_a': float(self._th_a_spin.value()),
             'threshold_b': float(self._th_b_spin.value()),
             'region_source': self._region_source_for(

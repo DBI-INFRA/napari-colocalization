@@ -202,6 +202,19 @@ auto-threshold was found along.
 > The Costes randomisation significance test is available on the
 > **Diagnostics** tab (see below).
 
+### Other auto-thresholds (Otsu, Li, …)
+
+Besides Costes, the threshold method can be any of the standard
+histogram thresholds — **Otsu, Li, Triangle, Yen, Mean, IsoData** (the
+`skimage.filters.threshold_*` family, as ImageJ's Auto Threshold offers
+in JACoP B). Each channel is thresholded **independently** from its own
+intensity histogram, giving the *thresholded* Manders coefficients
+(tM1/tM2). These are a good choice when the two channels have clearly
+bimodal (signal vs background) histograms; Costes is preferable when the
+relationship between the channels is the thing you want the threshold to
+respect. A channel with no contrast (constant within the region) has no
+defined auto-threshold, so its M1/M2 are reported as blank/`NaN`.
+
 ## Diagnostics
 
 The metrics above each collapse colocalization to a number per region.
