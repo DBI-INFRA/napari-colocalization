@@ -575,6 +575,62 @@ def test_diag_ccf_accepts_3d(make_napari_viewer, rng):
     assert widget._gather_diag_params() is not None
 
 
+def test_obj_source_toggle_shows_inputs(make_napari_viewer):
+    viewer = make_napari_viewer()
+    widget = ColocalizationWidget(viewer)
+    # default 'threshold' -> threshold group shown, labels group hidden
+    assert widget._obj_threshold_group.isHidden() is False
+    assert widget._obj_labels_group.isHidden() is True
+    _select_combo_data(widget._obj_source_combo, 'labels')
+    assert widget._obj_threshold_group.isHidden() is True
+    assert widget._obj_labels_group.isHidden() is False
+
+
+def test_object_run_threshold_populates_and_overlays(
+    make_napari_viewer, qtbot, rng
+):
+    from napari.layers import Points, Vectors
+
+    viewer = make_napari_viewer()
+    img = np.zeros((20, 20), dtype=np.float32)
+    img[2:6, 2:6] = 1.0
+    img[12:16, 12:16] = 1.0
+    layer_a = viewer.add_image(img, name='a')
+    layer_b = viewer.add_image(img.copy(), name='b')
+    widget = ColocalizationWidget(viewer)
+    _select_combo_data(widget._obj_source_combo, 'threshold')
+    widget._obj_image_a_combo.value = layer_a
+    widget._obj_image_b_combo.value = layer_b
+
+    widget._on_object_run_clicked()
+    qtbot.waitUntil(lambda: widget._object_table.rowCount() > 0, timeout=10000)
+    # 2 objects per channel -> 4 rows
+    assert widget._object_table.rowCount() == 4
+    assert 'coincident' in widget._obj_summary_label.text()
+    # centroid Points and NN links Vectors were added
+    assert any(isinstance(layer, Points) for layer in viewer.layers)
+    assert any(isinstance(layer, Vectors) for layer in viewer.layers)
+
+
+def test_object_run_from_labels_layers(make_napari_viewer, qtbot, rng):
+    viewer = make_napari_viewer()
+    la = np.zeros((20, 20), dtype=np.int32)
+    la[2:6, 2:6] = 1
+    lb = la.copy()
+    layer_a = viewer.add_labels(la, name='objs_a')
+    layer_b = viewer.add_labels(lb, name='objs_b')
+    widget = ColocalizationWidget(viewer)
+    _select_combo_data(widget._obj_source_combo, 'labels')
+    widget._obj_labels_a_combo.value = layer_a
+    widget._obj_labels_b_combo.value = layer_b
+    widget._obj_points_check.setChecked(False)
+    widget._obj_links_check.setChecked(False)
+
+    widget._on_object_run_clicked()
+    qtbot.waitUntil(lambda: widget._object_table.rowCount() > 0, timeout=10000)
+    assert widget._object_table.rowCount() == 2  # 1 object per channel
+
+
 def _build_two_shape_widget(make_napari_viewer, qtbot, rng):
     viewer = make_napari_viewer()
     a = rng.random((20, 20)).astype(np.float32)

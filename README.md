@@ -49,6 +49,9 @@ results table plus an intensity-vs-intensity density plot.
   significance test (observed PCC vs a scrambled null, with p-value/z-score),
   Van Steensel cross-correlation function (CCF), and Li intensity correlation
   analysis (ICA).
+- **Object-based tab**: compare segmented objects (from Labels layers or by
+  thresholding) — centre-particle coincidence and object overlap per object,
+  with centroid Points and nearest-neighbour Vectors drawn into the viewer.
 - **Outputs to the viewer**: add the colocalized-pixel mask (selected row) as
   a Labels layer, or a block-scrambled example as an Image layer.
 - **CSV export** of the current table, plus **figure export** of the

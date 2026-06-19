@@ -20,6 +20,8 @@ napari_colocalization
 ├── _masking.py     shapes_to_label_mask, labels_to_label_mask, iter_regions
 ├── _analysis.py    analyse_pairwise, analyse_all_to_all, COLUMNS
 ├── _diagnostics.py costes_randomization, van_steensel_ccf, li_ica
+├── _objects.py     label_objects, object_table, object_centroids,
+│                   nearest_neighbour_vectors
 ├── _sample_data.py make_sample_data, make_sample_data_3d,
 │                   make_sample_data_cbs006rbm
 └── _widget.py      ColocalizationWidget (Qt-only)
@@ -87,6 +89,24 @@ returning `NaN`.
         - costes_randomization
         - van_steensel_ccf
         - li_ica
+      show_root_heading: false
+      heading_level: 3
+
+## Object-based — `napari_colocalization._objects`
+
+Object-level colocalization: from two labelled images, report
+centre-particle coincidence and object overlap per object, plus
+centroids and nearest-neighbour links for viewer overlays. Objects can
+be supplied directly or obtained with `label_objects` (threshold +
+connected components).
+
+::: napari_colocalization._objects
+    options:
+      members:
+        - label_objects
+        - object_table
+        - object_centroids
+        - nearest_neighbour_vectors
       show_root_heading: false
       heading_level: 3
 

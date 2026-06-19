@@ -55,6 +55,13 @@ from ._diagnostics import (
 )
 from ._masking import labels_to_label_mask, shapes_to_label_mask
 from ._metrics import costes_regression
+from ._objects import (
+    OBJECT_COLUMNS,
+    label_objects,
+    nearest_neighbour_vectors,
+    object_centroids,
+    object_table,
+)
 from ._plot import DiagnosticCanvas, ScatterCanvas
 
 if TYPE_CHECKING:
@@ -70,6 +77,14 @@ def _format_cell(value):
         if np.isnan(value):
             return ''
         return f'{value:.4g}'
+    return str(value)
+
+
+def _format_object_cell(value):
+    if isinstance(value, bool):
+        return 'yes' if value else 'no'
+    if isinstance(value, tuple):
+        return '(' + ', '.join(f'{v:g}' for v in value) + ')'
     return str(value)
 
 
@@ -144,6 +159,7 @@ class ColocalizationWidget(QWidget):
         self._tabs = QTabWidget()
         self._tabs.addTab(self._build_intensity_tab(), 'Intensity correlation')
         self._tabs.addTab(self._build_diagnostics_tab(), 'Diagnostics')
+        self._tabs.addTab(self._build_object_tab(), 'Object-based')
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -153,6 +169,7 @@ class ColocalizationWidget(QWidget):
         self._on_metrics_changed()
         self._on_threshold_changed()
         self._on_diag_method_changed()
+        self._on_obj_source_changed()
         self._connect_layer_events()
 
     # -- layout builders -------------------------------------------------
@@ -487,7 +504,7 @@ class ColocalizationWidget(QWidget):
             layer.events.name.disconnect(self._refresh_layer_combos)
 
     def _refresh_layer_combos(self, _event=None):
-        from napari.layers import Image
+        from napari.layers import Image, Labels
 
         images = self._layers_of(Image)
         for combo in (
@@ -496,10 +513,16 @@ class ColocalizationWidget(QWidget):
             self._stack_combo,
             self._diag_image_a_combo,
             self._diag_image_b_combo,
+            self._obj_image_a_combo,
+            self._obj_image_b_combo,
         ):
             self._set_combo_choices(combo, images)
+        labels_layers = self._layers_of(Labels)
+        for combo in (self._obj_labels_a_combo, self._obj_labels_b_combo):
+            self._set_combo_choices(combo, labels_layers)
         self._refresh_region_combo(self._region_combo)
         self._refresh_region_combo(self._diag_region_combo)
+        self._refresh_region_combo(self._obj_region_combo)
 
         # Pairwise default: when magicgui populates A and B with the
         # same first image (or a new layer collapses them), nudge B
@@ -1372,3 +1395,276 @@ class ColocalizationWidget(QWidget):
             path, dlg.width_in(), dlg.height_in(), dlg.dpi()
         )
         show_info(f'Wrote {path}')
+
+    # == Object-based tab ==============================================
+
+    def _build_object_tab(self):
+        inner = QWidget()
+        layout = QVBoxLayout(inner)
+        layout.addWidget(self._build_obj_source_group())
+        layout.addWidget(self._build_obj_threshold_group())
+        layout.addWidget(self._build_obj_labels_group())
+        layout.addWidget(self._build_obj_region_group())
+        layout.addWidget(self._build_obj_overlay_group())
+        layout.addWidget(self._build_obj_run_row())
+        layout.addWidget(self._build_obj_results_group(), stretch=1)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setWidget(inner)
+
+        tab = QWidget()
+        tab_layout = QVBoxLayout(tab)
+        tab_layout.setContentsMargins(0, 0, 0, 0)
+        tab_layout.addWidget(scroll)
+        return tab
+
+    def _build_obj_source_group(self):
+        self._obj_source_combo = QComboBox()
+        self._obj_source_combo.addItem('Threshold images', 'threshold')
+        self._obj_source_combo.addItem('Labels layers', 'labels')
+        self._obj_source_combo.currentIndexChanged.connect(
+            self._on_obj_source_changed
+        )
+        return self._make_group('Objects from', self._obj_source_combo)
+
+    def _build_obj_threshold_group(self):
+        self._obj_image_a_combo = create_widget(
+            label='Image A', annotation='napari.layers.Image'
+        )
+        self._obj_image_b_combo = create_widget(
+            label='Image B', annotation='napari.layers.Image'
+        )
+        self._obj_method_combo = QComboBox()
+        for label, key in (
+            ('Otsu', 'otsu'),
+            ('Li', 'li'),
+            ('Triangle', 'triangle'),
+            ('Yen', 'yen'),
+            ('Mean', 'mean'),
+            ('IsoData', 'isodata'),
+        ):
+            self._obj_method_combo.addItem(label, key)
+        self._obj_min_size = QSpinBox()
+        self._obj_min_size.setRange(0, 1_000_000)
+        self._obj_threshold_group = self._make_group(
+            'Threshold → objects',
+            self._obj_image_a_combo.native,
+            self._obj_image_b_combo.native,
+            self._hbox(QLabel('Threshold'), self._obj_method_combo),
+            self._hbox(QLabel('Min object size (px)'), self._obj_min_size),
+        )
+        return self._obj_threshold_group
+
+    def _build_obj_labels_group(self):
+        self._obj_labels_a_combo = create_widget(
+            label='Labels A', annotation='napari.layers.Labels'
+        )
+        self._obj_labels_b_combo = create_widget(
+            label='Labels B', annotation='napari.layers.Labels'
+        )
+        self._obj_labels_group = self._make_group(
+            'Object labels',
+            self._obj_labels_a_combo.native,
+            self._obj_labels_b_combo.native,
+        )
+        return self._obj_labels_group
+
+    def _build_obj_region_group(self):
+        self._obj_region_combo = QComboBox()
+        self._obj_region_combo.addItem('None', None)
+        self._obj_region_group = self._make_group(
+            'Region (optional)', self._obj_region_combo
+        )
+        return self._obj_region_group
+
+    def _build_obj_overlay_group(self):
+        self._obj_points_check = QCheckBox('Show centroids (Points)')
+        self._obj_points_check.setChecked(True)
+        self._obj_links_check = QCheckBox(
+            'Show nearest-neighbour links (Vectors)'
+        )
+        self._obj_links_check.setChecked(True)
+        return self._make_group(
+            'Overlays', self._obj_points_check, self._obj_links_check
+        )
+
+    def _build_obj_run_row(self):
+        self._obj_run_button = QPushButton('Run object analysis')
+        self._obj_run_button.clicked.connect(self._on_object_run_clicked)
+        row = QWidget()
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self._obj_run_button)
+        return row
+
+    def _build_obj_results_group(self):
+        self._object_table = QTableWidget(0, len(OBJECT_COLUMNS))
+        self._object_table.setHorizontalHeaderLabels(list(OBJECT_COLUMNS))
+        self._object_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self._object_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self._object_table.setSortingEnabled(True)
+        self._obj_summary_label = QLabel('')
+        self._obj_summary_label.setWordWrap(True)
+        group = QGroupBox('Object results')
+        layout = QVBoxLayout()
+        layout.addWidget(self._object_table, stretch=1)
+        layout.addWidget(self._obj_summary_label)
+        group.setLayout(layout)
+        return group
+
+    def _on_obj_source_changed(self):
+        threshold = self._obj_source_combo.currentData() == 'threshold'
+        self._obj_threshold_group.setVisible(threshold)
+        self._obj_region_group.setVisible(threshold)
+        self._obj_labels_group.setVisible(not threshold)
+
+    def _gather_object_params(self):
+        if self._obj_source_combo.currentData() == 'threshold':
+            layer_a = self._obj_image_a_combo.value
+            layer_b = self._obj_image_b_combo.value
+            if layer_a is None or layer_b is None:
+                show_warning('Select both image layers.')
+                return None
+            a = np.asarray(layer_a.data)
+            b = np.asarray(layer_b.data)
+            if a.shape != b.shape:
+                show_warning(f'Shape mismatch: {a.shape} vs {b.shape}.')
+                return None
+            try:
+                label_mask, _ = self._resolve_region(
+                    a.shape, combo=self._obj_region_combo
+                )
+            except ValueError as exc:
+                show_warning(str(exc))
+                return None
+            return {
+                'source': 'threshold',
+                'a': a,
+                'b': b,
+                'mask': None if label_mask is None else (label_mask > 0),
+                'method': self._obj_method_combo.currentData(),
+                'min_size': int(self._obj_min_size.value()),
+                'name_a': layer_a.name,
+                'name_b': layer_b.name,
+            }
+        layer_a = self._obj_labels_a_combo.value
+        layer_b = self._obj_labels_b_combo.value
+        if layer_a is None or layer_b is None:
+            show_warning('Select both Labels layers.')
+            return None
+        labels_a = np.asarray(layer_a.data)
+        labels_b = np.asarray(layer_b.data)
+        if labels_a.shape != labels_b.shape:
+            show_warning(
+                f'Shape mismatch: {labels_a.shape} vs {labels_b.shape}.'
+            )
+            return None
+        return {
+            'source': 'labels',
+            'labels_a': labels_a,
+            'labels_b': labels_b,
+            'name_a': layer_a.name,
+            'name_b': layer_b.name,
+        }
+
+    def _on_object_run_clicked(self):
+        params = self._gather_object_params()
+        if params is None:
+            return
+        self._obj_run_button.setEnabled(False)
+        worker = self._object_worker(params)
+        worker.returned.connect(self._on_object_results_ready)
+        worker.errored.connect(self._on_object_worker_error)
+        worker.finished.connect(lambda: self._obj_run_button.setEnabled(True))
+        worker.start()
+
+    @staticmethod
+    @thread_worker
+    def _object_worker(params):
+        if params['source'] == 'threshold':
+            labels_a = label_objects(
+                params['a'],
+                threshold_method=params['method'],
+                mask=params['mask'],
+                min_size=params['min_size'],
+            )
+            labels_b = label_objects(
+                params['b'],
+                threshold_method=params['method'],
+                mask=params['mask'],
+                min_size=params['min_size'],
+            )
+        else:
+            labels_a = params['labels_a']
+            labels_b = params['labels_b']
+        rows, summary = object_table(
+            labels_a, labels_b, params['name_a'], params['name_b']
+        )
+        return (
+            rows,
+            summary,
+            labels_a,
+            labels_b,
+            params['name_a'],
+            params['name_b'],
+        )
+
+    def _on_object_results_ready(self, payload):
+        rows, summary, labels_a, labels_b, name_a, name_b = payload
+        self._populate_object_table(rows)
+        self._obj_summary_label.setText(
+            self._object_summary_text(summary, name_a, name_b)
+        )
+        if not (
+            self._obj_points_check.isChecked()
+            or self._obj_links_check.isChecked()
+        ):
+            return
+        centroids_a = object_centroids(labels_a)
+        centroids_b = object_centroids(labels_b)
+        if self._obj_points_check.isChecked():
+            if centroids_a.size:
+                self._viewer.add_points(
+                    centroids_a,
+                    name=f'{name_a} centroids',
+                    face_color='cyan',
+                )
+            if centroids_b.size:
+                self._viewer.add_points(
+                    centroids_b,
+                    name=f'{name_b} centroids',
+                    face_color='magenta',
+                )
+        if self._obj_links_check.isChecked():
+            vectors = nearest_neighbour_vectors(centroids_a, centroids_b)
+            if vectors.shape[0]:
+                self._viewer.add_vectors(
+                    vectors, name=f'{name_a} → {name_b} links', edge_width=0.5
+                )
+
+    def _on_object_worker_error(self, exc):
+        show_warning(f'Object analysis failed: {exc}')
+
+    def _populate_object_table(self, rows):
+        self._object_table.setSortingEnabled(False)
+        self._object_table.setRowCount(len(rows))
+        for r, row in enumerate(rows):
+            for c, key in enumerate(OBJECT_COLUMNS):
+                self._object_table.setItem(
+                    r, c, QTableWidgetItem(_format_object_cell(row.get(key)))
+                )
+        self._object_table.setSortingEnabled(True)
+        self._object_table.resizeColumnsToContents()
+
+    @staticmethod
+    def _object_summary_text(summary, name_a, name_b):
+        return (
+            f'{name_a}: {summary["n_objects_a"]} objects '
+            f'({summary["coincident_a"]} coincident, '
+            f'{summary["overlap_a"]} overlapping)    '
+            f'{name_b}: {summary["n_objects_b"]} objects '
+            f'({summary["coincident_b"]} coincident, '
+            f'{summary["overlap_b"]} overlapping)'
+        )
