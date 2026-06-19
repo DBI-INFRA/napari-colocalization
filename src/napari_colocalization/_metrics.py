@@ -1,6 +1,6 @@
 """Pure-numpy colocalization metrics.
 
-No napari / qtpy imports here — every function in this module
+No napari / qtpy imports here - every function in this module
 operates on ndarrays so it can be tested headlessly and reused
 from scripts. PCC and Manders delegate to scikit-image; SRCC
 uses scipy.stats; Costes auto-threshold is implemented locally
@@ -29,9 +29,9 @@ def _degenerate(a_flat, b_flat):
 def pearson(a, b, mask=None):
     """Pearson correlation coefficient and two-tailed p-value.
 
-    Wraps :func:`skimage.measure.pearson_corr_coeff`. Returns
+    Wraps `skimage.measure.pearson_corr_coeff`. Returns
     ``(nan, nan)`` for inputs with fewer than two samples or zero
-    variance in either channel — both edge cases for which PCC is
+    variance in either channel - both edge cases for which PCC is
     mathematically undefined.
 
     Parameters
@@ -73,7 +73,7 @@ def pearson(a, b, mask=None):
 def spearman(a, b, mask=None):
     """Spearman rank correlation coefficient and p-value.
 
-    Uses :func:`scipy.stats.spearmanr` on the masked, flattened
+    Uses `scipy.stats.spearmanr` on the masked, flattened
     intensities. Robust to monotonic non-linearity and outliers.
 
     Parameters
@@ -185,11 +185,11 @@ def manders(a, b, threshold_a, threshold_b, mask=None):
     M1 is the fraction of the channel-A intensity that lies in
     pixels where channel B is above ``threshold_b``. M2 is the
     symmetric counterpart for channel B above ``threshold_a``.
-    Asymmetry between the two is meaningful — it reflects the
+    Asymmetry between the two is meaningful - it reflects the
     difference in how much of each channel co-occurs with the
     other.
 
-    Wraps :func:`skimage.measure.manders_coloc_coeff`, which
+    Wraps `skimage.measure.manders_coloc_coeff`, which
     expects a binary mask for the second image; we threshold
     internally and then call it twice.
 
@@ -198,7 +198,7 @@ def manders(a, b, threshold_a, threshold_b, mask=None):
     a, b : array_like
         Same-shape, non-negative intensity arrays.
     threshold_a, threshold_b : float
-        Per-channel thresholds. Use :func:`costes_threshold` to
+        Per-channel thresholds. Use `costes_threshold` to
         derive them automatically, or pass values you have set
         manually.
     mask : array_like of bool, optional
@@ -242,7 +242,7 @@ def overlap(a, b, mask=None):
 
     These threshold-free measures (Manders et al. 1992) quantify
     co-occurrence from the raw intensity products, complementing
-    the threshold-dependent M1/M2 from :func:`manders`:
+    the threshold-dependent M1/M2 from `manders`:
 
     .. math::
         r = \\frac{\\sum_i a_i b_i}
@@ -253,14 +253,14 @@ def overlap(a, b, mask=None):
     ``r`` lies in ``[0, 1]`` for non-negative intensities and is
     insensitive to a difference in mean brightness between the two
     channels. ``k1`` and ``k2`` split that co-occurrence per
-    channel and are sensitive to such differences — their
+    channel and are sensitive to such differences - their
     asymmetry is informative.
 
     ``r`` is delegated to
-    :func:`skimage.measure.manders_overlap_coeff`. The split
+    `skimage.measure.manders_overlap_coeff`. The split
     coefficients k1/k2 have no scikit-image equivalent
-    (:func:`skimage.measure.manders_coloc_coeff` computes the
-    threshold-gated M1/M2 used by :func:`manders`, a different
+    (`skimage.measure.manders_coloc_coeff` computes the
+    threshold-gated M1/M2 used by `manders`, a different
     quantity), so they are derived from the same intensity sums
     here.
 
@@ -307,7 +307,7 @@ def overlap(a, b, mask=None):
     sum_bb = float(np.sum(b_flat * b_flat))
     # The overlap coefficient r is delegated to scikit-image. k1/k2
     # have no scikit-image equivalent (manders_coloc_coeff computes
-    # the threshold-gated M1/M2 — a different quantity), so they are
+    # the threshold-gated M1/M2 - a different quantity), so they are
     # derived locally from the shared intensity sums. The size/sum
     # guards keep the "never raise, return nan" contract: an empty
     # region or a zero-variance channel would otherwise make
@@ -325,11 +325,11 @@ def overlap(a, b, mask=None):
 def costes_regression(a, b, mask=None):
     """Orthogonal-regression line ``b = slope * a + intercept``.
 
-    This is the line :func:`costes_threshold` walks along; it is
+    This is the line `costes_threshold` walks along; it is
     exposed separately so callers (e.g. the cytofluorogram) can
     draw the same line. To match Fiji's **Coloc 2** we use
     **orthogonal** (total-least-squares) regression rather than an
-    ordinary least-squares fit — the relationship is symmetric
+    ordinary least-squares fit - the relationship is symmetric
     (neither channel is the independent variable), and OLS would
     bias the slope when the predictor channel is noisy. The slope
     is the principal axis of the intensity covariance:
@@ -400,11 +400,11 @@ def costes_threshold(a, b, mask=None, max_iter=100):
 
     Follows Fiji **Coloc 2** (``AutoThresholdRegression``):
 
-    1. Fit the :func:`costes_regression` orthogonal line
+    1. Fit the `costes_regression` orthogonal line
        ``b = m*a + c``.
     2. Step a candidate threshold by **bisection**. The threshold
        pair always lies on the line; the channel that is stepped
-       is the one giving finer resolution — channel A when
+       is the one giving finer resolution - channel A when
        ``|m| < 1`` (then ``T_b = m*T_a + c``) else channel B (then
        ``T_a = (T_b - c)/m``).
     3. At each candidate, compute the Pearson correlation of the
@@ -426,7 +426,7 @@ def costes_threshold(a, b, mask=None, max_iter=100):
     Returns
     -------
     threshold_a, threshold_b : float
-        Per-channel thresholds for :func:`manders`, clamped to the
+        Per-channel thresholds for `manders`, clamped to the
         data range. Falls back to ``(max(a), max(b))`` when the
         regression slope is non-positive or undefined (no
         co-occurrence to threshold for).

@@ -131,7 +131,7 @@ class ScatterCanvas(FigureCanvasQTAgg):
         title : str
             Axes title (typically the region + channel-pair label).
         annotation : str
-            Multi-line text drawn in the upper-left corner — used
+            Multi-line text drawn in the upper-left corner - used
             to display metric values for the selected row.
         """
         if mask is None:

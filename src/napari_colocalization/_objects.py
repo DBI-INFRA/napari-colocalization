@@ -1,19 +1,19 @@
 """Pure-compute object-based colocalization.
 
-Where :mod:`._metrics` works on pixel intensities, this works on
+Where `_metrics` works on pixel intensities, this works on
 *segmented objects*: two labelled images (objects in channel A,
 objects in channel B) are compared by
 
-- **centre-particle coincidence** — does an object's centroid fall
+- **centre-particle coincidence** - does an object's centroid fall
   inside an object of the other channel?
-- **object overlap** — do an object's pixels touch any object of the
+- **object overlap** - do an object's pixels touch any object of the
   other channel?
 
 It also exposes object centroids and nearest-neighbour links so the
 widget can draw Points / Vectors overlays. As elsewhere there are no
 napari/qtpy imports here, so everything operates on ndarrays and is
 testable headlessly. Objects can be supplied directly (a Labels
-layer) or obtained with :func:`label_objects` (threshold + connected
+layer) or obtained with `label_objects` (threshold + connected
 components).
 """
 
@@ -89,7 +89,7 @@ def object_centroids(labels):
 def nearest_neighbour_vectors(centroids_a, centroids_b):
     """Vectors from each A centroid to its nearest B centroid.
 
-    Returned as napari Vectors data ``(N, 2, ndim)`` — ``[start,
+    Returned as napari Vectors data ``(N, 2, ndim)`` - ``[start,
     direction]`` pairs. Empty when either set has no objects.
     """
     a = np.asarray(centroids_a, dtype=float)
@@ -144,7 +144,7 @@ def object_table(labels_a, labels_b, name_a='A', name_b='B'):
     Returns
     -------
     rows : list of dict
-        One row per object, with the keys in :data:`OBJECT_COLUMNS`.
+        One row per object, with the keys in `OBJECT_COLUMNS`.
     summary : dict
         Object counts and coincident/overlap counts and fractions per
         channel.

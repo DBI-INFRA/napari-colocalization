@@ -177,7 +177,7 @@ class ColocalizationWidget(QWidget):
 
         # Analysis families live on separate tabs: the multi-region
         # intensity table on one, the single-pair diagnostic plots on
-        # the other. Inputs are not shared — diagnostics are always
+        # the other. Inputs are not shared - diagnostics are always
         # pairwise, so each tab carries the channel selectors it needs.
         self._tabs = QTabWidget()
         self._tabs.addTab(self._build_intensity_tab(), 'Intensity correlation')
@@ -198,7 +198,7 @@ class ColocalizationWidget(QWidget):
     # -- layout builders -------------------------------------------------
 
     def _build_intensity_tab(self):
-        # Configuration block — its own scroll area so a tall set
+        # Configuration block - its own scroll area so a tall set
         # of options doesn't squeeze the results panel below.
         config_inner = QWidget()
         config_layout = QVBoxLayout(config_inner)
@@ -215,7 +215,7 @@ class ColocalizationWidget(QWidget):
         config_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         config_scroll.setWidget(config_inner)
 
-        # Results block — Run, table, scatter, export. Wrapped in
+        # Results block - Run, table, scatter, export. Wrapped in
         # its own scroll area so it scrolls independently when the
         # dock is short.
         results_inner = QWidget()
@@ -364,7 +364,7 @@ class ColocalizationWidget(QWidget):
         self._cb_overlap = QCheckBox('Overlap (r, k1, k2)')
         self._cb_overlap.setToolTip(
             'Manders overlap coefficient r and split coefficients '
-            'k1/k2 — threshold-free co-occurrence measures.'
+            'k1/k2 - threshold-free co-occurrence measures.'
         )
         self._cb_mcc = QCheckBox('Manders')
         for cb, checked in (
@@ -901,7 +901,7 @@ class ColocalizationWidget(QWidget):
             b = channel_arrays.get(row['channel_b'])
             lm = label_mask
             # For a per-Z-slice row, scatter/regression should reflect
-            # that plane only — take the slice of the channel arrays
+            # that plane only - take the slice of the channel arrays
             # (and of a full-volume label mask).
             s = row.get('slice')
             if (
@@ -1142,7 +1142,7 @@ class ColocalizationWidget(QWidget):
         t_b = row.get('threshold_b')
         if not (np.isfinite(t_a) and np.isfinite(t_b)):
             show_warning(
-                'Selected row has no Manders thresholds — '
+                'Selected row has no Manders thresholds - '
                 'run with the Manders metric first.'
             )
             return
@@ -1244,7 +1244,7 @@ class ColocalizationWidget(QWidget):
 
         self._diag_ica_group = self._make_group(
             'Li ICA',
-            QLabel('No parameters — plots intensity vs covariance product.'),
+            QLabel('No parameters - plots intensity vs covariance product.'),
         )
 
         container = QWidget()

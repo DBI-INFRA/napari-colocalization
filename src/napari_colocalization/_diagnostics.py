@@ -1,8 +1,8 @@
 """Pure-compute colocalization *diagnostics*.
 
-Unlike :mod:`._metrics`, whose functions return a scalar per region,
-these produce a curve or a distribution — the payloads behind the
-widget's Diagnostics tab. As in :mod:`._metrics` there are no
+Unlike `_metrics`, whose functions return a scalar per region,
+these produce a curve or a distribution - the payloads behind the
+widget's Diagnostics tab. As in `_metrics` there are no
 napari/qtpy imports here, so every function operates on ndarrays and
 can be tested headlessly. The scalar *summaries* (peak shift, ICQ,
 p-value) are returned alongside the arrays so the widget can drop them
@@ -33,7 +33,7 @@ def van_steensel_ccf(a, b, mask=None, max_shift=20, axis=-1):
     a, b : array_like
         Same-shape intensity arrays.
     mask : array_like of bool, optional
-        Region of interest passed through to :func:`._metrics.pearson`.
+        Region of interest passed through to `pearson`.
     max_shift : int, default 20
         Largest pixel shift to evaluate in each direction.
     axis : int, default -1
@@ -73,8 +73,8 @@ def li_ica(a, b, mask=None):
     Returns the per-pixel covariance products
     ``P_i = (a_i - mean a)(b_i - mean b)`` together with the paired
     intensities, so the widget can draw the two ICA scatter panels
-    (intensity vs ``P``) for channels A and B. The scalar ICQ — the
-    fraction of positive ``P`` re-centred to ``[-0.5, 0.5]`` — is
+    (intensity vs ``P``) for channels A and B. The scalar ICQ - the
+    fraction of positive ``P`` re-centred to ``[-0.5, 0.5]`` - is
     included for the summary line.
 
     Parameters
@@ -123,7 +123,7 @@ def _scramble_blocks(arr, block_size, rng):
     ndim = arr.ndim
     nb = [dim // block_size for dim in arr.shape]
     # Split every axis into (block-grid index, within-block index):
-    # axes become nb0, s, nb1, s, ... — grid axes are even, within-
+    # axes become nb0, s, nb1, s, ... - grid axes are even, within-
     # block axes odd.
     interleaved = arr.reshape([size for n in nb for size in (n, block_size)])
     grid_axes = list(range(0, 2 * ndim, 2))
@@ -142,7 +142,7 @@ def scramble_example(image, block_size=8, seed=None):
     """One block-scrambled copy of ``image`` for display.
 
     Produces a single realisation of the randomisation used by
-    :func:`costes_randomization`, so the user can see what a
+    `costes_randomization`, so the user can see what a
     scrambled channel looks like. The image is cropped to a whole
     number of blocks (any remainder strip is left unchanged).
 
@@ -180,9 +180,9 @@ def scramble_example(image, block_size=8, seed=None):
 def costes_randomization(a, b, mask=None, n_iter=200, block_size=8, seed=None):
     """Costes' randomization significance test for Pearson's PCC.
 
-    Scrambles channel ``b`` in blocks ``n_iter`` times — destroying
+    Scrambles channel ``b`` in blocks ``n_iter`` times - destroying
     spatial co-occurrence while preserving each channel's intensity
-    histogram and local texture — and recomputes the PCC each time to
+    histogram and local texture - and recomputes the PCC each time to
     build a null distribution. The observed PCC is then placed against
     that null (Costes et al. 2004). A high observed PCC that sits far
     above the null (small p-value) is evidence of genuine

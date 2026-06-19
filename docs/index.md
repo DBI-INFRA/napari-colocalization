@@ -9,7 +9,7 @@ hide:
 
 # napari-colocalization
 
-!!! warning "Under construction — pre-alpha"
+!!! warning "Under construction - pre-alpha"
 
     APIs, UI, and outputs may change without notice. Not recommended
     for production analysis yet; use at your own risk and please
@@ -19,7 +19,7 @@ hide:
 Interactive intensity-colocalization analysis for [napari](https://napari.org).
 Pick two channels (or one multi-channel image), optionally restrict the
 analysis to a region drawn as shapes or labels, choose your metric, and get a
-results table plus an intensity-vs-intensity density plot — all without
+results table plus an intensity-vs-intensity density plot - all without
 leaving napari.
 
 <figure markdown="span">
@@ -33,7 +33,7 @@ leaving napari.
 - **Pairwise or all-to-all** mode: analyse two grayscale layers, or every
   channel pair within a single multi-channel layer.
 - **2D and 3D** support natively (no time-series for now).
-- **Region-restricted analysis** via a Shapes or Labels layer — each non-zero
+- **Region-restricted analysis** via a Shapes or Labels layer - each non-zero
   region is reported on its own row.
 - **Manders thresholds**: choose **Costes auto** (iterative regression-based)
   or **Manual**.
@@ -56,10 +56,10 @@ pip install "napari-colocalization[all]"
 
 ## Where next?
 
-- **[Usage guide](usage.md)** — every control in the widget, in order.
-- **[Metrics](metrics.md)** — what PCC, SRCC, ICQ and MCC mean, when to
+- **[Usage guide](usage.md)** - every control in the widget, in order.
+- **[Metrics](metrics.md)** - what PCC, SRCC, ICQ and MCC mean, when to
   use which, and how the Costes auto-threshold works.
-- **[Python API](api.md)** — calling the pure-compute layer
+- **[Python API](api.md)** - calling the pure-compute layer
   (`pearson`, `spearman`, `manders`, `costes_threshold`,
   `analyse_pairwise`, `analyse_all_to_all`) from scripts or notebooks.
   Reference is auto-generated from the source docstrings.

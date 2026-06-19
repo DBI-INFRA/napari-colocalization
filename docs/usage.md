@@ -10,7 +10,7 @@ dock widget, top to bottom.
 In napari: **Plugins → Colocalization Analysis**. The widget docks on the
 right by default. To follow along without your own data, load a sample:
 **File → Open Sample → napari-colocalization → Colocalization sample (2D)**.
-A 3D synthetic version is also provided, plus **CBS006RBM** — a
+A 3D synthetic version is also provided, plus **CBS006RBM** - a
 two-channel benchmark image (~50 % colocalization) downloaded once and
 cached under `~/.cache/napari-colocalization/` from the
 [Colocalization Benchmark Source](https://colocalization-benchmark.com).
@@ -22,8 +22,8 @@ cached under `~/.cache/napari-colocalization/` from the
 
 The widget has two halves separated by a draggable divider:
 
-- **Configuration** (top) — what to analyse and how.
-- **Results** (bottom) — Run button, table, density plot, CSV export, and
+- **Configuration** (top) - what to analyse and how.
+- **Results** (bottom) - Run button, table, density plot, CSV export, and
   figure export. Hidden until the first run.
 
 Each half has its own scrollbar; if a section overflows you can drag the
@@ -33,9 +33,9 @@ divider or resize the dock to redistribute space.
 
 Choose how channels are supplied:
 
-- **Pairwise** *(default)* — pick two separate image layers (e.g.
+- **Pairwise** *(default)* - pick two separate image layers (e.g.
   `channel_a` and `channel_b`).
-- **All-to-all** — pick a single image layer that has a channel axis (e.g.
+- **All-to-all** - pick a single image layer that has a channel axis (e.g.
   shape `(C, Y, X)` or `(Z, Y, X, C)`); the plugin computes every channel
   pair `(i, j)` with `i < j`.
 
@@ -68,17 +68,17 @@ along the channel axis (e.g. `stack_0`, `stack_1`, `stack_2`).
 A single dropdown listing every **Shapes** and **Labels** layer in the
 viewer, with **None** at the top:
 
-- **None** *(default)* — analyse the whole image. The results table will
+- **None** *(default)* - analyse the whole image. The results table will
   have one row per channel pair, with `region = 0`.
-- A **Shapes** layer — each shape becomes its own region. The region IDs
+- A **Shapes** layer - each shape becomes its own region. The region IDs
   in the table match the shape indices napari shows when you hover
   (0-based).
-- A **Labels** layer — each non-zero label becomes its own region; the
+- A **Labels** layer - each non-zero label becomes its own region; the
   label values themselves are preserved in the table.
 
 The dropdown updates automatically when you add, remove or rename a
 Shapes/Labels layer. Image layers are excluded from the list. The
-plugin infers the region kind from the selected layer's class — there
+plugin infers the region kind from the selected layer's class - there
 is no separate "kind" selector.
 
 The region's spatial dimensions must match the channels' spatial
@@ -88,7 +88,7 @@ axis removed).
 ## Correlation metrics
 
 Four checkboxes for **Pearson**, **Spearman**, **Li ICQ** and **Manders**. By default
-only **Spearman** is enabled — it is the most outlier-robust of the four,
+only **Spearman** is enabled - it is the most outlier-robust of the four,
 and a common starting point.
 
 You can pick any subset; missing metrics are reported as `NaN` in the
@@ -99,16 +99,16 @@ table.
 Visible only when **Manders** is checked. Choose how the M1/M2 thresholds
 are determined:
 
-- **Costes (auto)** *(default)* — iterative regression-based threshold.
+- **Costes (auto)** *(default)* - iterative regression-based threshold.
   Pixels above both thresholds are treated as the colocalising population.
   See [metrics.md#manders](metrics.md#manders-mcc).
-- **Manual** — supply explicit `T_a` and `T_b` values. Use this if you
+- **Manual** - supply explicit `T_a` and `T_b` values. Use this if you
   already know the appropriate background level for each channel, or if
   Costes returns implausible thresholds (which can happen on highly
   non-linear or noisy data).
 
 In **all-to-all** mode, manual thresholds are applied identically to every
-channel pair — there is no per-pair manual override in v1.
+channel pair - there is no per-pair manual override in v1.
 
 ## Run
 
@@ -150,19 +150,19 @@ lines mark the Manders thresholds when those metrics were computed. The
 metric values for the selected row are written in the upper-left corner.
 
 Hexbin aggregates pixels into a fixed grid, so render cost is bounded
-regardless of region size — every pixel in the region contributes,
+regardless of region size - every pixel in the region contributes,
 nothing is subsampled.
 
 ### Region highlighting
 
 When you select rows in the table:
 
-- **Shapes source** — every selected row's shape gets the dashed-outline
+- **Shapes source** - every selected row's shape gets the dashed-outline
   highlight in the viewer.
-- **Labels source** — selecting a single row turns on `show_selected_label`
+- **Labels source** - selecting a single row turns on `show_selected_label`
   for that label; selecting multiple rows drops the focus filter so all
   labels remain visible (napari only emphasises one label at a time).
-- **None source** — no viewer highlighting.
+- **None source** - no viewer highlighting.
 
 Ctrl-clicking the only selected row deselects it; the density plot clears
 and the viewer highlight is removed.
@@ -178,11 +178,11 @@ Saves the current density plot as an image. A small dialog asks for
 **width** and **height** in inches and **DPI** before opening a file
 dialog; the file extension chooses the format (PNG, PDF, SVG, or TIFF).
 The black axes background is preserved. The on-screen canvas is not
-resized — only the saved file uses the chosen dimensions.
+resized - only the saved file uses the chosen dimensions.
 
 ## Layout tips
 
-- The divider between **Configuration** and **Results** is draggable —
+- The divider between **Configuration** and **Results** is draggable -
   pull it down if your config has many active options.
 - The divider between the **table** and the **density plot** is also
   draggable. The default 60/40 split favours the table.

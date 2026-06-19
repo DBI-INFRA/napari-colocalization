@@ -13,7 +13,7 @@
 [![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/napari-colocalization)](https://napari-hub.org/plugins/napari-colocalization)
 [![npe2](https://img.shields.io/badge/plugin-npe2-blue?link=https://napari.org/stable/plugins/index.html)](https://napari.org/stable/plugins/index.html)
 
-> ⚠️ **Under construction — pre-alpha.** APIs, UI, and outputs may change
+> ⚠️ **Under construction - pre-alpha.** APIs, UI, and outputs may change
 > without notice. Not recommended for production analysis yet; use at your
 > own risk and please report rough edges via the
 > [issue tracker](https://github.com/DBI-INFRA/napari-colocalization/issues).
@@ -35,7 +35,7 @@ results table plus an intensity-vs-intensity density plot.
 - **Pairwise or all-to-all** mode: analyse two grayscale layers, or every
   channel pair within a single multi-channel layer.
 - **2D and 3D** support natively (no time-series for now).
-- **Region-restricted analysis** via a Shapes or Labels layer — each non-zero
+- **Region-restricted analysis** via a Shapes or Labels layer - each non-zero
   region is reported on its own row.
 - **Manders thresholds**: choose **Costes auto** (orthogonal-regression
   bisection, matched to Fiji Coloc 2), a per-channel **auto-threshold**
@@ -45,12 +45,12 @@ results table plus an intensity-vs-intensity density plot.
 - **Interactive results**: in-widget table, density plot of the selected row,
   multi-row selection that highlights all matching shapes/labels in the viewer,
   and an optional **fixed-axes** cytofluorogram for comparable plots.
-- **Diagnostics tab**: single-pair diagnostic plots — Costes randomization
+- **Diagnostics tab**: single-pair diagnostic plots - Costes randomization
   significance test (observed PCC vs a scrambled null, with p-value/z-score),
   Van Steensel cross-correlation function (CCF), and Li intensity correlation
   analysis (ICA).
 - **Object-based tab**: compare segmented objects (from Labels layers or by
-  thresholding) — centre-particle coincidence and object overlap per object,
+  thresholding) - centre-particle coincidence and object overlap per object,
   with centroid Points and nearest-neighbour Vectors drawn into the viewer.
 - **Outputs to the viewer**: add the colocalized-pixel mask (selected row) as
   a Labels layer, or a block-scrambled example as an Image layer.
@@ -80,9 +80,9 @@ pip install git+https://github.com/DBI-INFRA/napari-colocalization.git
 1. Launch napari.
 2. Load sample data: **File → Open Sample → napari-colocalization →
    Colocalization sample (2D)**. A 3D synthetic sample and **CBS006RBM**
-   — a two-channel benchmark image from the
-   [Colocalization Benchmark Source](https://colocalization-benchmark.com)
-   — are also provided.
+   (a two-channel benchmark image from the
+   [Colocalization Benchmark Source](https://colocalization-benchmark.com))
+   are also provided.
 
    <p align="center">
      <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalization/main/docs/img/quickstart_sample.png" alt="Open Sample menu" width="520"/>
@@ -100,7 +100,7 @@ pip install git+https://github.com/DBI-INFRA/napari-colocalization.git
 </p>
 
 5. *(Optional)* Add a Shapes layer, draw a few rectangles or polygons, set
-   **Region** to *Shapes* and pick the layer. Re-run — the table now has one
+   **Region** to *Shapes* and pick the layer. Re-run - the table now has one
    row per shape, and clicking a row highlights the matching shape in the
    viewer.
 
@@ -119,38 +119,46 @@ observed PCC against a block-scrambled null, with a p-value and z-score), the
 analysis**.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalization/main/docs/img/widget_diagnostics.png" alt="Diagnostics tab — Costes randomization" width="780"/>
+  <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalization/main/docs/img/widget_diagnostics.png" alt="Diagnostics tab - Costes randomization" width="780"/>
 </p>
 
 ## Object-based analysis
 
-The **Object-based** tab compares segmented *objects* between the two channels
-— **centre-particle coincidence** (does an object's centroid fall inside an
-object of the other channel?) and **object overlap** — with one row per object.
+The **Object-based** tab compares segmented *objects* between the two channels:
+**centre-particle coincidence** (does an object's centroid fall inside an
+object of the other channel?) and **object overlap**, with one row per object.
 Objects come from existing Labels layers or by thresholding, and the detected
 centroids and nearest-neighbour links are drawn back into the viewer as Points
 and Vectors.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalization/main/docs/img/widget_objects.png" alt="Object-based tab — coincidence and overlap" width="780"/>
+  <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalization/main/docs/img/widget_objects.png" alt="Object-based tab - coincidence and overlap" width="780"/>
 </p>
 
 ## Documentation
 
-- **[Usage guide](docs/usage.md)** — every control in the widget, in order.
-- **[Metrics](docs/metrics.md)** — what PCC, SRCC, ICQ and MCC mean, when to use
+- **[Usage guide](docs/usage.md)** - every control in the widget, in order.
+- **[Metrics](docs/metrics.md)** - what PCC, SRCC, ICQ and MCC mean, when to use
   which, and how the Costes auto-threshold works.
-- **[Python API](docs/api.md)** — calling the pure-compute layer
+- **[Python API](docs/api.md)** - calling the pure-compute layer
   (`pearson`, `spearman`, `li_icq`, `manders`, `overlap`,
   `costes_threshold`, `costes_regression`, `analyse_pairwise`,
   `analyse_all_to_all`) from scripts or notebooks.
 
 ## Related projects
 
-- [Coloc 2](https://imagej.net/plugins/coloc-2) — the reference ImageJ
-  colocalization plugin; this plugin follows it in spirit.
-- [scikit-image colocalization metrics](https://scikit-image.org/docs/stable/auto_examples/applications/plot_colocalization_metrics.html)
-  — the underlying implementations of PCC and Manders.
+- [Coloc 2](https://imagej.net/plugins/coloc-2) - the reference ImageJ
+  colocalization plugin; this plugin follows it in spirit, and the Costes
+  auto-threshold here is matched to its implementation.
+- [JACoP](https://imagej.net/plugins/jacop) - "Just Another Colocalization
+  Plugin" (Bolte & Cordelières, 2006); the inspiration for the diagnostics
+  (Van Steensel CCF, Li ICA, Costes randomization) and the object-based
+  analysis.
+- [ijp-jacop-b](https://github.com/BIOP/ijp-jacop-b) - the BIOP fork of JACoP;
+  inspired the per-channel auto-thresholds, per-Z-slice mode and the
+  layers written back to the viewer.
+- [scikit-image colocalization metrics](https://scikit-image.org/docs/stable/auto_examples/applications/plot_colocalization_metrics.html):
+  the underlying implementations of PCC and Manders.
 
 ## Contributing
 

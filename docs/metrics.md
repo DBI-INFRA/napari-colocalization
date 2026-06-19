@@ -44,7 +44,7 @@ the intensities themselves.
 
 **When to use it.** Whenever the relationship between channels is
 monotonic but not necessarily linear (e.g. saturating sensor responses,
-gamma-corrected images). SRCC is also robust to outliers — a single
+gamma-corrected images). SRCC is also robust to outliers - a single
 bright pixel can't pull the rank away.
 
 **Watch out for.**
@@ -91,13 +91,13 @@ scalar; we report the value alone. Like the other correlation metrics
 it is restricted to the analysed region (whole image, shape, or
 label).
 
-We compute it locally in :func:`_metrics.li_icq` (no scikit-image
+We compute it locally in `_metrics.li_icq` (no scikit-image
 equivalent).
 
 ## Overlap coefficient (r, k1, k2)
 
 The overlap coefficient of Manders et al. (1992) and its two split
-components. Unlike M1/M2 below, these need **no threshold** — they are
+components. Unlike M1/M2 below, these need **no threshold** - they are
 computed directly from the raw intensity products over the region:
 
 $$
@@ -111,7 +111,7 @@ $$
 Range of `r`: 0 to 1 for non-negative intensities. It is essentially the
 Pearson coefficient computed *without* mean-subtraction, which makes it
 insensitive to a difference in average brightness between the two
-channels — but also means it cannot report anti-correlation.
+channels - but also means it cannot report anti-correlation.
 
 `k1` and `k2` split that co-occurrence per channel: `k1` is dominated by
 pixels where channel A is bright, `k2` by where B is bright. Their
@@ -144,7 +144,7 @@ M_1 = \frac{\sum_i a_i \cdot \mathbb{1}[b_i > T_b]}{\sum_i a_i}
 M_2 = \frac{\sum_i b_i \cdot \mathbb{1}[a_i > T_a]}{\sum_i b_i}
 $$
 
-Range: 0 to 1 each. They are **not** percentages — interpret them as
+Range: 0 to 1 each. They are **not** percentages - interpret them as
 "the fraction of channel A's signal that overlaps with channel B's
 above-threshold pixels", and similarly for M2. Asymmetry between M1 and
 M2 is meaningful and expected when one channel is sparser than the other.
@@ -157,7 +157,7 @@ varying intensities.
 **Watch out for.**
 - Manders is sensitive to the choice of threshold. Use Costes (below)
   if you don't have a principled way to set it manually.
-- High background offsets confuse Costes — pre-process or set thresholds
+- High background offsets confuse Costes - pre-process or set thresholds
   manually.
 
 We delegate to
@@ -176,13 +176,13 @@ Algorithm (as implemented in `_metrics.costes_threshold`, matched to
 Fiji's **Coloc 2** `AutoThresholdRegression`):
 
 1. Fit an **orthogonal** (total-least-squares) regression line
-   `b = m·a + c` over the masked pixels — *not* an ordinary least-squares
+   `b = m·a + c` over the masked pixels - *not* an ordinary least-squares
    fit. Orthogonal regression treats the two channels symmetrically
    (neither is the independent variable) and avoids the slope bias OLS
    shows when the predictor channel is noisy.
 2. Move a candidate threshold along that line by **bisection**, keeping
    the pair on the line (`T_b = m·T_a + c`). The channel that is stepped
-   is the one giving finer resolution — channel A when `|m| < 1`, else
+   is the one giving finer resolution - channel A when `|m| < 1`, else
    channel B.
 3. At each candidate, compute the Pearson correlation of the
    below-threshold pixels (`a < T_a` **or** `b < T_b`). Bisect downward
@@ -205,7 +205,7 @@ auto-threshold was found along.
 ### Other auto-thresholds (Otsu, Li, …)
 
 Besides Costes, the threshold method can be any of the standard
-histogram thresholds — **Otsu, Li, Triangle, Yen, Mean, IsoData** (the
+histogram thresholds - **Otsu, Li, Triangle, Yen, Mean, IsoData** (the
 `skimage.filters.threshold_*` family, as ImageJ's Auto Threshold offers
 in JACoP B). Each channel is thresholded **independently** from its own
 intensity histogram, giving the *thresholded* Manders coefficients
@@ -225,8 +225,8 @@ relationship. Each is computed in the napari-free `_diagnostics` module.
 ### Costes randomization (significance test)
 
 Answers "could this PCC have arisen by chance?". Channel B is scrambled
-in blocks `n_iter` times — destroying spatial co-occurrence while
-preserving each channel's intensity histogram and local texture — and
+in blocks `n_iter` times - destroying spatial co-occurrence while
+preserving each channel's intensity histogram and local texture - and
 the PCC is recomputed each time to build a null distribution. The
 observed PCC is plotted against that null, with a right-tailed p-value
 `(#{null ≥ observed} + 1) / (n_iter + 1)` and a z-score. A genuine
@@ -265,7 +265,7 @@ alongside.
 | "Just give me a robust default" | Spearman |
 
 PCC and SRCC measure *correlation*; MCC measures *co-occurrence*. They
-answer different questions and disagree often — which is precisely why
+answer different questions and disagree often - which is precisely why
 reporting more than one is good practice.
 
 ## References

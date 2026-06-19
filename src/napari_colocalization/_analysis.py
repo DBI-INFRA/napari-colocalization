@@ -7,8 +7,8 @@ suitable for direct insertion into a table or a CSV.
 Failure policy: conditions that make the *whole* request invalid
 (shape mismatch, unknown options, missing manual thresholds) raise
 ``ValueError`` so the caller can surface the reason. Per-region
-degeneracies — a single ROI too small or with a constant/empty
-channel — are *not* errors in a multi-region run; the affected
+degeneracies - a single ROI too small or with a constant/empty
+channel - are *not* errors in a multi-region run; the affected
 metrics stay ``NaN`` (a visible blank cell), and a human-readable
 reason is appended to the optional ``region_warnings`` collector so
 the caller can summarise how many regions were skipped and why.
@@ -100,7 +100,7 @@ def _auto_threshold(func, flat):
     """Apply a skimage threshold to one channel's masked pixels.
 
     Returns ``nan`` for a constant/empty channel, where the
-    threshold is undefined (so :func:`._metrics.manders` reports
+    threshold is undefined (so `manders` reports
     NaN rather than a spurious 0).
     """
     if flat.size == 0 or np.ptp(flat) == 0:
@@ -199,16 +199,16 @@ def analyse_pairwise(
         coefficients k1/k2.
     threshold_method : str, default 'costes'
         Only used when ``'mcc'`` is in ``metrics``. ``'costes'``
-        runs :func:`._metrics.costes_threshold` per region;
+        runs `costes_threshold` per region;
         ``'manual'`` uses the values supplied below; or a per-channel
-        auto-threshold name — one of ``'otsu'``, ``'li'``,
+        auto-threshold name - one of ``'otsu'``, ``'li'``,
         ``'triangle'``, ``'yen'``, ``'mean'``, ``'isodata'`` (the
         ``skimage.filters.threshold_*`` family, thresholding each
         channel independently → Manders tM1/tM2).
     threshold_a, threshold_b : float, optional
         Required when ``threshold_method='manual'``.
     channel_a, channel_b : str, default 'A' and 'B'
-        Display names for the two channels — written into the
+        Display names for the two channels - written into the
         result rows so they round-trip into the table and CSV.
     slice_axis : int, optional
         If given, analyse each plane along this axis **separately**
@@ -228,7 +228,7 @@ def analyse_pairwise(
     -------
     rows : list of dict
         One row per region. Each row has the keys listed in
-        :data:`COLUMNS`.
+        `COLUMNS`.
 
     Raises
     ------
@@ -340,7 +340,7 @@ def analyse_all_to_all(
     """Compute metrics for every channel pair (i, j), i < j.
 
     Iterates over each unordered pair of channels along
-    ``channel_axis`` and dispatches to :func:`analyse_pairwise`.
+    ``channel_axis`` and dispatches to `analyse_pairwise`.
     For ``N`` channels this produces ``N*(N-1)/2`` × R rows,
     where R is the number of non-zero regions in ``label_mask``
     (or 1 for the whole image).
@@ -357,25 +357,25 @@ def analyse_all_to_all(
         Integer label image whose shape matches ``image`` with
         ``channel_axis`` removed.
     metrics : sequence of {'pcc', 'srcc', 'icq', 'overlap', 'mcc'}, optional
-        Forwarded to :func:`analyse_pairwise`.
+        Forwarded to `analyse_pairwise`.
     threshold_method : str, default 'costes'
-        Forwarded to :func:`analyse_pairwise` ('costes', 'manual',
+        Forwarded to `analyse_pairwise` ('costes', 'manual',
         or an auto-threshold name like 'otsu'). Manual thresholds
         apply identically to every channel pair.
     threshold_a, threshold_b : float, optional
-        Forwarded to :func:`analyse_pairwise`.
+        Forwarded to `analyse_pairwise`.
     channel_names : sequence of str, optional
         One name per channel along ``channel_axis``. Defaults to
         ``['c0', 'c1', ...]``.
     region_warnings : list, optional
-        Forwarded to :func:`analyse_pairwise`; collects per-region
+        Forwarded to `analyse_pairwise`; collects per-region
         reasons across every channel pair.
 
     Returns
     -------
     rows : list of dict
         Concatenation of the per-pair results from
-        :func:`analyse_pairwise`.
+        `analyse_pairwise`.
 
     Raises
     ------

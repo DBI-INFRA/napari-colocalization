@@ -3,7 +3,7 @@
 These functions convert a napari Shapes or Labels layer into an
 integer label mask (0 = background, 1..N = regions) and iterate
 over the non-zero regions. The helpers duck-type the layer
-interface — they do not import napari — so they can be tested
+interface - they do not import napari - so they can be tested
 with simple stand-in objects.
 """
 

@@ -1,7 +1,7 @@
 # Python API
 
 The pure-compute layer of `napari-colocalization` is independent of napari
-and Qt — you can import the metric, masking, and analysis functions from
+and Qt - you can import the metric, masking, and analysis functions from
 a script or notebook and use them on plain ndarrays.
 
 > Documentation index: [Home](index.md) · [Usage](usage.md) · [Metrics](metrics.md) · **Python API**
@@ -30,7 +30,7 @@ napari_colocalization
 The leading underscore is a convention from the napari plugin template;
 the symbols below are stable and intended to be imported.
 
-## Metrics — `napari_colocalization._metrics`
+## Metrics - `napari_colocalization._metrics`
 
 ::: napari_colocalization._metrics
     options:
@@ -45,7 +45,7 @@ the symbols below are stable and intended to be imported.
       show_root_heading: false
       heading_level: 3
 
-## Masking — `napari_colocalization._masking`
+## Masking - `napari_colocalization._masking`
 
 ::: napari_colocalization._masking
     options:
@@ -56,7 +56,7 @@ the symbols below are stable and intended to be imported.
       show_root_heading: false
       heading_level: 3
 
-## Analysis — `napari_colocalization._analysis`
+## Analysis - `napari_colocalization._analysis`
 
 `COLUMNS` is the canonical column order shared by the table, the CSV
 export, and the row dicts:
@@ -77,7 +77,7 @@ export, and the row dicts:
       show_root_heading: false
       heading_level: 3
 
-## Diagnostics — `napari_colocalization._diagnostics`
+## Diagnostics - `napari_colocalization._diagnostics`
 
 Curve/distribution producers behind the Diagnostics tab. Unlike the
 metrics, a degenerate whole input raises `ValueError` rather than
@@ -92,7 +92,7 @@ returning `NaN`.
       show_root_heading: false
       heading_level: 3
 
-## Object-based — `napari_colocalization._objects`
+## Object-based - `napari_colocalization._objects`
 
 Object-level colocalization: from two labelled images, report
 centre-particle coincidence and object overlap per object, plus
@@ -110,7 +110,7 @@ connected components).
       show_root_heading: false
       heading_level: 3
 
-## Sample data — `napari_colocalization._sample_data`
+## Sample data - `napari_colocalization._sample_data`
 
 `make_sample_data_cbs006rbm` downloads the CBS006RBM benchmark image
 from the [Colocalization Benchmark Source](https://colocalization-benchmark.com)

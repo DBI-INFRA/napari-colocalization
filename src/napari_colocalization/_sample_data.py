@@ -192,7 +192,7 @@ def load_coloc_sample():
     """Load the colocalization sample as ``(red, green)`` arrays.
 
     Reads the confocal Z-stack (downloading and caching it on first use,
-    see :func:`coloc_sample_path`) and returns its red and green channels
+    see `coloc_sample_path`) and returns its red and green channels
     as separate ``float32`` volumes scaled to ``[0, 1]``. The (empty)
     blue channel is dropped. These two strongly colocalising dyes are the
     starting point for the ROI colocalization tutorial.
