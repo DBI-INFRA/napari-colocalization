@@ -401,6 +401,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#overlap-coefficient-r-k1-k2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overlap coefficient (r, k1, k2)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#manders-mcc" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -538,6 +549,17 @@
     <span class="md-ellipsis">
       
         Li ICQ
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#overlap-coefficient-r-k1-k2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overlap coefficient (r, k1, k2)
       
     </span>
   </a>
@@ -688,6 +710,36 @@ it is restricted to the analysed region (whole image, shape, or
 label).</p>
 <p>We compute it locally in :func:<code>_metrics.li_icq</code> (no scikit-image
 equivalent).</p>
+<h2 id="overlap-coefficient-r-k1-k2">Overlap coefficient (r, k1, k2)<a class="headerlink" href="#overlap-coefficient-r-k1-k2" title="Permanent link">&para;</a></h2>
+<p>The overlap coefficient of Manders et al. (1992) and its two split
+components. Unlike M1/M2 below, these need <strong>no threshold</strong> — they are
+computed directly from the raw intensity products over the region:</p>
+<div class="arithmatex">\[
+r = \frac{\sum_i a_i b_i}{\sqrt{\sum_i a_i^2 \; \sum_i b_i^2}}
+\qquad
+k_1 = \frac{\sum_i a_i b_i}{\sum_i a_i^2}
+\qquad
+k_2 = \frac{\sum_i a_i b_i}{\sum_i b_i^2}
+\]</div>
+<p>Range of <code>r</code>: 0 to 1 for non-negative intensities. It is essentially the
+Pearson coefficient computed <em>without</em> mean-subtraction, which makes it
+insensitive to a difference in average brightness between the two
+channels — but also means it cannot report anti-correlation.</p>
+<p><code>k1</code> and <code>k2</code> split that co-occurrence per channel: <code>k1</code> is dominated by
+pixels where channel A is bright, <code>k2</code> by where B is bright. Their
+asymmetry diagnoses which channel drives the overlap.</p>
+<p><strong>When to use it.</strong> As a brightness-insensitive companion to PCC,
+particularly when the two channels were acquired at very different gain.
+The split <code>k1</code>/<code>k2</code> help when one channel is much sparser than the other.</p>
+<p><strong>Watch out for.</strong>
+- <code>r</code> hides the sign of any relationship; always read it next to PCC or
+  ICQ, never alone.
+- Like M1/M2 it assumes non-negative intensities; subtract background
+  first if your data has a strong offset.
+- Any coefficient whose denominator is zero (an all-zero channel within
+  the region) is reported as a blank/<code>NaN</code> cell.</p>
+<p>Computed locally in <code>_metrics.overlap</code>; the three values populate the
+<code>overlap</code>, <code>k1</code> and <code>k2</code> columns.</p>
 <h2 id="manders-mcc">Manders (MCC)<a class="headerlink" href="#manders-mcc" title="Permanent link">&para;</a></h2>
 <p>Two coefficients, M1 and M2, that ask: <em>"what fraction of the intensity
 in one channel is co-located with above-threshold signal in the other
@@ -737,7 +789,9 @@ literature.</p>
 the iteration runs to completion without ever hitting PCC ≤ 0.</p>
 <p>The selected thresholds appear in the <code>threshold_a</code> / <code>threshold_b</code>
 columns of the results table and as red reference lines on the scatter
-plot.</p>
+plot. The regression line from step 1 is overlaid as a cyan dashed line
+(via <code>_metrics.costes_regression</code>) so you can see the axis the
+auto-threshold was found along.</p>
 <blockquote>
 <p>The Costes randomisation test (statistical significance of PCC by
 shuffled pixel blocks) is <strong>not</strong> implemented in v1.</p>
@@ -762,6 +816,10 @@ shuffled pixel blocks) is <strong>not</strong> implemented in v1.</p>
 <tr>
 <td>"Do the channels co-vary in the <em>same direction</em> relative to their means, ignoring magnitude?"</td>
 <td>Li ICQ</td>
+</tr>
+<tr>
+<td>"How much do the signals overlap, ignoring brightness differences and without a threshold?"</td>
+<td>Overlap r (k1/k2)</td>
 </tr>
 <tr>
 <td>"What fraction of A's signal sits where B is bright?"</td>

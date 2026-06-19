@@ -471,10 +471,32 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#napari_colocalization._metrics.overlap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        overlap
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#napari_colocalization._metrics.costes_threshold" class="md-nav__link">
     <span class="md-ellipsis">
       
         costes_threshold
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#napari_colocalization._metrics.costes_regression" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        costes_regression
       
     </span>
   </a>
@@ -793,10 +815,32 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#napari_colocalization._metrics.overlap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        overlap
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#napari_colocalization._metrics.costes_threshold" class="md-nav__link">
     <span class="md-ellipsis">
       
         costes_threshold
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#napari_colocalization._metrics.costes_regression" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        costes_regression
       
     </span>
   </a>
@@ -1035,12 +1079,13 @@ the <code>:::</code> blocks are filled in automatically by mkdocstrings at build
 time.</p>
 <h2 id="module-layout">Module layout<a class="headerlink" href="#module-layout" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>napari_colocalization
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── _metrics.py     pearson, spearman, li_icq, manders, costes_threshold
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── _masking.py     shapes_to_label_mask, labels_to_label_mask, iter_regions
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├── _analysis.py    analyse_pairwise, analyse_all_to_all, COLUMNS
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>├── _sample_data.py make_sample_data, make_sample_data_3d,
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│                   make_sample_data_cbs006rbm
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>└── _widget.py      ColocalizationWidget (Qt-only)
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── _metrics.py     pearson, spearman, li_icq, manders, overlap,
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│                   costes_threshold, costes_regression
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├── _masking.py     shapes_to_label_mask, labels_to_label_mask, iter_regions
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>├── _analysis.py    analyse_pairwise, analyse_all_to_all, COLUMNS
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>├── _sample_data.py make_sample_data, make_sample_data_3d,
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│                   make_sample_data_cbs006rbm
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>└── _widget.py      ColocalizationWidget (Qt-only)
 </code></pre></div>
 <p>The leading underscore is a convention from the napari plugin template;
 the symbols below are stable and intended to be imported.</p>
@@ -1694,6 +1739,158 @@ contains no positive intensity in either channel.</p>
 <div class="doc doc-object doc-function">
 
 
+<h3 id="napari_colocalization._metrics.overlap" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">overlap</span>
+
+
+<a href="#napari_colocalization._metrics.overlap" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">overlap</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Manders' overlap coefficient <code>r</code> and split coefficients k1, k2.</p>
+<p>These threshold-free measures (Manders et al. 1992) quantify
+co-occurrence from the raw intensity products, complementing
+the threshold-dependent M1/M2 from :func:<code>manders</code>:</p>
+<p>.. math::
+    r = \frac{\sum_i a_i b_i}
+              {\sqrt{\sum_i a_i^2 \; \sum_i b_i^2}}, \quad
+    k_1 = \frac{\sum_i a_i b_i}{\sum_i a_i^2}, \quad
+    k_2 = \frac{\sum_i a_i b_i}{\sum_i b_i^2}</p>
+<p><code>r</code> lies in <code>[0, 1]</code> for non-negative intensities and is
+insensitive to a difference in mean brightness between the two
+channels. <code>k1</code> and <code>k2</code> split that co-occurrence per
+channel and are sensitive to such differences — their
+asymmetry is informative.</p>
+<p><code>r</code> is delegated to
+:func:<code>skimage.measure.manders_overlap_coeff</code>. The split
+coefficients k1/k2 have no scikit-image equivalent
+(:func:<code>skimage.measure.manders_coloc_coeff</code> computes the
+threshold-gated M1/M2 used by :func:<code>manders</code>, a different
+quantity), so they are derived from the same intensity sums
+here.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>a</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Same-shape, non-negative intensity arrays.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="array_like">array_like</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>b</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Same-shape, non-negative intensity arrays.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="array_like">array_like</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>mask</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Boolean array selecting the analysed region. <code>None</code>
+(the default) uses every pixel.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code>array_like of bool</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <span class="doc-returns-annotation">
+                    <code>r, k1, k2 : float</code>
+                </span>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>The overlap coefficient and the two split coefficients.
+Any coefficient whose denominator is zero (an all-zero
+channel within the region) is returned as <code>nan</code>; all
+three are <code>nan</code> for an empty region.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="references" open>
+  <summary>References</summary>
+  <p>Manders, E.M.M. et al. (1992). <em>Dynamics of three-dimensional
+replication patterns during the S-phase, analysed by double
+labelling of DNA and confocal microscopy.</em> J. Cell Sci. 103,
+857-862.</p>
+</details>
+
+<p><span class="doc-section-title">Examples:</span></p>
+    <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">napari_colocalization._metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">overlap</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="mf">4.0</span><span class="p">])</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">overlap</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span>                      <span class="c1"># identical channels</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="go">(1.0, 1.0, 1.0)</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">r</span><span class="p">,</span> <span class="n">k1</span><span class="p">,</span> <span class="n">k2</span> <span class="o">=</span> <span class="n">overlap</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">a</span><span class="p">)</span>      <span class="c1"># b is twice a</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="gp">&gt;&gt;&gt; </span><span class="nb">round</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="nb">round</span><span class="p">(</span><span class="n">k1</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="nb">round</span><span class="p">(</span><span class="n">k2</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="go">(1.0, 2.0, 0.5)</span>
+</code></pre></div>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h3 id="napari_colocalization._metrics.costes_threshold" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">costes_threshold</span>
 
@@ -1844,6 +2041,118 @@ pixel blocks to produce a p-value for PCC) is not implemented.</p>
 measurement of protein-protein colocalization in live cells.</em>
 Biophys. J. 86(6), 3993-4003.</p>
 </details>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="napari_colocalization._metrics.costes_regression" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">costes_regression</span>
+
+
+<a href="#napari_colocalization._metrics.costes_regression" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">costes_regression</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Least-squares line <code>b = slope * a + intercept</code>.</p>
+<p>This is the regression that :func:<code>costes_threshold</code> walks
+along to find the auto-threshold; it is exposed separately so
+callers (e.g. the cytofluorogram) can draw the same line.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>a</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Same-shape intensity arrays.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="array_like">array_like</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>b</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Same-shape intensity arrays.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="array_like">array_like</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>mask</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Restrict the regression to this region.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code>array_like of bool</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <span class="doc-returns-annotation">
+                    <code>slope, intercept : float</code>
+                </span>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>Regression coefficients, or <code>(nan, nan)</code> when the region
+has fewer than two samples or zero variance in <code>a</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
 
     </div>
 
@@ -2227,7 +2536,8 @@ export, and the row dicts:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">(</span><span class="s1">&#39;region&#39;</span><span class="p">,</span> <span class="s1">&#39;channel_a&#39;</span><span class="p">,</span> <span class="s1">&#39;channel_b&#39;</span><span class="p">,</span> <span class="s1">&#39;n_pixels&#39;</span><span class="p">,</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a> <span class="s1">&#39;pcc&#39;</span><span class="p">,</span> <span class="s1">&#39;pcc_pvalue&#39;</span><span class="p">,</span> <span class="s1">&#39;srcc&#39;</span><span class="p">,</span> <span class="s1">&#39;srcc_pvalue&#39;</span><span class="p">,</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a> <span class="s1">&#39;icq&#39;</span><span class="p">,</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a> <span class="s1">&#39;m1&#39;</span><span class="p">,</span> <span class="s1">&#39;m2&#39;</span><span class="p">,</span> <span class="s1">&#39;threshold_a&#39;</span><span class="p">,</span> <span class="s1">&#39;threshold_b&#39;</span><span class="p">)</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a> <span class="s1">&#39;overlap&#39;</span><span class="p">,</span> <span class="s1">&#39;k1&#39;</span><span class="p">,</span> <span class="s1">&#39;k2&#39;</span><span class="p">,</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a> <span class="s1">&#39;m1&#39;</span><span class="p">,</span> <span class="s1">&#39;m2&#39;</span><span class="p">,</span> <span class="s1">&#39;threshold_a&#39;</span><span class="p">,</span> <span class="s1">&#39;threshold_b&#39;</span><span class="p">)</span>
 </code></pre></div>
 
 
@@ -2242,6 +2552,14 @@ export, and the row dicts:</p>
 <p>These accept ndarrays plus a label mask, walk every non-zero
 region, compute the requested metrics, and return a list of dicts
 suitable for direct insertion into a table or a CSV.</p>
+<p>Failure policy: conditions that make the <em>whole</em> request invalid
+(shape mismatch, unknown options, missing manual thresholds) raise
+<code>ValueError</code> so the caller can surface the reason. Per-region
+degeneracies — a single ROI too small or with a constant/empty
+channel — are <em>not</em> errors in a multi-region run; the affected
+metrics stay <code>NaN</code> (a visible blank cell), and a human-readable
+reason is appended to the optional <code>region_warnings</code> collector so
+the caller can summarise how many regions were skipped and why.</p>
 
 
 
@@ -2271,7 +2589,7 @@ suitable for direct insertion into a table or a CSV.</p>
 
 
 <a href="#napari_colocalization._analysis.analyse_pairwise" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">analyse_pairwise</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">label_mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="n">ALL_METRICS</span><span class="p">,</span> <span class="n">threshold_method</span><span class="o">=</span><span class="s1">&#39;costes&#39;</span><span class="p">,</span> <span class="n">threshold_a</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">threshold_b</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">channel_a</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="n">channel_b</span><span class="o">=</span><span class="s1">&#39;B&#39;</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">analyse_pairwise</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">label_mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="n">ALL_METRICS</span><span class="p">,</span> <span class="n">threshold_method</span><span class="o">=</span><span class="s1">&#39;costes&#39;</span><span class="p">,</span> <span class="n">threshold_a</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">threshold_b</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">channel_a</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="n">channel_b</span><span class="o">=</span><span class="s1">&#39;B&#39;</span><span class="p">,</span> <span class="n">region_warnings</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -2350,12 +2668,14 @@ written as <code>NaN</code> so the output schema is constant.</p>
             </td>
             <td class="doc-param-details">
               <div class="doc-md-description">
-                <p>Which metrics to compute. Defaults to all four.</p>
+                <p>Which metrics to compute. Defaults to all. <code>'overlap'</code>
+adds the threshold-free overlap coefficient and the split
+coefficients k1/k2.</p>
               </div>
               <p>
                   <span class="doc-param-annotation">
                     <b>TYPE:</b>
-                      <code>sequence of {&#39;pcc&#39;, &#39;srcc&#39;, &#39;icq&#39;, &#39;mcc&#39;}</code>
+                      <code>sequence of {&#39;pcc&#39;, &#39;srcc&#39;, &#39;icq&#39;, &#39;overlap&#39;, &#39;mcc&#39;}</code>
                   </span>
                   <span class="doc-param-default">
                     <b>DEFAULT:</b>
@@ -2468,6 +2788,30 @@ result rows so they round-trip into the table and CSV.</p>
               </p>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>region_warnings</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>If provided, a human-readable string is appended for each
+region where a <em>requested</em> metric could not be computed
+(too few pixels, or a constant/empty channel). The metric
+cell itself stays <code>NaN</code>; this is the channel for telling
+the user why. <code>None</code> (default) discards the reasons.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="list">list</span></code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -2550,7 +2894,7 @@ thresholds, or if <code>threshold_method</code> is unknown.</p>
 
 
 <a href="#napari_colocalization._analysis.analyse_all_to_all" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">analyse_all_to_all</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">channel_axis</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">label_mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="n">ALL_METRICS</span><span class="p">,</span> <span class="n">threshold_method</span><span class="o">=</span><span class="s1">&#39;costes&#39;</span><span class="p">,</span> <span class="n">threshold_a</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">threshold_b</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">channel_names</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">analyse_all_to_all</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">channel_axis</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">label_mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="n">ALL_METRICS</span><span class="p">,</span> <span class="n">threshold_method</span><span class="o">=</span><span class="s1">&#39;costes&#39;</span><span class="p">,</span> <span class="n">threshold_a</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">threshold_b</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">channel_names</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">region_warnings</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -2637,7 +2981,7 @@ axes, i.e. 4D total).</p>
               <p>
                   <span class="doc-param-annotation">
                     <b>TYPE:</b>
-                      <code>sequence of {&#39;pcc&#39;, &#39;srcc&#39;, &#39;mcc&#39;}</code>
+                      <code>sequence of {&#39;pcc&#39;, &#39;srcc&#39;, &#39;icq&#39;, &#39;overlap&#39;, &#39;mcc&#39;}</code>
                   </span>
                   <span class="doc-param-default">
                     <b>DEFAULT:</b>
@@ -2720,6 +3064,27 @@ apply identically to every channel pair.</p>
                   <span class="doc-param-annotation">
                     <b>TYPE:</b>
                       <code>sequence of str</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>region_warnings</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Forwarded to :func:<code>analyse_pairwise</code>; collects per-region
+reasons across every channel pair.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="list">list</span></code>
                   </span>
                   <span class="doc-param-default">
                     <b>DEFAULT:</b>
