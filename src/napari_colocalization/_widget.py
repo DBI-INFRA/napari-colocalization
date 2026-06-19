@@ -983,9 +983,14 @@ class ColocalizationWidget(QWidget):
             self._scatter.clear()
             return
         row = ctx['row']
-        title = (
-            f'region {row["region"]}: {row["channel_a"]} vs {row["channel_b"]}'
-        )
+        # The channel pair is on the axis labels now; the title only
+        # carries the row identity (region, and slice when per-slice).
+        title = f'region {row["region"]}'
+        slice_index = row.get('slice')
+        if slice_index is not None and not (
+            isinstance(slice_index, float) and np.isnan(slice_index)
+        ):
+            title += f', slice {int(slice_index)}'
         annotation_lines = []
         for key, label in (
             ('pcc', 'Pearson'),
@@ -1014,6 +1019,8 @@ class ColocalizationWidget(QWidget):
             intercept=intercept,
             xlim=xlim,
             ylim=ylim,
+            xlabel=f'{row["channel_a"]} intensity',
+            ylabel=f'{row["channel_b"]} intensity',
             title=title,
             annotation='\n'.join(annotation_lines),
         )

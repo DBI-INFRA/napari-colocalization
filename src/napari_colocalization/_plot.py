@@ -108,6 +108,8 @@ class ScatterCanvas(FigureCanvasQTAgg):
         intercept=None,
         xlim=None,
         ylim=None,
+        xlabel='Channel A intensity',
+        ylabel='Channel B intensity',
         title='',
         annotation='',
     ):
@@ -128,6 +130,8 @@ class ScatterCanvas(FigureCanvasQTAgg):
         xlim, ylim : tuple of float or None
             Explicit axis ranges; when given they override the
             auto-fit, so plots are comparable across rows/images.
+        xlabel, ylabel : str
+            Axis labels (typically the two channel/layer names).
         title : str
             Axes title (typically the region + channel-pair label).
         annotation : str
@@ -143,8 +147,8 @@ class ScatterCanvas(FigureCanvasQTAgg):
 
         self._ax.clear()
         self._apply_dark_style()
-        self._ax.set_xlabel('Channel A intensity')
-        self._ax.set_ylabel('Channel B intensity')
+        self._ax.set_xlabel(xlabel)
+        self._ax.set_ylabel(ylabel)
 
         cmap = _hexbin_cmap()
 
