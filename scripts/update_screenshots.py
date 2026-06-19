@@ -40,15 +40,28 @@ def _spin(qapp, seconds=0.3):
         time.sleep(0.01)
 
 
-def _wait_for_results(qapp, widget, timeout=30.0):
-    """Poll until the analysis worker delivers results, then settle UI."""
+def _wait_until(qapp, predicate, what, timeout=30.0):
+    """Pump the event loop until ``predicate()`` is true, then settle UI."""
     deadline = time.monotonic() + timeout
-    while not widget._results and time.monotonic() < deadline:
+    while not predicate() and time.monotonic() < deadline:
         qapp.processEvents()
         time.sleep(0.02)
-    if not widget._results:
-        raise RuntimeError('analysis timed out before producing results')
+    if not predicate():
+        raise RuntimeError(f'timed out waiting for {what}')
     _spin(qapp, 0.4)
+
+
+def _wait_for_results(qapp, widget, timeout=30.0):
+    """Poll until the analysis worker delivers results, then settle UI."""
+    _wait_until(
+        qapp, lambda: bool(widget._results), 'analysis results', timeout
+    )
+
+
+def _image_layers(viewer):
+    from napari.layers import Image
+
+    return [layer for layer in viewer.layers if isinstance(layer, Image)]
 
 
 def _select_region_layer(widget, layer):
@@ -120,10 +133,46 @@ def shot_widget_shapes(qapp, viewer, widget):
     _grab(viewer, OUT / 'widget_shapes.png')
 
 
+def shot_diagnostics(qapp, viewer, widget):
+    _load_sample(viewer)
+    _spin(qapp)
+    widget._tabs.setCurrentIndex(1)  # Diagnostics
+    channel_a, channel_b = _image_layers(viewer)[:2]
+    widget._diag_image_a_combo.value = channel_a
+    widget._diag_image_b_combo.value = channel_b
+    # Costes randomization is the default diagnostic.
+    widget._on_diag_run_clicked()
+    _wait_until(
+        qapp,
+        lambda: widget._diag_summary_label.text() != '',
+        'diagnostic result',
+    )
+    _grab(viewer, OUT / 'widget_diagnostics.png')
+
+
+def shot_objects(qapp, viewer, widget):
+    _load_sample(viewer)
+    _spin(qapp)
+    widget._tabs.setCurrentIndex(2)  # Object-based
+    channel_a, channel_b = _image_layers(viewer)[:2]
+    # Threshold-images mode is the default object source.
+    widget._obj_image_a_combo.value = channel_a
+    widget._obj_image_b_combo.value = channel_b
+    widget._on_object_run_clicked()
+    _wait_until(
+        qapp,
+        lambda: widget._object_table.rowCount() > 0,
+        'object results',
+    )
+    _grab(viewer, OUT / 'widget_objects.png')
+
+
 SHOTS = [
     ('usage_widget_initial', shot_usage_widget_initial),
     ('widget_overview', shot_widget_overview),
     ('widget_shapes', shot_widget_shapes),
+    ('widget_diagnostics', shot_diagnostics),
+    ('widget_objects', shot_objects),
 ]
 
 

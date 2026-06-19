@@ -110,6 +110,31 @@ pip install git+https://github.com/DBI-INFRA/napari-colocalization.git
 
 See [docs/usage.md](docs/usage.md) for the full walkthrough.
 
+## Diagnostics
+
+The **Diagnostics** tab runs single-pair diagnostic plots that go beyond a
+single number per region: the **Costes randomization** significance test (the
+observed PCC against a block-scrambled null, with a p-value and z-score), the
+**Van Steensel** cross-correlation function, and **Li's intensity correlation
+analysis**.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalization/main/docs/img/widget_diagnostics.png" alt="Diagnostics tab — Costes randomization" width="780"/>
+</p>
+
+## Object-based analysis
+
+The **Object-based** tab compares segmented *objects* between the two channels
+— **centre-particle coincidence** (does an object's centroid fall inside an
+object of the other channel?) and **object overlap** — with one row per object.
+Objects come from existing Labels layers or by thresholding, and the detected
+centroids and nearest-neighbour links are drawn back into the viewer as Points
+and Vectors.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalization/main/docs/img/widget_objects.png" alt="Object-based tab — coincidence and overlap" width="780"/>
+</p>
+
 ## Documentation
 
 - **[Usage guide](docs/usage.md)** — every control in the widget, in order.
