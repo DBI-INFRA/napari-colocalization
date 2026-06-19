@@ -88,6 +88,24 @@ def _format_object_cell(value):
     return str(value)
 
 
+def _layer_color(layer):
+    """An image layer's colormap colour (top of ramp) as a hex string.
+
+    Returned as ``#rrggbb`` (unambiguously a single colour for
+    ``add_points``); falls back to white when there's no usable
+    colormap.
+    """
+    colormap = getattr(layer, 'colormap', None)
+    if colormap is None:
+        return 'white'
+    try:
+        rgb = np.asarray(colormap.map([1.0])).ravel()[:3]
+    except (AttributeError, ValueError, TypeError):
+        return 'white'
+    r, g, b = (int(round(float(c) * 255)) for c in rgb)
+    return f'#{r:02x}{g:02x}{b:02x}'
+
+
 class FigureExportDialog(QDialog):
     """Modal dialog asking the user for figure size (inches) and DPI."""
 
@@ -151,6 +169,13 @@ class ColocalizationWidget(QWidget):
         # "Add coloc mask" output layer can be built from a selected row.
         self._channel_arrays = {}
         self._label_mask = None
+        # Centroid/link layers added by the last object run, so a new
+        # run can clear them first. Centroid point size defaults to a
+        # value scaled to the image (``None`` = auto); once the user
+        # manually resizes, that value is locked and carried over.
+        self._object_overlay_layers = []
+        self._centroid_size = None
+        self._centroid_size_auto = None
 
         # Analysis families live on separate tabs: the multi-region
         # intensity table on one, the single-pair diagnostic plots on
@@ -524,19 +549,29 @@ class ColocalizationWidget(QWidget):
         self._refresh_region_combo(self._diag_region_combo)
         self._refresh_region_combo(self._obj_region_combo)
 
-        # Pairwise default: when magicgui populates A and B with the
-        # same first image (or a new layer collapses them), nudge B
-        # to a different image so the user can run pairwise without
-        # changing the defaults. Same for the diagnostics pair.
-        for combo_a, combo_b in (
-            (self._image_a_combo, self._image_b_combo),
-            (self._diag_image_a_combo, self._diag_image_b_combo),
+        # Default A/B pairs to two distinct layers: magicgui otherwise
+        # populates both with the same first layer, which is never a
+        # meaningful colocalization input.
+        for combo_a, combo_b, candidates in (
+            (self._image_a_combo, self._image_b_combo, images),
+            (self._diag_image_a_combo, self._diag_image_b_combo, images),
+            (self._obj_image_a_combo, self._obj_image_b_combo, images),
+            (
+                self._obj_labels_a_combo,
+                self._obj_labels_b_combo,
+                labels_layers,
+            ),
         ):
-            if len(images) >= 2 and combo_a.value is combo_b.value:
-                for layer in images:
-                    if layer is not combo_a.value:
-                        combo_b.value = layer
-                        break
+            self._nudge_distinct(combo_a, combo_b, candidates)
+
+    @staticmethod
+    def _nudge_distinct(combo_a, combo_b, candidates):
+        """Point B at a layer different from A when they collide."""
+        if len(candidates) >= 2 and combo_a.value is combo_b.value:
+            for layer in candidates:
+                if layer is not combo_a.value:
+                    combo_b.value = layer
+                    break
 
     def _refresh_region_combo(self, region_combo):
         from napari.layers import Labels, Shapes
@@ -1548,6 +1583,8 @@ class ColocalizationWidget(QWidget):
                 'min_size': int(self._obj_min_size.value()),
                 'name_a': layer_a.name,
                 'name_b': layer_b.name,
+                'color_a': _layer_color(layer_a),
+                'color_b': _layer_color(layer_b),
             }
         layer_a = self._obj_labels_a_combo.value
         layer_b = self._obj_labels_b_combo.value
@@ -1567,12 +1604,16 @@ class ColocalizationWidget(QWidget):
             'labels_b': labels_b,
             'name_a': layer_a.name,
             'name_b': layer_b.name,
+            # Labels layers have no single intensity colour; use defaults.
+            'color_a': 'cyan',
+            'color_b': 'magenta',
         }
 
     def _on_object_run_clicked(self):
         params = self._gather_object_params()
         if params is None:
             return
+        self._clear_object_overlays()
         self._obj_run_button.setEnabled(False)
         worker = self._object_worker(params)
         worker.returned.connect(self._on_object_results_ready)
@@ -1609,10 +1650,14 @@ class ColocalizationWidget(QWidget):
             labels_b,
             params['name_a'],
             params['name_b'],
+            params['color_a'],
+            params['color_b'],
         )
 
     def _on_object_results_ready(self, payload):
-        rows, summary, labels_a, labels_b, name_a, name_b = payload
+        rows, summary, labels_a, labels_b, name_a, name_b, color_a, color_b = (
+            payload
+        )
         self._populate_object_table(rows)
         self._obj_summary_label.setText(
             self._object_summary_text(summary, name_a, name_b)
@@ -1624,25 +1669,69 @@ class ColocalizationWidget(QWidget):
             return
         centroids_a = object_centroids(labels_a)
         centroids_b = object_centroids(labels_b)
+        if self._centroid_size is not None:
+            size = self._centroid_size
+        else:
+            size = self._auto_centroid_size(labels_a.shape)
+            self._centroid_size_auto = size
         if self._obj_points_check.isChecked():
             if centroids_a.size:
-                self._viewer.add_points(
-                    centroids_a,
-                    name=f'{name_a} centroids',
-                    face_color='cyan',
+                self._add_overlay_layer(
+                    self._viewer.add_points(
+                        centroids_a,
+                        name=f'{name_a} centroids',
+                        size=size,
+                        face_color=color_a,
+                    )
                 )
             if centroids_b.size:
-                self._viewer.add_points(
-                    centroids_b,
-                    name=f'{name_b} centroids',
-                    face_color='magenta',
+                self._add_overlay_layer(
+                    self._viewer.add_points(
+                        centroids_b,
+                        name=f'{name_b} centroids',
+                        size=size,
+                        face_color=color_b,
+                    )
                 )
         if self._obj_links_check.isChecked():
             vectors = nearest_neighbour_vectors(centroids_a, centroids_b)
             if vectors.shape[0]:
-                self._viewer.add_vectors(
-                    vectors, name=f'{name_a} → {name_b} links', edge_width=0.5
+                self._add_overlay_layer(
+                    self._viewer.add_vectors(
+                        vectors,
+                        name=f'{name_a} → {name_b} links',
+                        edge_width=0.5,
+                    )
                 )
+
+    def _add_overlay_layer(self, layer):
+        self._object_overlay_layers.append(layer)
+
+    def _clear_object_overlays(self):
+        """Remove centroid/link layers added by the previous run.
+
+        If the user has manually resized a centroid layer (its size no
+        longer matches our auto value) that size is locked and carried
+        over; otherwise we stay in auto mode and rescale to the next
+        image. Vectors have no ``current_size`` and are skipped.
+        """
+        for layer in self._object_overlay_layers:
+            size = getattr(layer, 'current_size', None)
+            if size is not None:
+                size = float(size)
+                if self._centroid_size_auto is None or not np.isclose(
+                    size, self._centroid_size_auto
+                ):
+                    self._centroid_size = size
+            with contextlib.suppress(ValueError, KeyError):
+                self._viewer.layers.remove(layer)
+        self._object_overlay_layers = []
+
+    @staticmethod
+    def _auto_centroid_size(shape):
+        """Centroid point size scaled to the image (floored at 2 px)."""
+        extent = max(shape) if len(shape) else 1
+        return float(max(2.0, round(extent / 200)))
 
     def _on_object_worker_error(self, exc):
         show_warning(f'Object analysis failed: {exc}')

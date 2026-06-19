@@ -612,6 +612,46 @@ def test_object_run_threshold_populates_and_overlays(
     assert any(isinstance(layer, Vectors) for layer in viewer.layers)
 
 
+def test_obj_threshold_defaults_to_distinct_layers(make_napari_viewer, rng):
+    viewer = make_napari_viewer()
+    a = rng.random((16, 16)).astype(np.float32)
+    viewer.add_image(a, name='a')
+    viewer.add_image(a.copy(), name='b')
+    widget = ColocalizationWidget(viewer)
+    assert (
+        widget._obj_image_a_combo.value is not widget._obj_image_b_combo.value
+    )
+
+
+def test_object_rerun_clears_previous_overlays(make_napari_viewer, qtbot, rng):
+    viewer = make_napari_viewer()
+    img = np.zeros((20, 20), dtype=np.float32)
+    img[2:6, 2:6] = 1.0
+    img[12:16, 12:16] = 1.0
+    layer_a = viewer.add_image(img, name='a')
+    layer_b = viewer.add_image(img.copy(), name='b')
+    widget = ColocalizationWidget(viewer)
+    widget._obj_image_a_combo.value = layer_a
+    widget._obj_image_b_combo.value = layer_b
+
+    widget._on_object_run_clicked()
+    qtbot.waitUntil(
+        lambda: len(widget._object_overlay_layers) > 0, timeout=10000
+    )
+    first_overlays = list(widget._object_overlay_layers)
+    n_layers = len(viewer.layers)
+
+    widget._on_object_run_clicked()
+    qtbot.waitUntil(
+        lambda: bool(widget._object_overlay_layers)
+        and widget._object_overlay_layers[0] not in first_overlays,
+        timeout=10000,
+    )
+    # previous overlays removed; layer count did not accumulate
+    assert all(layer not in viewer.layers for layer in first_overlays)
+    assert len(viewer.layers) == n_layers
+
+
 def test_object_run_from_labels_layers(make_napari_viewer, qtbot, rng):
     viewer = make_napari_viewer()
     la = np.zeros((20, 20), dtype=np.int32)
