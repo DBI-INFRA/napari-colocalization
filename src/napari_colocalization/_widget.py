@@ -235,10 +235,25 @@ class ColocalizationWidget(QWidget):
         self._image_b_combo = create_widget(
             label='Image B', annotation='napari.layers.Image'
         )
+        # Per-Z-slice option (JACoP B "consider Z slices separately"):
+        # only meaningful for 3D+ images; one result row per slice.
+        self._per_slice_check = QCheckBox('Per Z-slice')
+        self._per_slice_check.setToolTip(
+            'Analyse each plane along the Z axis separately '
+            '(one result row per slice). Requires a 3D image.'
+        )
+        self._slice_axis_spin = QSpinBox()
+        self._slice_axis_spin.setMinimum(0)
+        self._slice_axis_spin.setMaximum(3)
         self._pairwise_group = self._make_group(
             'Channels (pairwise)',
             self._image_a_combo.native,
             self._image_b_combo.native,
+            self._hbox(
+                self._per_slice_check,
+                QLabel('Z axis'),
+                self._slice_axis_spin,
+            ),
         )
         return self._pairwise_group
 
@@ -581,6 +596,15 @@ class ColocalizationWidget(QWidget):
         except ValueError as exc:
             show_warning(str(exc))
             return None
+        slice_axis = None
+        if self._per_slice_check.isChecked():
+            slice_axis = int(self._slice_axis_spin.value())
+            if a.ndim < 3:
+                show_warning('Per Z-slice requires a 3D image.')
+                return None
+            if slice_axis >= a.ndim:
+                show_warning(f'Z axis {slice_axis} >= ndim {a.ndim}.')
+                return None
         return {
             **common,
             'mode': 'pairwise',
@@ -590,6 +614,7 @@ class ColocalizationWidget(QWidget):
             'region_layer': region_layer,
             'channel_a': layer_a.name,
             'channel_b': layer_b.name,
+            'slice_axis': slice_axis,
         }
 
     def _all_to_all_params(self, common):
@@ -651,6 +676,7 @@ class ColocalizationWidget(QWidget):
                 threshold_b=params['threshold_b'],
                 channel_a=params['channel_a'],
                 channel_b=params['channel_b'],
+                slice_axis=params.get('slice_axis'),
                 region_warnings=region_warnings,
             )
             channel_arrays = {
@@ -679,12 +705,18 @@ class ColocalizationWidget(QWidget):
             params['label_mask'],
             params.get('region_source', 'none'),
             region_warnings,
+            params.get('slice_axis'),
         )
 
     def _on_results_ready(self, payload):
-        rows, channel_arrays, label_mask, region_source, region_warnings = (
-            payload
-        )
+        (
+            rows,
+            channel_arrays,
+            label_mask,
+            region_source,
+            region_warnings,
+            slice_axis,
+        ) = payload
         # napari shapes hover shows 0-based indices, but Shapes.to_labels
         # rasterises non-zero labels starting at 1. Re-align so the
         # table/scatter/CSV match what the user sees in the Shapes layer.
@@ -695,7 +727,7 @@ class ColocalizationWidget(QWidget):
         self._results = rows
         self._populate_table(rows)
         self._plot_context = self._build_plot_context(
-            rows, channel_arrays, label_mask
+            rows, channel_arrays, label_mask, slice_axis
         )
         self._results_group.setVisible(bool(rows))
         self._export_row.setVisible(bool(rows))
@@ -748,15 +780,32 @@ class ColocalizationWidget(QWidget):
         self._table.setSortingEnabled(True)
         self._table.resizeColumnsToContents()
 
-    def _build_plot_context(self, rows, channel_arrays, label_mask):
+    def _build_plot_context(
+        self, rows, channel_arrays, label_mask, slice_axis=None
+    ):
         context = []
         for row in rows:
             a = channel_arrays.get(row['channel_a'])
             b = channel_arrays.get(row['channel_b'])
+            lm = label_mask
+            # For a per-Z-slice row, scatter/regression should reflect
+            # that plane only — take the slice of the channel arrays
+            # (and of a full-volume label mask).
+            s = row.get('slice')
+            if (
+                slice_axis is not None
+                and s is not None
+                and not (isinstance(s, float) and np.isnan(s))
+            ):
+                si = int(s)
+                a = np.take(a, si, axis=slice_axis)
+                b = np.take(b, si, axis=slice_axis)
+                if lm is not None and np.asarray(lm).ndim > a.ndim:
+                    lm = np.take(label_mask, si, axis=slice_axis)
             mask = None
             mask_label = row.get('region_label', row['region'])
-            if label_mask is not None and mask_label != 0:
-                mask = label_mask == mask_label
+            if lm is not None and mask_label != 0:
+                mask = lm == mask_label
             context.append(
                 {
                     'a': a,

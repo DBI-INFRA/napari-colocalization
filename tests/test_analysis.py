@@ -159,6 +159,38 @@ def test_all_to_all_collects_region_warnings():
     assert len(warns) == 1
 
 
+def test_pairwise_per_slice_one_row_per_slice(rng):
+    a = rng.random((5, 16, 16))
+    rows = analyse_pairwise(a, a.copy(), metrics=('pcc',), slice_axis=0)
+    assert len(rows) == 5
+    assert sorted(int(r['slice']) for r in rows) == [0, 1, 2, 3, 4]
+    for r in rows:
+        assert r['region'] == 0  # whole slice
+        assert r['n_pixels'] == 256
+        assert r['pcc'] == pytest.approx(1.0)
+
+
+def test_pairwise_per_slice_with_3d_label_mask(rng):
+    a = rng.random((3, 10, 10))
+    label_mask = np.zeros((3, 10, 10), dtype=int)
+    label_mask[:, :5, :] = 1
+    label_mask[:, 5:, :] = 2
+    rows = analyse_pairwise(
+        a, a.copy(), label_mask=label_mask, metrics=('pcc',), slice_axis=0
+    )
+    # 3 slices x 2 regions
+    assert len(rows) == 6
+    assert {r['region'] for r in rows} == {1, 2}
+    assert {int(r['slice']) for r in rows} == {0, 1, 2}
+
+
+def test_whole_volume_rows_have_nan_slice(rng):
+    a = rng.random((4, 8, 8))
+    rows = analyse_pairwise(a, a.copy(), metrics=('pcc',))
+    assert len(rows) == 1
+    assert np.isnan(rows[0]['slice'])
+
+
 def test_pairwise_shape_mismatch_raises():
     a = np.zeros((10, 10))
     b = np.zeros((10, 11))

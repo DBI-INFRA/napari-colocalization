@@ -41,6 +41,7 @@ _METRIC_VALUE_KEYS = {
 ALL_METRICS = ('pcc', 'srcc', 'icq', 'overlap', 'mcc')
 COLUMNS = (
     'region',
+    'slice',
     'channel_a',
     'channel_b',
     'n_pixels',
@@ -63,6 +64,7 @@ def _empty_row(region, channel_a, channel_b, n_pixels):
     nan = float('nan')
     return {
         'region': region,
+        'slice': nan,
         'channel_a': channel_a,
         'channel_b': channel_b,
         'n_pixels': n_pixels,
@@ -174,6 +176,7 @@ def analyse_pairwise(
     threshold_b=None,
     channel_a='A',
     channel_b='B',
+    slice_axis=None,
     region_warnings=None,
 ):
     """Compute selected metrics for each region of two grayscale arrays.
@@ -207,6 +210,13 @@ def analyse_pairwise(
     channel_a, channel_b : str, default 'A' and 'B'
         Display names for the two channels — written into the
         result rows so they round-trip into the table and CSV.
+    slice_axis : int, optional
+        If given, analyse each plane along this axis **separately**
+        (JACoP B's "consider Z slices separately") rather than the
+        whole volume: every region is reported once per slice, with
+        the plane index in the ``'slice'`` column. A ``label_mask``
+        matching the full volume is sliced alongside; a
+        slice-shaped mask is reused for every plane.
     region_warnings : list, optional
         If provided, a human-readable string is appended for each
         region where a *requested* metric could not be computed
@@ -242,6 +252,34 @@ def analyse_pairwise(
     if a.shape != b.shape:
         raise ValueError(f'shape mismatch: {a.shape} vs {b.shape}')
     metrics = tuple(metrics)
+
+    if slice_axis is not None:
+        lm = None if label_mask is None else np.asarray(label_mask)
+        rows = []
+        for s in range(a.shape[slice_axis]):
+            if lm is None:
+                mask_s = None
+            elif lm.ndim == a.ndim:
+                mask_s = np.take(lm, s, axis=slice_axis)
+            else:
+                mask_s = lm
+            slice_rows = analyse_pairwise(
+                np.take(a, s, axis=slice_axis),
+                np.take(b, s, axis=slice_axis),
+                label_mask=mask_s,
+                metrics=metrics,
+                threshold_method=threshold_method,
+                threshold_a=threshold_a,
+                threshold_b=threshold_b,
+                channel_a=channel_a,
+                channel_b=channel_b,
+                region_warnings=region_warnings,
+            )
+            for row in slice_rows:
+                row['slice'] = s
+            rows.extend(slice_rows)
+        return rows
+
     rows = []
     for region_id, region_mask in iter_regions(label_mask):
         if region_mask is None:

@@ -184,6 +184,42 @@ def test_run_pairwise_populates_table(make_napari_viewer, qtbot, rng):
     assert pcc_value == pytest.approx(1.0)
 
 
+def test_run_per_slice_populates_rows(make_napari_viewer, qtbot, rng):
+    viewer = make_napari_viewer()
+    a = rng.random((4, 16, 16)).astype(np.float32)
+    layer_a = viewer.add_image(a, name='a')
+    layer_b = viewer.add_image(a.copy(), name='b')
+    widget = ColocalizationWidget(viewer)
+    widget._image_a_combo.value = layer_a
+    widget._image_b_combo.value = layer_b
+    widget._cb_mcc.setChecked(False)
+    widget._per_slice_check.setChecked(True)
+    widget._slice_axis_spin.setValue(0)
+
+    widget._on_run_clicked()
+    qtbot.waitUntil(lambda: widget._table.rowCount() > 0, timeout=10000)
+    assert widget._table.rowCount() == 4  # one row per Z slice
+    headers = [
+        widget._table.horizontalHeaderItem(c).text()
+        for c in range(widget._table.columnCount())
+    ]
+    assert 'slice' in headers
+    # selecting a per-slice row should not raise (slice-aware scatter)
+    widget._table.selectRow(2)
+
+
+def test_per_slice_on_2d_rejected(make_napari_viewer, rng):
+    viewer = make_napari_viewer()
+    a = rng.random((16, 16)).astype(np.float32)  # 2D
+    layer_a = viewer.add_image(a, name='a')
+    layer_b = viewer.add_image(a.copy(), name='b')
+    widget = ColocalizationWidget(viewer)
+    widget._image_a_combo.value = layer_a
+    widget._image_b_combo.value = layer_b
+    widget._per_slice_check.setChecked(True)
+    assert widget.gather_params() is None
+
+
 def test_run_with_otsu_threshold(make_napari_viewer, qtbot, rng):
     viewer = make_napari_viewer()
     a = np.zeros((32, 32), dtype=np.float32)
