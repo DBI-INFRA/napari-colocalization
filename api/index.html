@@ -620,6 +620,67 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#diagnostics-napari_colocalization_diagnostics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagnostics — napari_colocalization._diagnostics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Diagnostics — napari_colocalization._diagnostics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#napari_colocalization._diagnostics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        _diagnostics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#napari_colocalization._diagnostics.costes_randomization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        costes_randomization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#napari_colocalization._diagnostics.van_steensel_ccf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        van_steensel_ccf
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#napari_colocalization._diagnostics.li_ica" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        li_ica
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#sample-data-napari_colocalization_sample_data" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -964,6 +1025,67 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#diagnostics-napari_colocalization_diagnostics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagnostics — napari_colocalization._diagnostics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Diagnostics — napari_colocalization._diagnostics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#napari_colocalization._diagnostics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        _diagnostics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#napari_colocalization._diagnostics.costes_randomization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        costes_randomization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#napari_colocalization._diagnostics.van_steensel_ccf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        van_steensel_ccf
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#napari_colocalization._diagnostics.li_ica" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        li_ica
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#sample-data-napari_colocalization_sample_data" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1083,9 +1205,10 @@ time.</p>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│                   costes_threshold, costes_regression
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├── _masking.py     shapes_to_label_mask, labels_to_label_mask, iter_regions
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>├── _analysis.py    analyse_pairwise, analyse_all_to_all, COLUMNS
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>├── _sample_data.py make_sample_data, make_sample_data_3d,
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│                   make_sample_data_cbs006rbm
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>└── _widget.py      ColocalizationWidget (Qt-only)
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>├── _diagnostics.py costes_randomization, van_steensel_ccf, li_ica
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>├── _sample_data.py make_sample_data, make_sample_data_3d,
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│                   make_sample_data_cbs006rbm
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>└── _widget.py      ColocalizationWidget (Qt-only)
 </code></pre></div>
 <p>The leading underscore is a convention from the napari plugin template;
 the symbols below are stable and intended to be imported.</p>
@@ -1896,24 +2019,26 @@ labelling of DNA and confocal microscopy.</em> J. Cell Sci. 103,
 
 
 <a href="#napari_colocalization._metrics.costes_threshold" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">costes_threshold</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_steps</span><span class="o">=</span><span class="mi">256</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">costes_threshold</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_iter</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Costes' iterative auto-threshold for Manders' M1 / M2.</p>
-<p>Implements the algorithm of Costes et al. (2004):</p>
+<p>Follows Fiji <strong>Coloc 2</strong> (<code>AutoThresholdRegression</code>):</p>
 <ol>
-<li>Fit a least-squares regression line <code>b = m * a + c</code> over
-   the analysed region.</li>
-<li>Walk a candidate threshold <code>T_a</code> downward from
-   <code>max(a)</code>. At each step, set <code>T_b = m * T_a + c</code> so the
-   threshold pair lies on the regression line.</li>
-<li>The "below-threshold" subset is every pixel with
-   <code>a &lt;= T_a</code> <strong>or</strong> <code>b &lt;= T_b</code>. Compute its Pearson
-   correlation. Stop at the first <code>T_a</code> where that PCC
-   drops to zero or below — at that point the below-threshold
-   pixels are no longer correlated, i.e. background.</li>
+<li>Fit the :func:<code>costes_regression</code> orthogonal line
+   <code>b = m*a + c</code>.</li>
+<li>Step a candidate threshold by <strong>bisection</strong>. The threshold
+   pair always lies on the line; the channel that is stepped
+   is the one giving finer resolution — channel A when
+   <code>|m| &lt; 1</code> (then <code>T_b = m*T_a + c</code>) else channel B (then
+   <code>T_a = (T_b - c)/m</code>).</li>
+<li>At each candidate, compute the Pearson correlation of the
+   below-threshold pixels (<code>a &lt; T_a</code> <strong>or</strong> <code>b &lt; T_b</code>).
+   Bisect downward while that correlation is positive and
+   upward when it is non-positive (or undefined), converging on
+   the threshold where the background pixels stop correlating.</li>
 </ol>
 
 
@@ -1979,11 +2104,12 @@ labelling of DNA and confocal microscopy.</em> J. Cell Sci. 103,
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>n_steps</code>
+                <code>max_iter</code>
             </td>
             <td class="doc-param-details">
               <div class="doc-md-description">
-                <p>Number of candidate thresholds along <code>[min(a), max(a)]</code>.</p>
+                <p>Maximum bisection iterations (Coloc 2 default); the search
+also stops once the step falls below one intensity unit.</p>
               </div>
               <p>
                   <span class="doc-param-annotation">
@@ -1992,7 +2118,7 @@ labelling of DNA and confocal microscopy.</em> J. Cell Sci. 103,
                   </span>
                   <span class="doc-param-default">
                     <b>DEFAULT:</b>
-                      <code>256</code>
+                      <code>100</code>
                   </span>
               </p>
             </td>
@@ -2017,23 +2143,16 @@ labelling of DNA and confocal microscopy.</em> J. Cell Sci. 103,
             </td>
             <td class="doc-returns-details">
               <div class="doc-md-description">
-                <p>Per-channel thresholds suitable to feed into
-:func:<code>manders</code>. Falls back to <code>(max(a), max(b))</code> when
-the regression slope is non-positive (no co-occurrence to
-threshold for) and to <code>(min(a), min(b))</code> when the
-iteration never reaches <code>PCC &lt;= 0</code>.</p>
+                <p>Per-channel thresholds for :func:<code>manders</code>, clamped to the
+data range. Falls back to <code>(max(a), max(b))</code> when the
+regression slope is non-positive or undefined (no
+co-occurrence to threshold for).</p>
               </div>
             </td>
           </tr>
       </tbody>
     </table>
 
-
-<details class="note" open>
-  <summary>Notes</summary>
-  <p>The Costes randomisation significance test (which scrambles
-pixel blocks to produce a p-value for PCC) is not implemented.</p>
-</details>
 
 <details class="references" open>
   <summary>References</summary>
@@ -2059,10 +2178,19 @@ Biophys. J. 86(6), 3993-4003.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Least-squares line <code>b = slope * a + intercept</code>.</p>
-<p>This is the regression that :func:<code>costes_threshold</code> walks
-along to find the auto-threshold; it is exposed separately so
-callers (e.g. the cytofluorogram) can draw the same line.</p>
+        <p>Orthogonal-regression line <code>b = slope * a + intercept</code>.</p>
+<p>This is the line :func:<code>costes_threshold</code> walks along; it is
+exposed separately so callers (e.g. the cytofluorogram) can
+draw the same line. To match Fiji's <strong>Coloc 2</strong> we use
+<strong>orthogonal</strong> (total-least-squares) regression rather than an
+ordinary least-squares fit — the relationship is symmetric
+(neither channel is the independent variable), and OLS would
+bias the slope when the predictor channel is noisy. The slope
+is the principal axis of the intensity covariance:</p>
+<p>.. math::
+    m = \frac{\sigma_b^2 - \sigma_a^2 +
+        \sqrt{(\sigma_b^2 - \sigma_a^2)^2 + 4\sigma_{ab}^2}}
+        {2\sigma_{ab}}, \quad c = \bar b - m\,\bar a</p>
 
 
 <table>
@@ -2146,13 +2274,22 @@ callers (e.g. the cytofluorogram) can draw the same line.</p>
             <td class="doc-returns-details">
               <div class="doc-md-description">
                 <p>Regression coefficients, or <code>(nan, nan)</code> when the region
-has fewer than two samples or zero variance in <code>a</code>.</p>
+has fewer than two samples, zero variance in either
+channel, or zero covariance (no line to fit).</p>
               </div>
             </td>
           </tr>
       </tbody>
     </table>
 
+
+<details class="references" open>
+  <summary>References</summary>
+  <p>Costes, S.V. et al. (2004). <em>Automatic and quantitative
+measurement of protein-protein colocalization in live cells.</em>
+Biophys. J. 86(6), 3993-4003. Implementation matched to Fiji
+Coloc 2 <code>AutoThresholdRegression</code>.</p>
+</details>
 
     </div>
 
@@ -3144,6 +3281,604 @@ reasons across every channel pair.</p>
               <div class="doc-md-description">
                 <p>If <code>len(channel_names)</code> does not match the channel
 count.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div><h2 id="diagnostics-napari_colocalization_diagnostics">Diagnostics — <code>napari_colocalization._diagnostics</code><a class="headerlink" href="#diagnostics-napari_colocalization_diagnostics" title="Permanent link">&para;</a></h2>
+<p>Curve/distribution producers behind the Diagnostics tab. Unlike the
+metrics, a degenerate whole input raises <code>ValueError</code> rather than
+returning <code>NaN</code>.</p>
+
+
+<div class="doc doc-object doc-module">
+
+
+
+<a id="napari_colocalization._diagnostics"></a>
+    <div class="doc doc-contents first">
+
+        <p>Pure-compute colocalization <em>diagnostics</em>.</p>
+<p>Unlike :mod:<code>._metrics</code>, whose functions return a scalar per region,
+these produce a curve or a distribution — the payloads behind the
+widget's Diagnostics tab. As in :mod:<code>._metrics</code> there are no
+napari/qtpy imports here, so every function operates on ndarrays and
+can be tested headlessly. The scalar <em>summaries</em> (peak shift, ICQ,
+p-value) are returned alongside the arrays so the widget can drop them
+into a label while the arrays go to the plot.</p>
+<p>Failure policy matches the rest of the package: a degenerate <em>whole
+input</em> (shape mismatch, too few pixels, an out-of-range parameter)
+raises <code>ValueError</code> for the widget to surface as a napari warning,
+rather than returning a silently meaningless result.</p>
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="napari_colocalization._diagnostics.costes_randomization" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">costes_randomization</span>
+
+
+<a href="#napari_colocalization._diagnostics.costes_randomization" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">costes_randomization</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_iter</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">block_size</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Costes' randomization significance test for Pearson's PCC.</p>
+<p>Scrambles channel <code>b</code> in blocks <code>n_iter</code> times — destroying
+spatial co-occurrence while preserving each channel's intensity
+histogram and local texture — and recomputes the PCC each time to
+build a null distribution. The observed PCC is then placed against
+that null (Costes et al. 2004). A high observed PCC that sits far
+above the null (small p-value) is evidence of genuine
+colocalisation rather than chance overlap.</p>
+<p>Works for 2D or 3D images; the arrays are cropped to a whole
+number of blocks in each dimension before scrambling.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>a</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Same-shape 2D or 3D intensity arrays.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="array_like">array_like</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>b</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Same-shape 2D or 3D intensity arrays.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="array_like">array_like</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>mask</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Region of interest; cropped alongside <code>a</code>/<code>b</code>.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code>array_like of bool</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>n_iter</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Number of scrambles forming the null distribution.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="int">int</span></code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>200</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>block_size</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Side length (px) of the scrambled blocks. Should approximate
+the point-spread-function width of the acquisition.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="int">int</span></code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>8</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>seed</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Seed for the random generator, for reproducibility.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="int">int</span></code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <span class="doc-returns-annotation">
+                    <code><span title="dict">dict</span></code>
+                </span>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p><code>{'observed', 'null', 'p_value', 'z_score'}</code>: the observed
+PCC over the cropped region, the array of <code>n_iter</code> null
+PCCs, the right-tailed p-value
+<code>(#{null &gt;= observed} + 1) / (n_iter + 1)</code>, and the z-score
+of the observed value against the null.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RAISES</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+              <span class="doc-raises-annotation">
+                  <code><span title="ValueError">ValueError</span></code>
+              </span>
+            </td>
+            <td class="doc-raises-details">
+              <div class="doc-md-description">
+                <p>On shape mismatch, <code>block_size &lt; 1</code> or <code>n_iter &lt; 1</code>, or a
+<code>block_size</code> larger than the image in any dimension.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="napari_colocalization._diagnostics.van_steensel_ccf" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">van_steensel_ccf</span>
+
+
+<a href="#napari_colocalization._diagnostics.van_steensel_ccf" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">van_steensel_ccf</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_shift</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Van Steensel's cross-correlation function (CCF).</p>
+<p>Shifts <code>b</code> relative to <code>a</code> by every integer offset in
+<code>[-max_shift, +max_shift]</code> along <code>axis</code> and computes Pearson's
+coefficient at each shift (Van Steensel et al. 1996). Genuinely
+colocalised channels give a CCF that peaks at shift 0; mutually
+excluded channels give a trough at 0 with side peaks.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>a</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Same-shape intensity arrays.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="array_like">array_like</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>b</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Same-shape intensity arrays.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="array_like">array_like</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>mask</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Region of interest passed through to :func:<code>._metrics.pearson</code>.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code>array_like of bool</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_shift</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Largest pixel shift to evaluate in each direction.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="int">int</span></code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>20</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>axis</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Axis along which <code>b</code> is shifted (wraps, <code>numpy.roll</code>).</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="int">int</span></code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>-1</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>shifts</code>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>Integer offsets <code>-max_shift … +max_shift</code>.</p>
+              </div>
+                <p>
+                  <span class="doc-returns-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="numpy.ndarray">ndarray</span></code>
+                  </span>
+                </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>ccf</code>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>Pearson coefficient at each shift; <code>nan</code> where the shifted
+pair is degenerate.</p>
+              </div>
+                <p>
+                  <span class="doc-returns-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="numpy.ndarray">ndarray</span></code>
+                  </span>
+                </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RAISES</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+              <span class="doc-raises-annotation">
+                  <code><span title="ValueError">ValueError</span></code>
+              </span>
+            </td>
+            <td class="doc-raises-details">
+              <div class="doc-md-description">
+                <p>If <code>a</code> and <code>b</code> differ in shape or <code>max_shift &lt; 1</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="napari_colocalization._diagnostics.li_ica" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">li_ica</span>
+
+
+<a href="#napari_colocalization._diagnostics.li_ica" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">li_ica</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Li's Intensity Correlation Analysis (ICA) payload.</p>
+<p>Returns the per-pixel covariance products
+<code>P_i = (a_i - mean a)(b_i - mean b)</code> together with the paired
+intensities, so the widget can draw the two ICA scatter panels
+(intensity vs <code>P</code>) for channels A and B. The scalar ICQ — the
+fraction of positive <code>P</code> re-centred to <code>[-0.5, 0.5]</code> — is
+included for the summary line.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>a</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Same-shape intensity arrays.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="array_like">array_like</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>b</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Same-shape intensity arrays.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="array_like">array_like</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>mask</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Region of interest.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code>array_like of bool</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <span class="doc-returns-annotation">
+                    <code><span title="dict">dict</span></code>
+                </span>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p><code>{'a', 'b', 'products', 'icq'}</code>: the masked, flattened
+channel-A and channel-B intensities, their covariance
+products, and the ICQ scalar.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RAISES</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+              <span class="doc-raises-annotation">
+                  <code><span title="ValueError">ValueError</span></code>
+              </span>
+            </td>
+            <td class="doc-raises-details">
+              <div class="doc-md-description">
+                <p>If <code>a</code> and <code>b</code> differ in shape, or the region has fewer
+than two pixels.</p>
               </div>
             </td>
           </tr>

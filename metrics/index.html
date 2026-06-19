@@ -440,6 +440,56 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#diagnostics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagnostics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Diagnostics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#costes-randomization-significance-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Costes randomization (significance test)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#van-steensel-cross-correlation-function-ccf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Van Steensel cross-correlation function (CCF)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#li-ica" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Li ICA
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#choosing-a-metric" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -583,6 +633,56 @@
     <span class="md-ellipsis">
       
         Costes' auto-threshold
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#diagnostics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Diagnostics
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Diagnostics">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#costes-randomization-significance-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Costes randomization (significance test)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#van-steensel-cross-correlation-function-ccf" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Van Steensel cross-correlation function (CCF)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#li-ica" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Li ICA
       
     </span>
   </a>
@@ -771,31 +871,63 @@ after applying the chosen thresholds.</p>
 the iterative method introduced by Costes et al. (2004) gives a
 reproducible answer that is widely cited in the colocalization
 literature.</p>
-<p>Algorithm (as implemented in <code>_metrics.costes_threshold</code>):</p>
+<p>Algorithm (as implemented in <code>_metrics.costes_threshold</code>, matched to
+Fiji's <strong>Coloc 2</strong> <code>AutoThresholdRegression</code>):</p>
 <ol>
-<li>Fit a least-squares regression line <code>b = m·a + c</code> on the masked pixel
-   pairs.</li>
-<li>Walk a candidate threshold <code>T_a</code> downward from <code>max(a)</code>. At each step,
-   set <code>T_b = m·T_a + c</code> so the threshold pair lies on the regression
-   line.</li>
-<li>The "below-threshold" set is every pixel with <code>a ≤ T_a</code> <strong>or</strong>
-   <code>b ≤ T_b</code>. Compute its Pearson correlation.</li>
-<li>Stop at the first <code>T_a</code> where that PCC drops to zero or below — the
-   below-threshold pixels are now uncorrelated, i.e. background. Return
-   <code>(T_a, T_b)</code>.</li>
+<li>Fit an <strong>orthogonal</strong> (total-least-squares) regression line
+   <code>b = m·a + c</code> over the masked pixels — <em>not</em> an ordinary least-squares
+   fit. Orthogonal regression treats the two channels symmetrically
+   (neither is the independent variable) and avoids the slope bias OLS
+   shows when the predictor channel is noisy.</li>
+<li>Move a candidate threshold along that line by <strong>bisection</strong>, keeping
+   the pair on the line (<code>T_b = m·T_a + c</code>). The channel that is stepped
+   is the one giving finer resolution — channel A when <code>|m| &lt; 1</code>, else
+   channel B.</li>
+<li>At each candidate, compute the Pearson correlation of the
+   below-threshold pixels (<code>a &lt; T_a</code> <strong>or</strong> <code>b &lt; T_b</code>). Bisect downward
+   while that correlation is positive and upward when it is non-positive,
+   converging on the threshold where the background pixels stop
+   correlating.</li>
 </ol>
-<p>Falls back to <code>(max(a), max(b))</code> if the regression slope is non-positive
-(no linear co-occurrence to threshold for) and to <code>(min(a), min(b))</code> if
-the iteration runs to completion without ever hitting PCC ≤ 0.</p>
+<p>Falls back to <code>(max(a), max(b))</code> when the regression slope is
+non-positive or undefined (no linear co-occurrence to threshold for).</p>
 <p>The selected thresholds appear in the <code>threshold_a</code> / <code>threshold_b</code>
 columns of the results table and as red reference lines on the scatter
-plot. The regression line from step 1 is overlaid as a cyan dashed line
+plot. The orthogonal regression line is overlaid as a cyan dashed line
 (via <code>_metrics.costes_regression</code>) so you can see the axis the
 auto-threshold was found along.</p>
 <blockquote>
-<p>The Costes randomisation test (statistical significance of PCC by
-shuffled pixel blocks) is <strong>not</strong> implemented in v1.</p>
+<p>The Costes randomisation significance test is available on the
+<strong>Diagnostics</strong> tab (see below).</p>
 </blockquote>
+<h2 id="diagnostics">Diagnostics<a class="headerlink" href="#diagnostics" title="Permanent link">&para;</a></h2>
+<p>The metrics above each collapse colocalization to a number per region.
+The <strong>Diagnostics</strong> tab instead produces a <em>plot</em> for a single channel
+pair (optionally restricted to a region), to inspect the <em>shape</em> of the
+relationship. Each is computed in the napari-free <code>_diagnostics</code> module.</p>
+<h3 id="costes-randomization-significance-test">Costes randomization (significance test)<a class="headerlink" href="#costes-randomization-significance-test" title="Permanent link">&para;</a></h3>
+<p>Answers "could this PCC have arisen by chance?". Channel B is scrambled
+in blocks <code>n_iter</code> times — destroying spatial co-occurrence while
+preserving each channel's intensity histogram and local texture — and
+the PCC is recomputed each time to build a null distribution. The
+observed PCC is plotted against that null, with a right-tailed p-value
+<code>(#{null ≥ observed} + 1) / (n_iter + 1)</code> and a z-score. A genuine
+colocalization sits far to the right of the null. The block size should
+approximate the point-spread-function width. Works on 2D and 3D images.</p>
+<p>This is the Costes randomization the v1 metrics page noted as missing.</p>
+<h3 id="van-steensel-cross-correlation-function-ccf">Van Steensel cross-correlation function (CCF)<a class="headerlink" href="#van-steensel-cross-correlation-function-ccf" title="Permanent link">&para;</a></h3>
+<p>Shifts channel B relative to A by ±<code>max_shift</code> pixels and plots the PCC
+at each shift. A peak <strong>at</strong> shift 0 indicates colocalization; a central
+<strong>trough</strong> with side peaks indicates mutual exclusion (the channels are
+anti-located by roughly the shift of the side peaks). The summary
+reports the peak Pearson r and the shift it occurs at.</p>
+<h3 id="li-ica">Li ICA<a class="headerlink" href="#li-ica" title="Permanent link">&para;</a></h3>
+<p>The scatter behind the <a href="#li-icq">Li ICQ</a> scalar: for each channel, the
+per-pixel covariance product <code>(A−Ā)(B−B̄)</code> is plotted against that
+channel's intensity. Dependent staining produces a characteristic
+rightward (positive-product) skew that grows with intensity; random or
+segregated staining stays centred on zero. The ICQ value is shown
+alongside.</p>
 <h2 id="choosing-a-metric">Choosing a metric<a class="headerlink" href="#choosing-a-metric" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
