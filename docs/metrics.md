@@ -94,6 +94,44 @@ label).
 We compute it locally in :func:`_metrics.li_icq` (no scikit-image
 equivalent).
 
+## Overlap coefficient (r, k1, k2)
+
+The overlap coefficient of Manders et al. (1992) and its two split
+components. Unlike M1/M2 below, these need **no threshold** — they are
+computed directly from the raw intensity products over the region:
+
+$$
+r = \frac{\sum_i a_i b_i}{\sqrt{\sum_i a_i^2 \; \sum_i b_i^2}}
+\qquad
+k_1 = \frac{\sum_i a_i b_i}{\sum_i a_i^2}
+\qquad
+k_2 = \frac{\sum_i a_i b_i}{\sum_i b_i^2}
+$$
+
+Range of `r`: 0 to 1 for non-negative intensities. It is essentially the
+Pearson coefficient computed *without* mean-subtraction, which makes it
+insensitive to a difference in average brightness between the two
+channels — but also means it cannot report anti-correlation.
+
+`k1` and `k2` split that co-occurrence per channel: `k1` is dominated by
+pixels where channel A is bright, `k2` by where B is bright. Their
+asymmetry diagnoses which channel drives the overlap.
+
+**When to use it.** As a brightness-insensitive companion to PCC,
+particularly when the two channels were acquired at very different gain.
+The split `k1`/`k2` help when one channel is much sparser than the other.
+
+**Watch out for.**
+- `r` hides the sign of any relationship; always read it next to PCC or
+  ICQ, never alone.
+- Like M1/M2 it assumes non-negative intensities; subtract background
+  first if your data has a strong offset.
+- Any coefficient whose denominator is zero (an all-zero channel within
+  the region) is reported as a blank/`NaN` cell.
+
+Computed locally in `_metrics.overlap`; the three values populate the
+`overlap`, `k1` and `k2` columns.
+
 ## Manders (MCC)
 
 Two coefficients, M1 and M2, that ask: *"what fraction of the intensity
@@ -153,7 +191,9 @@ the iteration runs to completion without ever hitting PCC ≤ 0.
 
 The selected thresholds appear in the `threshold_a` / `threshold_b`
 columns of the results table and as red reference lines on the scatter
-plot.
+plot. The regression line from step 1 is overlaid as a cyan dashed line
+(via `_metrics.costes_regression`) so you can see the axis the
+auto-threshold was found along.
 
 > The Costes randomisation test (statistical significance of PCC by
 > shuffled pixel blocks) is **not** implemented in v1.
@@ -165,6 +205,7 @@ plot.
 | "Are the two channels linearly correlated?" | Pearson |
 | "Is the relationship monotonic but not necessarily linear?" | Spearman |
 | "Do the channels co-vary in the *same direction* relative to their means, ignoring magnitude?" | Li ICQ |
+| "How much do the signals overlap, ignoring brightness differences and without a threshold?" | Overlap r (k1/k2) |
 | "What fraction of A's signal sits where B is bright?" | Manders M1 |
 | "...and vice versa?" | Manders M2 |
 | "Just give me a robust default" | Spearman |

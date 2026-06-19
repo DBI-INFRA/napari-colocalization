@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from magicgui.widgets import create_widget
 from napari.qt.threading import thread_worker
-from napari.utils.notifications import show_info
+from napari.utils.notifications import show_info, show_warning
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QButtonGroup,
@@ -47,6 +47,7 @@ from ._analysis import (
     analyse_pairwise,
 )
 from ._masking import labels_to_label_mask, shapes_to_label_mask
+from ._metrics import costes_regression
 from ._plot import ScatterCanvas
 
 if TYPE_CHECKING:
@@ -121,6 +122,7 @@ class ColocalizationWidget(QWidget):
         self._plot_context = []
         self._region_layer = None
         self._region_source = 'none'
+        self._threshold_method = 'costes'
 
         # Configuration block — its own scroll area so a tall set
         # of options doesn't squeeze the results panel below.
@@ -241,11 +243,17 @@ class ColocalizationWidget(QWidget):
         self._cb_pcc = QCheckBox('Pearson')
         self._cb_srcc = QCheckBox('Spearman')
         self._cb_icq = QCheckBox('Li ICQ')
+        self._cb_overlap = QCheckBox('Overlap (r, k1, k2)')
+        self._cb_overlap.setToolTip(
+            'Manders overlap coefficient r and split coefficients '
+            'k1/k2 — threshold-free co-occurrence measures.'
+        )
         self._cb_mcc = QCheckBox('Manders')
         for cb, checked in (
             (self._cb_pcc, False),
             (self._cb_srcc, True),
             (self._cb_icq, False),
+            (self._cb_overlap, False),
             (self._cb_mcc, False),
         ):
             cb.setChecked(checked)
@@ -255,6 +263,7 @@ class ColocalizationWidget(QWidget):
             self._cb_pcc,
             self._cb_srcc,
             self._cb_icq,
+            self._cb_overlap,
             self._cb_mcc,
             vertical=False,
         )
@@ -310,8 +319,15 @@ class ColocalizationWidget(QWidget):
         self._splitter.setStretchFactor(0, 3)
         self._splitter.setStretchFactor(1, 2)
         self._splitter.setSizes([300, 200])
+        # Footer line summarising any regions whose metrics could not
+        # be computed; hidden until a run produces such a case.
+        self._summary_label = QLabel('')
+        self._summary_label.setWordWrap(True)
+        self._summary_label.setStyleSheet('color: goldenrod;')
+        self._summary_label.setVisible(False)
         layout = QVBoxLayout()
         layout.addWidget(self._splitter)
+        layout.addWidget(self._summary_label)
         self._results_group.setLayout(layout)
         self._results_group.setVisible(False)
         return self._results_group
@@ -458,6 +474,8 @@ class ColocalizationWidget(QWidget):
             out.append('srcc')
         if self._cb_icq.isChecked():
             out.append('icq')
+        if self._cb_overlap.isChecked():
+            out.append('overlap')
         if self._cb_mcc.isChecked():
             out.append('mcc')
         return tuple(out)
@@ -487,7 +505,7 @@ class ColocalizationWidget(QWidget):
         """
         metrics = self._selected_metrics()
         if not metrics:
-            show_info('Pick at least one metric.')
+            show_warning('Pick at least one metric.')
             return None
         common = {
             'metrics': metrics,
@@ -510,17 +528,17 @@ class ColocalizationWidget(QWidget):
         layer_a = self._image_a_combo.value
         layer_b = self._image_b_combo.value
         if layer_a is None or layer_b is None:
-            show_info('Select both image layers.')
+            show_warning('Select both image layers.')
             return None
         a = np.asarray(layer_a.data)
         b = np.asarray(layer_b.data)
         if a.shape != b.shape:
-            show_info(f'Shape mismatch: {a.shape} vs {b.shape}.')
+            show_warning(f'Shape mismatch: {a.shape} vs {b.shape}.')
             return None
         try:
             label_mask, region_layer = self._resolve_region(a.shape)
         except ValueError as exc:
-            show_info(str(exc))
+            show_warning(str(exc))
             return None
         return {
             **common,
@@ -536,18 +554,18 @@ class ColocalizationWidget(QWidget):
     def _all_to_all_params(self, common):
         layer = self._stack_combo.value
         if layer is None:
-            show_info('Select an image stack.')
+            show_warning('Select an image stack.')
             return None
         image = np.asarray(layer.data)
         axis = int(self._channel_axis_spin.value())
         if axis >= image.ndim:
-            show_info(f'Channel axis {axis} >= ndim {image.ndim}.')
+            show_warning(f'Channel axis {axis} >= ndim {image.ndim}.')
             return None
         spatial_shape = _shape_without_axis(image.shape, axis)
         try:
             label_mask, region_layer = self._resolve_region(spatial_shape)
         except ValueError as exc:
-            show_info(str(exc))
+            show_warning(str(exc))
             return None
         return {
             **common,
@@ -569,6 +587,7 @@ class ColocalizationWidget(QWidget):
             return
         self._region_layer = params.get('region_layer')
         self._region_source = params.get('region_source', 'none')
+        self._threshold_method = params.get('threshold_method', 'costes')
         self._run_button.setEnabled(False)
         worker = self._run_worker(params)
         worker.returned.connect(self._on_results_ready)
@@ -579,6 +598,7 @@ class ColocalizationWidget(QWidget):
     @staticmethod
     @thread_worker
     def _run_worker(params):
+        region_warnings = []
         if params['mode'] == 'pairwise':
             rows = analyse_pairwise(
                 params['a'],
@@ -590,6 +610,7 @@ class ColocalizationWidget(QWidget):
                 threshold_b=params['threshold_b'],
                 channel_a=params['channel_a'],
                 channel_b=params['channel_b'],
+                region_warnings=region_warnings,
             )
             channel_arrays = {
                 params['channel_a']: params['a'],
@@ -605,6 +626,7 @@ class ColocalizationWidget(QWidget):
                 threshold_a=params['threshold_a'],
                 threshold_b=params['threshold_b'],
                 channel_names=params['channel_names'],
+                region_warnings=region_warnings,
             )
             channel_arrays = {
                 name: np.take(params['image'], i, axis=params['channel_axis'])
@@ -615,10 +637,13 @@ class ColocalizationWidget(QWidget):
             channel_arrays,
             params['label_mask'],
             params.get('region_source', 'none'),
+            region_warnings,
         )
 
     def _on_results_ready(self, payload):
-        rows, channel_arrays, label_mask, region_source = payload
+        rows, channel_arrays, label_mask, region_source, region_warnings = (
+            payload
+        )
         # napari shapes hover shows 0-based indices, but Shapes.to_labels
         # rasterises non-zero labels starting at 1. Re-align so the
         # table/scatter/CSV match what the user sees in the Shapes layer.
@@ -639,10 +664,35 @@ class ColocalizationWidget(QWidget):
             self._on_row_selected()
         else:
             self._scatter.clear()
-        # show_info(f'Computed {len(rows)} row(s).')
+        self._report_region_warnings(region_warnings, len(rows))
+
+    def _report_region_warnings(self, region_warnings, n_rows):
+        """Summarise regions whose metrics could not be computed.
+
+        The metric cells are already blank (NaN); this tells the
+        user how many rows that affected and why, both inline under
+        the table and as a napari warning notification.
+        """
+        if not region_warnings:
+            self._summary_label.setText('')
+            self._summary_label.setVisible(False)
+            return
+        n = len(region_warnings)
+        summary = (
+            f'{n} of {n_rows} row(s) had metrics that could not be '
+            'computed (shown as blank cells).'
+        )
+        self._summary_label.setText(summary)
+        self._summary_label.setVisible(True)
+        # The full per-region reasons go to the notification; cap the
+        # detail so a many-region run doesn't produce a wall of text.
+        detail = '\n'.join(region_warnings[:10])
+        if n > 10:
+            detail += f'\n… and {n - 10} more'
+        show_warning(f'{summary}\n{detail}')
 
     def _on_worker_error(self, exc):
-        show_info(f'Analysis failed: {exc}')
+        show_warning(f'Analysis failed: {exc}')
 
     # -- table / plot --------------------------------------------------
 
@@ -739,6 +789,9 @@ class ColocalizationWidget(QWidget):
             ('pcc', 'Pearson'),
             ('srcc', 'Spearman'),
             ('icq', 'ICQ'),
+            ('overlap', 'Overlap r'),
+            ('k1', 'k1'),
+            ('k2', 'k2'),
             ('m1', 'M1'),
             ('m2', 'M2'),
         ):
@@ -747,15 +800,38 @@ class ColocalizationWidget(QWidget):
                 isinstance(value, float) and np.isnan(value)
             ):
                 annotation_lines.append(f'{label} = {value:.4g}')
+        slope, intercept = self._costes_line_for(ctx, row)
         self._scatter.update_plot(
             ctx['a'],
             ctx['b'],
             mask=ctx['mask'],
             threshold_a=row.get('threshold_a'),
             threshold_b=row.get('threshold_b'),
+            slope=slope,
+            intercept=intercept,
             title=title,
             annotation='\n'.join(annotation_lines),
         )
+
+    def _costes_line_for(self, ctx, row):
+        """Regression slope/intercept to draw, or ``(None, None)``.
+
+        Only returned when the run used the Costes method and the
+        row carries finite thresholds (i.e. Manders was computed),
+        so the line matches the threshold pair already shown.
+        """
+        if self._threshold_method != 'costes':
+            return None, None
+        t_a = row.get('threshold_a')
+        t_b = row.get('threshold_b')
+        if not (
+            isinstance(t_a, float)
+            and isinstance(t_b, float)
+            and np.isfinite(t_a)
+            and np.isfinite(t_b)
+        ):
+            return None, None
+        return costes_regression(ctx['a'], ctx['b'], mask=ctx['mask'])
 
     def _highlight_regions(self, mask_labels):
         layer = self._region_layer
@@ -800,7 +876,7 @@ class ColocalizationWidget(QWidget):
 
     def _on_export_clicked(self):
         if not self._results:
-            show_info('No results to export.')
+            show_warning('No results to export.')
             return
         path, _ = QFileDialog.getSaveFileName(
             self, 'Save results CSV', 'colocalization.csv', 'CSV (*.csv)'
@@ -812,7 +888,7 @@ class ColocalizationWidget(QWidget):
 
     def _on_export_figure_clicked(self):
         if not self._results:
-            show_info('No figure to export.')
+            show_warning('No figure to export.')
             return
         fig = self._scatter._figure
         cur_w, cur_h = (float(v) for v in fig.get_size_inches())

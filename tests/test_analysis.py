@@ -88,6 +88,77 @@ def test_pairwise_icq_identical_is_half(rng):
     assert np.isnan(rows[0]['pcc'])
 
 
+def test_pairwise_overlap_populates_r_k1_k2(rng):
+    a = rng.random((32, 32))
+    rows = analyse_pairwise(a, 2 * a, metrics=('overlap',))
+    row = rows[0]
+    assert row['overlap'] == pytest.approx(1.0)
+    assert row['k1'] == pytest.approx(2.0)
+    assert row['k2'] == pytest.approx(0.5)
+    # only the requested metric family is populated
+    assert np.isnan(row['pcc'])
+    assert np.isnan(row['m1'])
+
+
+def test_region_warnings_records_constant_channel():
+    a = np.ones((10, 10))  # constant -> PCC undefined
+    b = np.zeros((10, 10))
+    b[2:8, 2:8] = 1.0
+    warns = []
+    rows = analyse_pairwise(a, b, metrics=('pcc',), region_warnings=warns)
+    assert np.isnan(rows[0]['pcc'])
+    assert len(warns) == 1
+    assert 'constant' in warns[0]
+
+
+def test_region_warnings_empty_when_all_computed(rng):
+    a = rng.random((16, 16))
+    warns = []
+    analyse_pairwise(
+        a, a.copy(), metrics=('pcc', 'icq'), region_warnings=warns
+    )
+    assert warns == []
+
+
+def test_region_warnings_are_per_region(rng):
+    a = rng.random((10, 10))
+    a[:5, :] = 1.0  # region 1 is constant, region 2 is not
+    b = a.copy()
+    label_mask = np.zeros((10, 10), dtype=int)
+    label_mask[:5, :] = 1
+    label_mask[5:, :] = 2
+    warns = []
+    rows = analyse_pairwise(
+        a, b, label_mask=label_mask, metrics=('pcc',), region_warnings=warns
+    )
+    assert len(rows) == 2
+    assert len(warns) == 1
+    assert 'region 1' in warns[0]
+
+
+def test_region_warnings_too_few_pixels():
+    a = np.zeros((5, 5))
+    b = np.zeros((5, 5))
+    label_mask = np.zeros((5, 5), dtype=int)
+    label_mask[0, 0] = 1  # single-pixel region
+    warns = []
+    analyse_pairwise(
+        a, b, label_mask=label_mask, metrics=('pcc',), region_warnings=warns
+    )
+    assert len(warns) == 1
+    assert 'fewer than 2 pixels' in warns[0]
+
+
+def test_all_to_all_collects_region_warnings():
+    a = np.ones((8, 8))  # constant
+    image = np.stack([a, a], axis=0)
+    warns = []
+    analyse_all_to_all(
+        image, channel_axis=0, metrics=('pcc',), region_warnings=warns
+    )
+    assert len(warns) == 1
+
+
 def test_pairwise_shape_mismatch_raises():
     a = np.zeros((10, 10))
     b = np.zeros((10, 11))

@@ -228,6 +228,120 @@ def manders(a, b, threshold_a, threshold_b, mask=None):
     return float(m1), float(m2)
 
 
+def overlap(a, b, mask=None):
+    """Manders' overlap coefficient ``r`` and split coefficients k1, k2.
+
+    These threshold-free measures (Manders et al. 1992) quantify
+    co-occurrence from the raw intensity products, complementing
+    the threshold-dependent M1/M2 from :func:`manders`:
+
+    .. math::
+        r = \\frac{\\sum_i a_i b_i}
+                  {\\sqrt{\\sum_i a_i^2 \\; \\sum_i b_i^2}}, \\quad
+        k_1 = \\frac{\\sum_i a_i b_i}{\\sum_i a_i^2}, \\quad
+        k_2 = \\frac{\\sum_i a_i b_i}{\\sum_i b_i^2}
+
+    ``r`` lies in ``[0, 1]`` for non-negative intensities and is
+    insensitive to a difference in mean brightness between the two
+    channels. ``k1`` and ``k2`` split that co-occurrence per
+    channel and are sensitive to such differences — their
+    asymmetry is informative.
+
+    ``r`` is delegated to
+    :func:`skimage.measure.manders_overlap_coeff`. The split
+    coefficients k1/k2 have no scikit-image equivalent
+    (:func:`skimage.measure.manders_coloc_coeff` computes the
+    threshold-gated M1/M2 used by :func:`manders`, a different
+    quantity), so they are derived from the same intensity sums
+    here.
+
+    Parameters
+    ----------
+    a, b : array_like
+        Same-shape, non-negative intensity arrays.
+    mask : array_like of bool, optional
+        Boolean array selecting the analysed region. ``None``
+        (the default) uses every pixel.
+
+    Returns
+    -------
+    r, k1, k2 : float
+        The overlap coefficient and the two split coefficients.
+        Any coefficient whose denominator is zero (an all-zero
+        channel within the region) is returned as ``nan``; all
+        three are ``nan`` for an empty region.
+
+    References
+    ----------
+    Manders, E.M.M. et al. (1992). *Dynamics of three-dimensional
+    replication patterns during the S-phase, analysed by double
+    labelling of DNA and confocal microscopy.* J. Cell Sci. 103,
+    857-862.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from napari_colocalization._metrics import overlap
+    >>> a = np.array([1.0, 2.0, 3.0, 4.0])
+    >>> overlap(a, a)                      # identical channels
+    (1.0, 1.0, 1.0)
+    >>> r, k1, k2 = overlap(a, 2 * a)      # b is twice a
+    >>> round(r, 4), round(k1, 4), round(k2, 4)
+    (1.0, 2.0, 0.5)
+    """
+    a_flat, b_flat = _flatten_with_mask(a, b, mask)
+    a_flat = a_flat.astype(np.float64, copy=False)
+    b_flat = b_flat.astype(np.float64, copy=False)
+    if a_flat.size == 0:
+        return float('nan'), float('nan'), float('nan')
+    sum_aa = float(np.sum(a_flat * a_flat))
+    sum_bb = float(np.sum(b_flat * b_flat))
+    # The overlap coefficient r is delegated to scikit-image. k1/k2
+    # have no scikit-image equivalent (manders_coloc_coeff computes
+    # the threshold-gated M1/M2 — a different quantity), so they are
+    # derived locally from the shared intensity sums. The size/sum
+    # guards keep the "never raise, return nan" contract: an empty
+    # region or a zero-variance channel would otherwise make
+    # manders_overlap_coeff raise or emit a divide warning.
+    if sum_aa > 0 and sum_bb > 0:
+        r = float(measure.manders_overlap_coeff(a, b, mask=mask))
+    else:
+        r = float('nan')
+    sum_ab = float(np.sum(a_flat * b_flat))
+    k1 = sum_ab / sum_aa if sum_aa > 0 else float('nan')
+    k2 = sum_ab / sum_bb if sum_bb > 0 else float('nan')
+    return r, k1, k2
+
+
+def costes_regression(a, b, mask=None):
+    """Least-squares line ``b = slope * a + intercept``.
+
+    This is the regression that :func:`costes_threshold` walks
+    along to find the auto-threshold; it is exposed separately so
+    callers (e.g. the cytofluorogram) can draw the same line.
+
+    Parameters
+    ----------
+    a, b : array_like
+        Same-shape intensity arrays.
+    mask : array_like of bool, optional
+        Restrict the regression to this region.
+
+    Returns
+    -------
+    slope, intercept : float
+        Regression coefficients, or ``(nan, nan)`` when the region
+        has fewer than two samples or zero variance in ``a``.
+    """
+    a_flat, b_flat = _flatten_with_mask(a, b, mask)
+    a_flat = a_flat.astype(np.float64, copy=False)
+    b_flat = b_flat.astype(np.float64, copy=False)
+    if a_flat.size < 2 or a_flat.std() == 0:
+        return float('nan'), float('nan')
+    slope, intercept = np.polyfit(a_flat, b_flat, 1)
+    return float(slope), float(intercept)
+
+
 def costes_threshold(a, b, mask=None, n_steps=256):
     """Costes' iterative auto-threshold for Manders' M1 / M2.
 
@@ -285,7 +399,7 @@ def costes_threshold(a, b, mask=None, n_steps=256):
     if a_flat.std() == 0 or b_flat.std() == 0:
         return float(a_flat.max()), float(b_flat.max())
 
-    slope, intercept = np.polyfit(a_flat, b_flat, 1)
+    slope, intercept = costes_regression(a_flat, b_flat)
     a_max = float(a_flat.max())
     a_min = float(a_flat.min())
     b_max = float(b_flat.max())

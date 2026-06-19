@@ -15,7 +15,8 @@ time.
 
 ```
 napari_colocalization
-├── _metrics.py     pearson, spearman, li_icq, manders, costes_threshold
+├── _metrics.py     pearson, spearman, li_icq, manders, overlap,
+│                   costes_threshold, costes_regression
 ├── _masking.py     shapes_to_label_mask, labels_to_label_mask, iter_regions
 ├── _analysis.py    analyse_pairwise, analyse_all_to_all, COLUMNS
 ├── _sample_data.py make_sample_data, make_sample_data_3d,
@@ -35,7 +36,9 @@ the symbols below are stable and intended to be imported.
         - spearman
         - li_icq
         - manders
+        - overlap
         - costes_threshold
+        - costes_regression
       show_root_heading: false
       heading_level: 3
 
@@ -59,6 +62,7 @@ export, and the row dicts:
 ('region', 'channel_a', 'channel_b', 'n_pixels',
  'pcc', 'pcc_pvalue', 'srcc', 'srcc_pvalue',
  'icq',
+ 'overlap', 'k1', 'k2',
  'm1', 'm2', 'threshold_a', 'threshold_b')
 ```
 

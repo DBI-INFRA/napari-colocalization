@@ -2,9 +2,11 @@ import numpy as np
 import pytest
 
 from napari_colocalization._metrics import (
+    costes_regression,
     costes_threshold,
     li_icq,
     manders,
+    overlap,
     pearson,
     spearman,
 )
@@ -221,3 +223,71 @@ def test_icq_in_valid_range(rng):
     b = 0.5 * a + 0.5 * rng.random((128, 128))
     icq = li_icq(a, b)
     assert -0.5 <= icq <= 0.5
+
+
+def test_overlap_identical_is_one(rng):
+    a = rng.random((64, 64))
+    r, k1, k2 = overlap(a, a.copy())
+    assert r == pytest.approx(1.0)
+    assert k1 == pytest.approx(1.0)
+    assert k2 == pytest.approx(1.0)
+
+
+def test_overlap_scaled_channel_splits_k1_k2():
+    a = np.array([1.0, 2.0, 3.0, 4.0])
+    # b = 2a: overlap r stays 1 (insensitive to brightness), but the
+    # split coefficients reflect the 2x intensity difference.
+    r, k1, k2 = overlap(a, 2 * a)
+    assert r == pytest.approx(1.0)
+    assert k1 == pytest.approx(2.0)
+    assert k2 == pytest.approx(0.5)
+
+
+def test_overlap_3d_works(rng):
+    a = rng.random((8, 16, 16))
+    r, k1, k2 = overlap(a, a)
+    assert r == pytest.approx(1.0)
+
+
+def test_overlap_mask_restricts_region(rng):
+    a = rng.random((32, 32))
+    b = np.zeros_like(a)
+    b[16:] = 2 * a[16:]
+    mask = np.zeros_like(a, dtype=bool)
+    mask[16:] = True
+    r, k1, k2 = overlap(a, b, mask=mask)
+    assert r == pytest.approx(1.0)
+    assert k1 == pytest.approx(2.0)
+    assert k2 == pytest.approx(0.5)
+
+
+def test_overlap_zero_channel_is_nan():
+    a = np.zeros((10, 10))
+    b = np.ones((10, 10))
+    r, k1, k2 = overlap(a, b)
+    # a is all-zero: sum(a*a)=0 and sum(a*b)=0, so r and k1 undefined.
+    assert np.isnan(r)
+    assert np.isnan(k1)
+
+
+def test_overlap_empty_region_is_nan():
+    a = np.ones((10, 10))
+    b = np.ones((10, 10))
+    mask = np.zeros_like(a, dtype=bool)
+    r, k1, k2 = overlap(a, b, mask=mask)
+    assert np.isnan(r) and np.isnan(k1) and np.isnan(k2)
+
+
+def test_costes_regression_recovers_slope_intercept():
+    a = np.linspace(0.0, 1.0, 256)
+    b = 2.0 * a + 0.3
+    slope, intercept = costes_regression(a, b)
+    assert slope == pytest.approx(2.0)
+    assert intercept == pytest.approx(0.3)
+
+
+def test_costes_regression_degenerate_is_nan():
+    a = np.ones((10, 10))
+    b = np.ones((10, 10))
+    slope, intercept = costes_regression(a, b)
+    assert np.isnan(slope) and np.isnan(intercept)

@@ -3,20 +3,41 @@
 These accept ndarrays plus a label mask, walk every non-zero
 region, compute the requested metrics, and return a list of dicts
 suitable for direct insertion into a table or a CSV.
+
+Failure policy: conditions that make the *whole* request invalid
+(shape mismatch, unknown options, missing manual thresholds) raise
+``ValueError`` so the caller can surface the reason. Per-region
+degeneracies — a single ROI too small or with a constant/empty
+channel — are *not* errors in a multi-region run; the affected
+metrics stay ``NaN`` (a visible blank cell), and a human-readable
+reason is appended to the optional ``region_warnings`` collector so
+the caller can summarise how many regions were skipped and why.
 """
 
 import numpy as np
 
 from ._masking import iter_regions
 from ._metrics import (
+    _flatten_with_mask,
     costes_threshold,
     li_icq,
     manders,
+    overlap,
     pearson,
     spearman,
 )
 
-ALL_METRICS = ('pcc', 'srcc', 'icq', 'mcc')
+# Which result columns carry each metric's value(s); used to detect
+# when a requested metric came back NaN for a region.
+_METRIC_VALUE_KEYS = {
+    'pcc': ('pcc',),
+    'srcc': ('srcc',),
+    'icq': ('icq',),
+    'overlap': ('overlap', 'k1', 'k2'),
+    'mcc': ('m1', 'm2'),
+}
+
+ALL_METRICS = ('pcc', 'srcc', 'icq', 'overlap', 'mcc')
 COLUMNS = (
     'region',
     'channel_a',
@@ -27,6 +48,9 @@ COLUMNS = (
     'srcc',
     'srcc_pvalue',
     'icq',
+    'overlap',
+    'k1',
+    'k2',
     'm1',
     'm2',
     'threshold_a',
@@ -46,6 +70,9 @@ def _empty_row(region, channel_a, channel_b, n_pixels):
         'srcc': nan,
         'srcc_pvalue': nan,
         'icq': nan,
+        'overlap': nan,
+        'k1': nan,
+        'k2': nan,
         'm1': nan,
         'm2': nan,
         'threshold_a': nan,
@@ -68,6 +95,41 @@ def _resolve_thresholds(
     raise ValueError(f"unknown threshold_method '{threshold_method}'")
 
 
+def _row_has_uncomputed(row, metrics):
+    """True if any requested metric is NaN in ``row``."""
+    for metric in metrics:
+        for key in _METRIC_VALUE_KEYS.get(metric, ()):
+            value = row.get(key)
+            if isinstance(value, float) and np.isnan(value):
+                return True
+    return False
+
+
+def _describe_channel(flat, name):
+    """Reason a constant/empty channel makes metrics undefined."""
+    if flat.std() != 0:
+        return None
+    if flat.sum() == 0:
+        return f"channel '{name}' has no signal"
+    return f"channel '{name}' is constant"
+
+
+def _skip_reason(a, b, region_mask, channel_a, channel_b):
+    """Human-readable reason a region's metrics could not compute."""
+    a_flat, b_flat = _flatten_with_mask(a, b, region_mask)
+    if a_flat.size < 2:
+        return 'fewer than 2 pixels'
+    parts = [
+        part
+        for part in (
+            _describe_channel(a_flat, channel_a),
+            _describe_channel(b_flat, channel_b),
+        )
+        if part
+    ]
+    return '; '.join(parts) if parts else 'metric undefined for this region'
+
+
 def analyse_pairwise(
     a,
     b,
@@ -79,6 +141,7 @@ def analyse_pairwise(
     threshold_b=None,
     channel_a='A',
     channel_b='B',
+    region_warnings=None,
 ):
     """Compute selected metrics for each region of two grayscale arrays.
 
@@ -94,8 +157,10 @@ def analyse_pairwise(
     label_mask : numpy.ndarray of int, optional
         Integer label image (0 = background, 1..N = regions).
         ``None`` means analyse the whole image as one region.
-    metrics : sequence of {'pcc', 'srcc', 'icq', 'mcc'}, optional
-        Which metrics to compute. Defaults to all four.
+    metrics : sequence of {'pcc', 'srcc', 'icq', 'overlap', 'mcc'}, optional
+        Which metrics to compute. Defaults to all. ``'overlap'``
+        adds the threshold-free overlap coefficient and the split
+        coefficients k1/k2.
     threshold_method : {'costes', 'manual'}, default 'costes'
         Only used when ``'mcc'`` is in ``metrics``. ``'costes'``
         runs :func:`._metrics.costes_threshold` per region;
@@ -105,6 +170,12 @@ def analyse_pairwise(
     channel_a, channel_b : str, default 'A' and 'B'
         Display names for the two channels — written into the
         result rows so they round-trip into the table and CSV.
+    region_warnings : list, optional
+        If provided, a human-readable string is appended for each
+        region where a *requested* metric could not be computed
+        (too few pixels, or a constant/empty channel). The metric
+        cell itself stays ``NaN``; this is the channel for telling
+        the user why. ``None`` (default) discards the reasons.
 
     Returns
     -------
@@ -151,6 +222,11 @@ def analyse_pairwise(
             row['srcc_pvalue'] = pval
         if 'icq' in metrics:
             row['icq'] = li_icq(a, b, mask=region_mask)
+        if 'overlap' in metrics:
+            r, k1, k2 = overlap(a, b, mask=region_mask)
+            row['overlap'] = r
+            row['k1'] = k1
+            row['k2'] = k2
         if 'mcc' in metrics:
             t_a, t_b = _resolve_thresholds(
                 a,
@@ -165,6 +241,11 @@ def analyse_pairwise(
             row['m2'] = m2
             row['threshold_a'] = t_a
             row['threshold_b'] = t_b
+        if region_warnings is not None and _row_has_uncomputed(row, metrics):
+            reason = _skip_reason(a, b, region_mask, channel_a, channel_b)
+            region_warnings.append(
+                f'region {region_id} ({channel_a} vs {channel_b}): {reason}'
+            )
         rows.append(row)
     return rows
 
@@ -179,6 +260,7 @@ def analyse_all_to_all(
     threshold_a=None,
     threshold_b=None,
     channel_names=None,
+    region_warnings=None,
 ):
     """Compute metrics for every channel pair (i, j), i < j.
 
@@ -199,7 +281,7 @@ def analyse_all_to_all(
     label_mask : numpy.ndarray of int, optional
         Integer label image whose shape matches ``image`` with
         ``channel_axis`` removed.
-    metrics : sequence of {'pcc', 'srcc', 'mcc'}, optional
+    metrics : sequence of {'pcc', 'srcc', 'icq', 'overlap', 'mcc'}, optional
         Forwarded to :func:`analyse_pairwise`.
     threshold_method : {'costes', 'manual'}, default 'costes'
         Forwarded to :func:`analyse_pairwise`. Manual thresholds
@@ -209,6 +291,9 @@ def analyse_all_to_all(
     channel_names : sequence of str, optional
         One name per channel along ``channel_axis``. Defaults to
         ``['c0', 'c1', ...]``.
+    region_warnings : list, optional
+        Forwarded to :func:`analyse_pairwise`; collects per-region
+        reasons across every channel pair.
 
     Returns
     -------
@@ -248,6 +333,7 @@ def analyse_all_to_all(
                     threshold_b=threshold_b,
                     channel_a=channel_names[i],
                     channel_b=channel_names[j],
+                    region_warnings=region_warnings,
                 )
             )
     return rows

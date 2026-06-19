@@ -29,8 +29,9 @@ results table plus an intensity-vs-intensity density plot.
 
 ## Features
 
-- **Four correlation metrics**: Pearson (PCC), Spearman rank (SRCC), Li
-  Intensity Correlation Quotient (ICQ), and Manders' coefficients M1/M2 (MCC).
+- **Five colocalization metrics**: Pearson (PCC), Spearman rank (SRCC), Li
+  Intensity Correlation Quotient (ICQ), Manders' overlap coefficient with
+  split coefficients (r, k1, k2), and Manders' coefficients M1/M2 (MCC).
 - **Pairwise or all-to-all** mode: analyse two grayscale layers, or every
   channel pair within a single multi-channel layer.
 - **2D and 3D** support natively (no time-series for now).
@@ -102,8 +103,9 @@ See [docs/usage.md](docs/usage.md) for the full walkthrough.
 - **[Metrics](docs/metrics.md)** — what PCC, SRCC, ICQ and MCC mean, when to use
   which, and how the Costes auto-threshold works.
 - **[Python API](docs/api.md)** — calling the pure-compute layer
-  (`pearson`, `spearman`, `li_icq`, `manders`, `costes_threshold`,
-  `analyse_pairwise`, `analyse_all_to_all`) from scripts or notebooks.
+  (`pearson`, `spearman`, `li_icq`, `manders`, `overlap`,
+  `costes_threshold`, `costes_regression`, `analyse_pairwise`,
+  `analyse_all_to_all`) from scripts or notebooks.
 
 ## Related projects
 

@@ -69,6 +69,8 @@ class ScatterCanvas(FigureCanvasQTAgg):
         mask=None,
         threshold_a=None,
         threshold_b=None,
+        slope=None,
+        intercept=None,
         title='',
         annotation='',
     ):
@@ -82,6 +84,10 @@ class ScatterCanvas(FigureCanvasQTAgg):
             Boolean array selecting which pixels to plot.
         threshold_a, threshold_b : float or None
             If both finite, draw red v/h lines at those values.
+        slope, intercept : float or None
+            If both finite, draw the Costes regression line
+            ``b = slope * a + intercept`` (cyan dashed) over the
+            data x-range.
         title : str
             Axes title (typically the region + channel-pair label).
         annotation : str
@@ -135,6 +141,25 @@ class ScatterCanvas(FigureCanvasQTAgg):
             # draw threshold lines but avoid letting them expand autoscale
             self._ax.axvline(threshold_a, color='red', linewidth=1)
             self._ax.axhline(threshold_b, color='red', linewidth=1)
+
+        # Costes regression line the auto-threshold was found along.
+        # Drawn before the explicit set_xlim/set_ylim below so it is
+        # clipped to the data range rather than expanding autoscale.
+        if (
+            slope is not None
+            and intercept is not None
+            and np.isfinite(slope)
+            and np.isfinite(intercept)
+            and xs.size
+        ):
+            x_line = np.array([xs.min(), xs.max()], dtype=float)
+            self._ax.plot(
+                x_line,
+                slope * x_line + intercept,
+                color='cyan',
+                linestyle='--',
+                linewidth=1,
+            )
 
         # ensure axes limits are determined by the scatter data alone
         if xs.size:
