@@ -138,6 +138,45 @@ def _scramble_blocks(arr, block_size, rng):
     return back.reshape([n * block_size for n in nb])
 
 
+def scramble_example(image, block_size=8, seed=None):
+    """One block-scrambled copy of ``image`` for display.
+
+    Produces a single realisation of the randomisation used by
+    :func:`costes_randomization`, so the user can see what a
+    scrambled channel looks like. The image is cropped to a whole
+    number of blocks (any remainder strip is left unchanged).
+
+    Parameters
+    ----------
+    image : array_like
+        2D or 3D intensity array to scramble.
+    block_size : int, default 8
+        Block side length.
+    seed : int, optional
+        Seed for reproducibility.
+
+    Returns
+    -------
+    numpy.ndarray
+        Same-shape copy with its block grid permuted.
+
+    Raises
+    ------
+    ValueError
+        If ``block_size`` is larger than the image in any dimension.
+    """
+    image = np.asarray(image)
+    nb = [dim // block_size for dim in image.shape]
+    if any(n < 1 for n in nb):
+        raise ValueError('block_size is larger than the image')
+    crop = tuple(slice(0, n * block_size) for n in nb)
+    out = image.copy()
+    out[crop] = _scramble_blocks(
+        image[crop], block_size, np.random.default_rng(seed)
+    )
+    return out
+
+
 def costes_randomization(a, b, mask=None, n_iter=200, block_size=8, seed=None):
     """Costes' randomization significance test for Pearson's PCC.
 

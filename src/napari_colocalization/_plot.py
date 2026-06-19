@@ -84,6 +84,8 @@ class ScatterCanvas(FigureCanvasQTAgg):
         threshold_b=None,
         slope=None,
         intercept=None,
+        xlim=None,
+        ylim=None,
         title='',
         annotation='',
     ):
@@ -101,6 +103,9 @@ class ScatterCanvas(FigureCanvasQTAgg):
             If both finite, draw the Costes regression line
             ``b = slope * a + intercept`` (cyan dashed) over the
             data x-range.
+        xlim, ylim : tuple of float or None
+            Explicit axis ranges; when given they override the
+            auto-fit, so plots are comparable across rows/images.
         title : str
             Axes title (typically the region + channel-pair label).
         annotation : str
@@ -194,6 +199,13 @@ class ScatterCanvas(FigureCanvasQTAgg):
                 ypad = 0.5
             self._ax.set_xlim(xmin - xpad, xmax + xpad)
             self._ax.set_ylim(ymin - ypad, ymax + ypad)
+
+        # Explicit bounds (e.g. "fixed axes") win over the auto-fit so
+        # the same scale is used for every row/region/image.
+        if xlim is not None:
+            self._ax.set_xlim(*xlim)
+        if ylim is not None:
+            self._ax.set_ylim(*ylim)
 
         if annotation:
             self._ax.text(

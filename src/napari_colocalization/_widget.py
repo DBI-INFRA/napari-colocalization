@@ -50,6 +50,7 @@ from ._analysis import (
 from ._diagnostics import (
     costes_randomization,
     li_ica,
+    scramble_example,
     van_steensel_ccf,
 )
 from ._masking import labels_to_label_mask, shapes_to_label_mask
@@ -131,6 +132,10 @@ class ColocalizationWidget(QWidget):
         self._threshold_method = 'costes'
         self._diag_region_layer = None
         self._diag_region_source = 'none'
+        # Full-resolution arrays / mask of the last run, kept so the
+        # "Add coloc mask" output layer can be built from a selected row.
+        self._channel_arrays = {}
+        self._label_mask = None
 
         # Analysis families live on separate tabs: the multi-region
         # intensity table on one, the single-pair diagnostic plots on
@@ -379,8 +384,19 @@ class ColocalizationWidget(QWidget):
         self._summary_label.setWordWrap(True)
         self._summary_label.setStyleSheet('color: goldenrod;')
         self._summary_label.setVisible(False)
+        # Lock the cytofluorogram to [0, channel max] so the scatter is
+        # comparable across regions/slices/images (JACoP B plot bounds).
+        self._fixed_axes_check = QCheckBox('Fixed plot axes (0–max)')
+        self._fixed_axes_check.setToolTip(
+            'Scale the cytofluorogram to [0, channel max] instead of '
+            'auto-fitting each selection, for comparable plots.'
+        )
+        self._fixed_axes_check.toggled.connect(
+            lambda _checked: self._on_row_selected()
+        )
         layout = QVBoxLayout()
         layout.addWidget(self._splitter)
+        layout.addWidget(self._fixed_axes_check)
         layout.addWidget(self._summary_label)
         self._results_group.setLayout(layout)
         self._results_group.setVisible(False)
@@ -393,11 +409,18 @@ class ColocalizationWidget(QWidget):
         self._export_figure_button.clicked.connect(
             self._on_export_figure_clicked
         )
+        self._add_mask_button = QPushButton('Add coloc mask layer')
+        self._add_mask_button.setToolTip(
+            'Add a Labels layer of the colocalized pixels (both channels '
+            'above their Manders thresholds) for the selected row.'
+        )
+        self._add_mask_button.clicked.connect(self._on_add_mask_clicked)
         self._export_row = QWidget()
         row = QHBoxLayout()
         row.setContentsMargins(0, 0, 0, 0)
         row.addWidget(self._export_button)
         row.addWidget(self._export_figure_button)
+        row.addWidget(self._add_mask_button)
         self._export_row.setLayout(row)
         self._export_row.setVisible(False)
         return self._export_row
@@ -725,6 +748,8 @@ class ColocalizationWidget(QWidget):
             if region_source == 'shapes' and row['region'] > 0:
                 row['region'] = row['region'] - 1
         self._results = rows
+        self._channel_arrays = channel_arrays
+        self._label_mask = label_mask
         self._populate_table(rows)
         self._plot_context = self._build_plot_context(
             rows, channel_arrays, label_mask, slice_axis
@@ -891,6 +916,7 @@ class ColocalizationWidget(QWidget):
             ):
                 annotation_lines.append(f'{label} = {value:.4g}')
         slope, intercept = self._costes_line_for(ctx, row)
+        xlim, ylim = self._fixed_axes_for(row)
         self._scatter.update_plot(
             ctx['a'],
             ctx['b'],
@@ -899,8 +925,27 @@ class ColocalizationWidget(QWidget):
             threshold_b=row.get('threshold_b'),
             slope=slope,
             intercept=intercept,
+            xlim=xlim,
+            ylim=ylim,
             title=title,
             annotation='\n'.join(annotation_lines),
+        )
+
+    def _fixed_axes_for(self, row):
+        """Common [0, max] axis bounds when 'Fixed plot axes' is on.
+
+        Uses the full channel arrays (not the selected subset) so the
+        scale is identical for every region/slice of the run.
+        """
+        if not self._fixed_axes_check.isChecked():
+            return None, None
+        full_a = self._channel_arrays.get(row['channel_a'])
+        full_b = self._channel_arrays.get(row['channel_b'])
+        if full_a is None or full_b is None:
+            return None, None
+        return (
+            (0.0, float(np.nanmax(full_a))),
+            (0.0, float(np.nanmax(full_b))),
         )
 
     def _costes_line_for(self, ctx, row):
@@ -998,6 +1043,37 @@ class ColocalizationWidget(QWidget):
             path, dlg.width_in(), dlg.height_in(), dlg.dpi()
         )
         show_info(f'Wrote {path}')
+
+    def _on_add_mask_clicked(self):
+        ctx_indices = self._selected_ctx_indices()
+        if not ctx_indices:
+            show_warning('Select a result row first.')
+            return
+        row = self._plot_context[ctx_indices[0]]['row']
+        t_a = row.get('threshold_a')
+        t_b = row.get('threshold_b')
+        if not (np.isfinite(t_a) and np.isfinite(t_b)):
+            show_warning(
+                'Selected row has no Manders thresholds — '
+                'run with the Manders metric first.'
+            )
+            return
+        a = self._channel_arrays.get(row['channel_a'])
+        b = self._channel_arrays.get(row['channel_b'])
+        if a is None or b is None:
+            show_warning('Channel data is unavailable for this row.')
+            return
+        # Colocalized pixels: above threshold in both channels (the
+        # thresholds the row's M1/M2 were computed against), optionally
+        # restricted to the row's region.
+        coloc = (np.asarray(a) > t_a) & (np.asarray(b) > t_b)
+        mask_label = row.get('region_label', row['region'])
+        if self._label_mask is not None and mask_label != 0:
+            coloc = coloc & (self._label_mask == mask_label)
+        self._viewer.add_labels(
+            coloc.astype('uint8'),
+            name=f'coloc {row["channel_a"]} & {row["channel_b"]}',
+        )
 
     @staticmethod
     def write_csv(path, rows):
@@ -1102,11 +1178,21 @@ class ColocalizationWidget(QWidget):
         self._diag_run_button.clicked.connect(self._on_diag_run_clicked)
         self._diag_export_button = QPushButton('Export figure…')
         self._diag_export_button.clicked.connect(self._on_diag_export_clicked)
+        # Scrambled-example output is a Costes-randomization concept.
+        self._diag_scramble_button = QPushButton('Add scrambled example')
+        self._diag_scramble_button.setToolTip(
+            'Add one block-scrambled copy of Image B as an Image layer '
+            '(the randomization the Costes test builds its null from).'
+        )
+        self._diag_scramble_button.clicked.connect(
+            self._on_diag_scramble_clicked
+        )
         row = QWidget()
         layout = QHBoxLayout(row)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._diag_run_button)
         layout.addWidget(self._diag_export_button)
+        layout.addWidget(self._diag_scramble_button)
         return row
 
     def _build_diag_results_group(self):
@@ -1125,6 +1211,7 @@ class ColocalizationWidget(QWidget):
         self._diag_costes_group.setVisible(method == 'costes')
         self._diag_ccf_group.setVisible(method == 'ccf')
         self._diag_ica_group.setVisible(method == 'ica')
+        self._diag_scramble_button.setVisible(method == 'costes')
 
     def _gather_diag_params(self):
         layer_a = self._diag_image_a_combo.value
@@ -1250,6 +1337,21 @@ class ColocalizationWidget(QWidget):
 
     def _on_diag_worker_error(self, exc):
         show_warning(f'Diagnostic failed: {exc}')
+
+    def _on_diag_scramble_clicked(self):
+        layer_b = self._diag_image_b_combo.value
+        if layer_b is None:
+            show_warning('Select Image B first.')
+            return
+        try:
+            scrambled = scramble_example(
+                np.asarray(layer_b.data),
+                block_size=int(self._costes_block.value()),
+            )
+        except ValueError as exc:
+            show_warning(str(exc))
+            return
+        self._viewer.add_image(scrambled, name=f'{layer_b.name} (scrambled)')
 
     def _on_diag_export_clicked(self):
         fig = self._diagnostic_canvas._figure

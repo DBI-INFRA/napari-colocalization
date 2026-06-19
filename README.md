@@ -40,12 +40,17 @@ results table plus an intensity-vs-intensity density plot.
 - **Manders thresholds**: choose **Costes auto** (orthogonal-regression
   bisection, matched to Fiji Coloc 2), a per-channel **auto-threshold**
   (Otsu, Li, Triangle, Yen, Mean, IsoData → thresholded M1/M2), or **Manual**.
+- **Per-Z-slice mode**: analyse each plane of a stack separately (one row
+  per slice), à la JACoP B's "consider Z slices separately".
 - **Interactive results**: in-widget table, density plot of the selected row,
-  multi-row selection that highlights all matching shapes/labels in the viewer.
+  multi-row selection that highlights all matching shapes/labels in the viewer,
+  and an optional **fixed-axes** cytofluorogram for comparable plots.
 - **Diagnostics tab**: single-pair diagnostic plots — Costes randomization
   significance test (observed PCC vs a scrambled null, with p-value/z-score),
   Van Steensel cross-correlation function (CCF), and Li intensity correlation
   analysis (ICA).
+- **Outputs to the viewer**: add the colocalized-pixel mask (selected row) as
+  a Labels layer, or a block-scrambled example as an Image layer.
 - **CSV export** of the current table, plus **figure export** of the
   density plot (PNG / PDF / SVG / TIFF, configurable size and DPI).
 

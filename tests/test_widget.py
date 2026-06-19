@@ -255,6 +255,84 @@ def test_manual_row_visibility_follows_method(make_napari_viewer):
     assert widget._manual_row.isHidden() is True
 
 
+def test_add_coloc_mask_layer(make_napari_viewer, qtbot, rng):
+    from napari.layers import Labels
+
+    viewer = make_napari_viewer()
+    a = np.zeros((32, 32), dtype=np.float32)
+    a[8:24, 8:24] = 1.0
+    layer_a = viewer.add_image(a, name='a')
+    layer_b = viewer.add_image(a.copy(), name='b')
+    widget = ColocalizationWidget(viewer)
+    widget._image_a_combo.value = layer_a
+    widget._image_b_combo.value = layer_b
+    widget._cb_mcc.setChecked(True)
+    _select_combo_data(widget._threshold_combo, 'otsu')
+    widget._on_run_clicked()
+    qtbot.waitUntil(lambda: widget._table.rowCount() > 0, timeout=10000)
+
+    n_before = len(viewer.layers)
+    widget._on_add_mask_clicked()
+    assert len(viewer.layers) == n_before + 1
+    coloc = [
+        layer
+        for layer in viewer.layers
+        if isinstance(layer, Labels) and 'coloc' in layer.name
+    ]
+    assert len(coloc) == 1
+    assert int(coloc[0].data.sum()) == 16 * 16  # the bright square
+
+
+def test_add_coloc_mask_without_manders_warns(make_napari_viewer, qtbot, rng):
+    viewer = make_napari_viewer()
+    a = rng.random((16, 16)).astype(np.float32)
+    layer_a = viewer.add_image(a, name='a')
+    layer_b = viewer.add_image(a.copy(), name='b')
+    widget = ColocalizationWidget(viewer)
+    widget._image_a_combo.value = layer_a
+    widget._image_b_combo.value = layer_b
+    widget._cb_mcc.setChecked(False)  # no Manders -> no thresholds
+    widget._on_run_clicked()
+    qtbot.waitUntil(lambda: widget._table.rowCount() > 0, timeout=10000)
+
+    n_before = len(viewer.layers)
+    widget._on_add_mask_clicked()  # should warn, add nothing
+    assert len(viewer.layers) == n_before
+
+
+def test_add_scrambled_example_layer(make_napari_viewer, rng):
+    viewer = make_napari_viewer()
+    a = rng.random((32, 32)).astype(np.float32)
+    viewer.add_image(a, name='a')
+    layer_b = viewer.add_image(a.copy(), name='b')
+    widget = ColocalizationWidget(viewer)
+    widget._diag_image_b_combo.value = layer_b
+    widget._costes_block.setValue(8)
+    n_before = len(viewer.layers)
+    widget._on_diag_scramble_clicked()
+    assert len(viewer.layers) == n_before + 1
+    assert any('scrambled' in layer.name for layer in viewer.layers)
+
+
+def test_fixed_axes_locks_scatter_bounds(make_napari_viewer, qtbot, rng):
+    viewer = make_napari_viewer()
+    a = (rng.random((32, 32)) * 5.0).astype(np.float32)
+    layer_a = viewer.add_image(a, name='a')
+    layer_b = viewer.add_image(a.copy(), name='b')
+    widget = ColocalizationWidget(viewer)
+    widget._image_a_combo.value = layer_a
+    widget._image_b_combo.value = layer_b
+    widget._on_run_clicked()
+    qtbot.waitUntil(lambda: widget._table.rowCount() > 0, timeout=10000)
+
+    widget._fixed_axes_check.setChecked(True)
+    widget._table.selectRow(0)
+    ax = widget._scatter._ax
+    # x axis is locked to [0, max(a)]
+    assert ax.get_xlim()[0] == pytest.approx(0.0)
+    assert ax.get_xlim()[1] == pytest.approx(float(a.max()))
+
+
 def test_run_all_to_all_populates_table(make_napari_viewer, qtbot, rng):
     viewer = make_napari_viewer()
     a = rng.random((32, 32)).astype(np.float32)

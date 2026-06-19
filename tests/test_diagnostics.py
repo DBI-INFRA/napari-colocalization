@@ -131,6 +131,22 @@ def test_costes_randomization_block_larger_than_image_raises():
         costes_randomization(a, a, block_size=16)
 
 
+def test_scramble_example_preserves_values_and_shape(rng):
+    from napari_colocalization._diagnostics import scramble_example
+
+    arr = rng.random((16, 24))
+    out = scramble_example(arr, block_size=8, seed=0)
+    assert out.shape == arr.shape
+    assert np.array_equal(np.sort(out.ravel()), np.sort(arr.ravel()))
+
+
+def test_scramble_example_block_too_large_raises():
+    from napari_colocalization._diagnostics import scramble_example
+
+    with pytest.raises(ValueError, match='larger than the image'):
+        scramble_example(np.zeros((8, 8)), block_size=16)
+
+
 @pytest.mark.parametrize('shape', [(16, 24), (8, 16, 16)])
 def test_scramble_blocks_preserves_values(rng, shape):
     from napari_colocalization._diagnostics import _scramble_blocks
