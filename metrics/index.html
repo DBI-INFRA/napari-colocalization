@@ -793,7 +793,7 @@ the results table).</p>
 the intensities themselves.</p>
 <p><strong>When to use it.</strong> Whenever the relationship between channels is
 monotonic but not necessarily linear (e.g. saturating sensor responses,
-gamma-corrected images). SRCC is also robust to outliers — a single
+gamma-corrected images). SRCC is also robust to outliers - a single
 bright pixel can't pull the rank away.</p>
 <p><strong>Watch out for.</strong>
 - Like PCC, SRCC compares only paired pixels. If one channel is noisy
@@ -830,11 +830,11 @@ rather than a population-wide co-variation.</p>
 scalar; we report the value alone. Like the other correlation metrics
 it is restricted to the analysed region (whole image, shape, or
 label).</p>
-<p>We compute it locally in :func:<code>_metrics.li_icq</code> (no scikit-image
+<p>We compute it locally in <code>_metrics.li_icq</code> (no scikit-image
 equivalent).</p>
 <h2 id="overlap-coefficient-r-k1-k2">Overlap coefficient (r, k1, k2)<a class="headerlink" href="#overlap-coefficient-r-k1-k2" title="Permanent link">&para;</a></h2>
 <p>The overlap coefficient of Manders et al. (1992) and its two split
-components. Unlike M1/M2 below, these need <strong>no threshold</strong> — they are
+components. Unlike M1/M2 below, these need <strong>no threshold</strong> - they are
 computed directly from the raw intensity products over the region:</p>
 <div class="arithmatex">\[
 r = \frac{\sum_i a_i b_i}{\sqrt{\sum_i a_i^2 \; \sum_i b_i^2}}
@@ -846,7 +846,7 @@ k_2 = \frac{\sum_i a_i b_i}{\sum_i b_i^2}
 <p>Range of <code>r</code>: 0 to 1 for non-negative intensities. It is essentially the
 Pearson coefficient computed <em>without</em> mean-subtraction, which makes it
 insensitive to a difference in average brightness between the two
-channels — but also means it cannot report anti-correlation.</p>
+channels - but also means it cannot report anti-correlation.</p>
 <p><code>k1</code> and <code>k2</code> split that co-occurrence per channel: <code>k1</code> is dominated by
 pixels where channel A is bright, <code>k2</code> by where B is bright. Their
 asymmetry diagnoses which channel drives the overlap.</p>
@@ -871,7 +871,7 @@ M_1 = \frac{\sum_i a_i \cdot \mathbb{1}[b_i &gt; T_b]}{\sum_i a_i}
 \qquad
 M_2 = \frac{\sum_i b_i \cdot \mathbb{1}[a_i &gt; T_a]}{\sum_i b_i}
 \]</div>
-<p>Range: 0 to 1 each. They are <strong>not</strong> percentages — interpret them as
+<p>Range: 0 to 1 each. They are <strong>not</strong> percentages - interpret them as
 "the fraction of channel A's signal that overlaps with channel B's
 above-threshold pixels", and similarly for M2. Asymmetry between M1 and
 M2 is meaningful and expected when one channel is sparser than the other.</p>
@@ -882,7 +882,7 @@ varying intensities.</p>
 <p><strong>Watch out for.</strong>
 - Manders is sensitive to the choice of threshold. Use Costes (below)
   if you don't have a principled way to set it manually.
-- High background offsets confuse Costes — pre-process or set thresholds
+- High background offsets confuse Costes - pre-process or set thresholds
   manually.</p>
 <p>We delegate to
 <a href="https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.manders_coloc_coeff"><code>skimage.measure.manders_coloc_coeff</code></a>
@@ -897,13 +897,13 @@ literature.</p>
 Fiji's <strong>Coloc 2</strong> <code>AutoThresholdRegression</code>):</p>
 <ol>
 <li>Fit an <strong>orthogonal</strong> (total-least-squares) regression line
-   <code>b = m·a + c</code> over the masked pixels — <em>not</em> an ordinary least-squares
+   <code>b = m·a + c</code> over the masked pixels - <em>not</em> an ordinary least-squares
    fit. Orthogonal regression treats the two channels symmetrically
    (neither is the independent variable) and avoids the slope bias OLS
    shows when the predictor channel is noisy.</li>
 <li>Move a candidate threshold along that line by <strong>bisection</strong>, keeping
    the pair on the line (<code>T_b = m·T_a + c</code>). The channel that is stepped
-   is the one giving finer resolution — channel A when <code>|m| &lt; 1</code>, else
+   is the one giving finer resolution - channel A when <code>|m| &lt; 1</code>, else
    channel B.</li>
 <li>At each candidate, compute the Pearson correlation of the
    below-threshold pixels (<code>a &lt; T_a</code> <strong>or</strong> <code>b &lt; T_b</code>). Bisect downward
@@ -924,7 +924,7 @@ auto-threshold was found along.</p>
 </blockquote>
 <h3 id="other-auto-thresholds-otsu-li">Other auto-thresholds (Otsu, Li, …)<a class="headerlink" href="#other-auto-thresholds-otsu-li" title="Permanent link">&para;</a></h3>
 <p>Besides Costes, the threshold method can be any of the standard
-histogram thresholds — <strong>Otsu, Li, Triangle, Yen, Mean, IsoData</strong> (the
+histogram thresholds - <strong>Otsu, Li, Triangle, Yen, Mean, IsoData</strong> (the
 <code>skimage.filters.threshold_*</code> family, as ImageJ's Auto Threshold offers
 in JACoP B). Each channel is thresholded <strong>independently</strong> from its own
 intensity histogram, giving the <em>thresholded</em> Manders coefficients
@@ -940,8 +940,8 @@ pair (optionally restricted to a region), to inspect the <em>shape</em> of the
 relationship. Each is computed in the napari-free <code>_diagnostics</code> module.</p>
 <h3 id="costes-randomization-significance-test">Costes randomization (significance test)<a class="headerlink" href="#costes-randomization-significance-test" title="Permanent link">&para;</a></h3>
 <p>Answers "could this PCC have arisen by chance?". Channel B is scrambled
-in blocks <code>n_iter</code> times — destroying spatial co-occurrence while
-preserving each channel's intensity histogram and local texture — and
+in blocks <code>n_iter</code> times - destroying spatial co-occurrence while
+preserving each channel's intensity histogram and local texture - and
 the PCC is recomputed each time to build a null distribution. The
 observed PCC is plotted against that null, with a right-tailed p-value
 <code>(#{null ≥ observed} + 1) / (n_iter + 1)</code> and a z-score. A genuine
@@ -1001,7 +1001,7 @@ alongside.</p>
 </tbody>
 </table>
 <p>PCC and SRCC measure <em>correlation</em>; MCC measures <em>co-occurrence</em>. They
-answer different questions and disagree often — which is precisely why
+answer different questions and disagree often - which is precisely why
 reporting more than one is good practice.</p>
 <h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
 <ul>

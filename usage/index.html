@@ -834,7 +834,7 @@ dock widget, top to bottom.</p>
 <p>In napari: <strong>Plugins → Colocalization Analysis</strong>. The widget docks on the
 right by default. To follow along without your own data, load a sample:
 <strong>File → Open Sample → napari-colocalization → Colocalization sample (2D)</strong>.
-A 3D synthetic version is also provided, plus <strong>CBS006RBM</strong> — a
+A 3D synthetic version is also provided, plus <strong>CBS006RBM</strong> - a
 two-channel benchmark image (~50 % colocalization) downloaded once and
 cached under <code>~/.cache/napari-colocalization/</code> from the
 <a href="https://colocalization-benchmark.com">Colocalization Benchmark Source</a>.</p>
@@ -845,8 +845,8 @@ cached under <code>~/.cache/napari-colocalization/</code> from the
 </figure>
 <p>The widget has two halves separated by a draggable divider:</p>
 <ul>
-<li><strong>Configuration</strong> (top) — what to analyse and how.</li>
-<li><strong>Results</strong> (bottom) — Run button, table, density plot, CSV export, and
+<li><strong>Configuration</strong> (top) - what to analyse and how.</li>
+<li><strong>Results</strong> (bottom) - Run button, table, density plot, CSV export, and
   figure export. Hidden until the first run.</li>
 </ul>
 <p>Each half has its own scrollbar; if a section overflows you can drag the
@@ -854,9 +854,9 @@ divider or resize the dock to redistribute space.</p>
 <h2 id="mode">Mode<a class="headerlink" href="#mode" title="Permanent link">&para;</a></h2>
 <p>Choose how channels are supplied:</p>
 <ul>
-<li><strong>Pairwise</strong> <em>(default)</em> — pick two separate image layers (e.g.
+<li><strong>Pairwise</strong> <em>(default)</em> - pick two separate image layers (e.g.
   <code>channel_a</code> and <code>channel_b</code>).</li>
-<li><strong>All-to-all</strong> — pick a single image layer that has a channel axis (e.g.
+<li><strong>All-to-all</strong> - pick a single image layer that has a channel axis (e.g.
   shape <code>(C, Y, X)</code> or <code>(Z, Y, X, C)</code>); the plugin computes every channel
   pair <code>(i, j)</code> with <code>i &lt; j</code>.</li>
 </ul>
@@ -880,24 +880,24 @@ along the channel axis (e.g. <code>stack_0</code>, <code>stack_1</code>, <code>s
 <p>A single dropdown listing every <strong>Shapes</strong> and <strong>Labels</strong> layer in the
 viewer, with <strong>None</strong> at the top:</p>
 <ul>
-<li><strong>None</strong> <em>(default)</em> — analyse the whole image. The results table will
+<li><strong>None</strong> <em>(default)</em> - analyse the whole image. The results table will
   have one row per channel pair, with <code>region = 0</code>.</li>
-<li>A <strong>Shapes</strong> layer — each shape becomes its own region. The region IDs
+<li>A <strong>Shapes</strong> layer - each shape becomes its own region. The region IDs
   in the table match the shape indices napari shows when you hover
   (0-based).</li>
-<li>A <strong>Labels</strong> layer — each non-zero label becomes its own region; the
+<li>A <strong>Labels</strong> layer - each non-zero label becomes its own region; the
   label values themselves are preserved in the table.</li>
 </ul>
 <p>The dropdown updates automatically when you add, remove or rename a
 Shapes/Labels layer. Image layers are excluded from the list. The
-plugin infers the region kind from the selected layer's class — there
+plugin infers the region kind from the selected layer's class - there
 is no separate "kind" selector.</p>
 <p>The region's spatial dimensions must match the channels' spatial
 dimensions (in all-to-all mode this is the layer shape with the channel
 axis removed).</p>
 <h2 id="correlation-metrics">Correlation metrics<a class="headerlink" href="#correlation-metrics" title="Permanent link">&para;</a></h2>
 <p>Four checkboxes for <strong>Pearson</strong>, <strong>Spearman</strong>, <strong>Li ICQ</strong> and <strong>Manders</strong>. By default
-only <strong>Spearman</strong> is enabled — it is the most outlier-robust of the four,
+only <strong>Spearman</strong> is enabled - it is the most outlier-robust of the four,
 and a common starting point.</p>
 <p>You can pick any subset; missing metrics are reported as <code>NaN</code> in the
 table.</p>
@@ -905,16 +905,16 @@ table.</p>
 <p>Visible only when <strong>Manders</strong> is checked. Choose how the M1/M2 thresholds
 are determined:</p>
 <ul>
-<li><strong>Costes (auto)</strong> <em>(default)</em> — iterative regression-based threshold.
+<li><strong>Costes (auto)</strong> <em>(default)</em> - iterative regression-based threshold.
   Pixels above both thresholds are treated as the colocalising population.
   See <a href="../metrics/#manders-mcc">metrics.md#manders</a>.</li>
-<li><strong>Manual</strong> — supply explicit <code>T_a</code> and <code>T_b</code> values. Use this if you
+<li><strong>Manual</strong> - supply explicit <code>T_a</code> and <code>T_b</code> values. Use this if you
   already know the appropriate background level for each channel, or if
   Costes returns implausible thresholds (which can happen on highly
   non-linear or noisy data).</li>
 </ul>
 <p>In <strong>all-to-all</strong> mode, manual thresholds are applied identically to every
-channel pair — there is no per-pair manual override in v1.</p>
+channel pair - there is no per-pair manual override in v1.</p>
 <h2 id="run">Run<a class="headerlink" href="#run" title="Permanent link">&para;</a></h2>
 <p>Triggers the analysis on a background thread so the napari UI stays
 responsive. While running, the <strong>Run</strong> button is disabled. On completion,
@@ -977,17 +977,17 @@ are transparent against the black background. Vertical / horizontal red
 lines mark the Manders thresholds when those metrics were computed. The
 metric values for the selected row are written in the upper-left corner.</p>
 <p>Hexbin aggregates pixels into a fixed grid, so render cost is bounded
-regardless of region size — every pixel in the region contributes,
+regardless of region size - every pixel in the region contributes,
 nothing is subsampled.</p>
 <h3 id="region-highlighting">Region highlighting<a class="headerlink" href="#region-highlighting" title="Permanent link">&para;</a></h3>
 <p>When you select rows in the table:</p>
 <ul>
-<li><strong>Shapes source</strong> — every selected row's shape gets the dashed-outline
+<li><strong>Shapes source</strong> - every selected row's shape gets the dashed-outline
   highlight in the viewer.</li>
-<li><strong>Labels source</strong> — selecting a single row turns on <code>show_selected_label</code>
+<li><strong>Labels source</strong> - selecting a single row turns on <code>show_selected_label</code>
   for that label; selecting multiple rows drops the focus filter so all
   labels remain visible (napari only emphasises one label at a time).</li>
-<li><strong>None source</strong> — no viewer highlighting.</li>
+<li><strong>None source</strong> - no viewer highlighting.</li>
 </ul>
 <p>Ctrl-clicking the only selected row deselects it; the density plot clears
 and the viewer highlight is removed.</p>
@@ -999,10 +999,10 @@ table. Missing values are written as empty cells.</p>
 <strong>width</strong> and <strong>height</strong> in inches and <strong>DPI</strong> before opening a file
 dialog; the file extension chooses the format (PNG, PDF, SVG, or TIFF).
 The black axes background is preserved. The on-screen canvas is not
-resized — only the saved file uses the chosen dimensions.</p>
+resized - only the saved file uses the chosen dimensions.</p>
 <h2 id="layout-tips">Layout tips<a class="headerlink" href="#layout-tips" title="Permanent link">&para;</a></h2>
 <ul>
-<li>The divider between <strong>Configuration</strong> and <strong>Results</strong> is draggable —
+<li>The divider between <strong>Configuration</strong> and <strong>Results</strong> is draggable -
   pull it down if your config has many active options.</li>
 <li>The divider between the <strong>table</strong> and the <strong>density plot</strong> is also
   draggable. The default 60/40 split favours the table.</li>
