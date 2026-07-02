@@ -29,9 +29,11 @@ results table plus an intensity-vs-intensity density plot.
 
 ## Features
 
-- **Five colocalization metrics**: Pearson (PCC), Spearman rank (SRCC), Li
-  Intensity Correlation Quotient (ICQ), Manders' overlap coefficient with
-  split coefficients (r, k1, k2), and Manders' coefficients M1/M2 (MCC).
+- **Five colocalization metrics**, spanning both families: three of
+  *correlation* — Pearson (PCC), Spearman rank (SRCC) and Li's Intensity
+  Correlation Quotient (ICQ) — and two of *co-occurrence* — Manders'
+  overlap coefficient with split coefficients (r, k1, k2) and Manders'
+  thresholded coefficients tM1/tM2.
 - **Pairwise or all-to-all** mode: analyse two grayscale layers, or every
   channel pair within a single multi-channel layer.
 - **2D and 3D** support natively (no time-series for now).
@@ -39,7 +41,7 @@ results table plus an intensity-vs-intensity density plot.
   region is reported on its own row.
 - **Manders thresholds**: choose **Costes auto** (orthogonal-regression
   bisection, matched to Fiji Coloc 2), a per-channel **auto-threshold**
-  (Otsu, Li, Triangle, Yen, Mean, IsoData → thresholded M1/M2), or **Manual**.
+  (Otsu, Li, Triangle, Yen, Mean, IsoData → thresholded tM1/tM2), or **Manual**.
 - **Per-Z-slice mode**: analyse each plane of a stack separately (one row
   per slice), à la JACoP B's "consider Z slices separately".
 - **Interactive results**: in-widget table, density plot of the selected row,
@@ -138,8 +140,9 @@ and Vectors.
 ## Documentation
 
 - **[Usage guide](docs/usage.md)** - every control in the widget, in order.
-- **[Metrics](docs/metrics.md)** - what PCC, SRCC, ICQ and MCC mean, when to use
-  which, and how the Costes auto-threshold works.
+- **[Metrics](docs/metrics.md)** - what PCC, SRCC, ICQ, the overlap
+  coefficient and Manders (tM1/tM2) mean, co-occurrence versus correlation,
+  and how the Costes auto-threshold works.
 - **[Python API](docs/api.md)** - calling the pure-compute layer
   (`pearson`, `spearman`, `li_icq`, `manders`, `overlap`,
   `costes_threshold`, `costes_regression`, `analyse_pairwise`,

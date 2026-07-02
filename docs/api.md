@@ -66,7 +66,7 @@ export, and the row dicts:
  'pcc', 'pcc_pvalue', 'srcc', 'srcc_pvalue',
  'icq',
  'overlap', 'k1', 'k2',
- 'm1', 'm2', 'threshold_a', 'threshold_b')
+ 'tm1', 'tm2', 'threshold_a', 'threshold_b')
 ```
 
 (`slice` is the plane index for per-Z-slice runs, and ``NaN`` otherwise.)

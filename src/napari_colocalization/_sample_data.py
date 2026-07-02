@@ -2,7 +2,7 @@
 
 Synthetic samples (2D, 3D): gaussian blobs with channel B copying
 60 % of channel A's blobs plus independent blobs and noise, giving
-PCC ~ 0.7 and Manders M1/M2 ~ 0.6.
+PCC ~ 0.7 and Manders tM1/tM2 ~ 0.6.
 
 CBS006RBM: red and blue channels with ~50 % colocalization,
 from the Colocalization Benchmark Source.

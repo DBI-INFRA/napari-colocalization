@@ -1,7 +1,7 @@
 # Metrics
 
 Background on the colocalization metrics the plugin computes (Pearson,
-Spearman, Li ICQ, the Manders overlap coefficient and M1/M2), the Costes
+Spearman, Li ICQ, the Manders overlap coefficient and tM1/tM2), the Costes
 auto-threshold used for Manders, and the single-pair diagnostics.
 
 > Documentation index: [Home](index.md) · [Usage](usage.md) · **Metrics** · [Python API](api.md)
@@ -9,6 +9,25 @@ auto-threshold used for Manders, and the single-pair diagnostics.
 For a deeper treatment, see the
 [ImageJ colocalization analysis page](https://imagej.net/imaging/colocalization-analysis)
 that this plugin took its design cues from.
+
+## Co-occurrence versus correlation
+
+"Colocalization" is an umbrella term that covers **two distinct
+phenomena** (Aaron, Taylor & Chew, 2018):
+
+- **Correlation** — do the *intensities* of the two channels vary
+  together? Answered by **Pearson (PCC)**, **Spearman (SRCC)** and
+  **Li ICQ**.
+- **Co-occurrence** — what fraction of one channel's signal spatially
+  overlaps the other's, regardless of how the intensities relate?
+  Answered by the **Manders overlap coefficient (r, k1, k2)** and the
+  thresholded **Manders coefficients (tM1/tM2)**.
+
+The two are independent: an image can show high co-occurrence with low
+correlation, or vice versa. Manders' coefficients are sometimes loosely
+called "correlation coefficients" — they are not; they measure
+co-occurrence. Which metric is appropriate depends on the biological
+question, so the plugin reports both families side by side.
 
 ## Pearson (PCC)
 
@@ -98,7 +117,7 @@ equivalent).
 ## Overlap coefficient (r, k1, k2)
 
 The overlap coefficient of Manders et al. (1992) and its two split
-components. Unlike M1/M2 below, these need **no threshold** - they are
+components. Unlike tM1/tM2 below, these need **no threshold** - they are
 computed directly from the raw intensity products over the region:
 
 $$
@@ -125,7 +144,7 @@ The split `k1`/`k2` help when one channel is much sparser than the other.
 **Watch out for.**
 - `r` hides the sign of any relationship; always read it next to PCC or
   ICQ, never alone.
-- Like M1/M2 it assumes non-negative intensities; subtract background
+- Like tM1/tM2 it assumes non-negative intensities; subtract background
   first if your data has a strong offset.
 - Any coefficient whose denominator is zero (an all-zero channel within
   the region) is reported as a blank/`NaN` cell.
@@ -133,26 +152,32 @@ The split `k1`/`k2` help when one channel is much sparser than the other.
 Computed locally in `_metrics.overlap`; the three values populate the
 `overlap`, `k1` and `k2` columns.
 
-## Manders (MCC)
+## Manders (tM1/tM2)
 
-Two coefficients, M1 and M2, that ask: *"what fraction of the intensity
+A **co-occurrence** measure (*not* a correlation — see above). Two
+coefficients, tM1 and tM2, that ask: *"what fraction of the intensity
 in one channel is co-located with above-threshold signal in the other
 channel?"*
 
 $$
-M_1 = \frac{\sum_i a_i \cdot \mathbb{1}[b_i > T_b]}{\sum_i a_i}
+\mathrm{tM_1} = \frac{\sum_i a_i \cdot \mathbb{1}[b_i > T_b]}{\sum_i a_i}
 \qquad
-M_2 = \frac{\sum_i b_i \cdot \mathbb{1}[a_i > T_a]}{\sum_i b_i}
+\mathrm{tM_2} = \frac{\sum_i b_i \cdot \mathbb{1}[a_i > T_a]}{\sum_i b_i}
 $$
+
+They are written **tM1/tM2** (rather than plain M1/M2) to signal that a
+threshold `T` is always applied — un-thresholded Manders coefficients
+over a whole image are trivially close to 1.
 
 Range: 0 to 1 each. They are **not** percentages - interpret them as
 "the fraction of channel A's signal that overlaps with channel B's
-above-threshold pixels", and similarly for M2. Asymmetry between M1 and
-M2 is meaningful and expected when one channel is sparser than the other.
+above-threshold pixels", and similarly for tM2. Asymmetry between tM1
+and tM2 is meaningful and expected when one channel is sparser than the
+other.
 
 **When to use it.** When you care about *co-occurrence* of signal rather
 than the *correlation* of intensities. Two channels can have low PCC but
-high M1 and M2 if their bright pixels reliably overlap but with widely
+high tM1 and tM2 if their bright pixels reliably overlap but with widely
 varying intensities.
 
 **Watch out for.**
@@ -214,7 +239,7 @@ intensity histogram, giving the *thresholded* Manders coefficients
 bimodal (signal vs background) histograms; Costes is preferable when the
 relationship between the channels is the thing you want the threshold to
 respect. A channel with no contrast (constant within the region) has no
-defined auto-threshold, so its M1/M2 are reported as blank/`NaN`.
+defined auto-threshold, so its tM1/tM2 are reported as blank/`NaN`.
 
 ## Diagnostics
 
@@ -261,16 +286,19 @@ alongside.
 | "Is the relationship monotonic but not necessarily linear?" | Spearman |
 | "Do the channels co-vary in the *same direction* relative to their means, ignoring magnitude?" | Li ICQ |
 | "How much do the signals overlap, ignoring brightness differences and without a threshold?" | Overlap r (k1/k2) |
-| "What fraction of A's signal sits where B is bright?" | Manders M1 |
-| "...and vice versa?" | Manders M2 |
+| "What fraction of A's signal sits where B is bright?" | Manders tM1 |
+| "...and vice versa?" | Manders tM2 |
 | "Just give me a robust default" | Spearman |
 
-PCC and SRCC measure *correlation*; MCC measures *co-occurrence*. They
-answer different questions and disagree often - which is precisely why
+PCC, SRCC and ICQ measure *correlation*; the overlap coefficient
+(r, k1, k2) and Manders (tM1/tM2) measure *co-occurrence*. They answer
+different questions and disagree often - which is precisely why
 reporting more than one is good practice.
 
 ## References
 
+- Aaron, J.S., Taylor, A.B. & Chew, T.-L. (2018). *Image co-localization
+  – co-occurrence versus correlation.* J. Cell Sci. 131(3), jcs211847.
 - Bolte, S. & Cordelières, F.P. (2006). *A guided tour into subcellular
   colocalization analysis in light microscopy.* J. Microsc. 224(3),
   213-232.

@@ -182,12 +182,18 @@ def li_icq(a, b, mask=None):
 def manders(a, b, threshold_a, threshold_b, mask=None):
     """Manders' colocalization coefficients M1 and M2.
 
-    M1 is the fraction of the channel-A intensity that lies in
-    pixels where channel B is above ``threshold_b``. M2 is the
-    symmetric counterpart for channel B above ``threshold_a``.
-    Asymmetry between the two is meaningful - it reflects the
-    difference in how much of each channel co-occurs with the
-    other.
+    These measure *co-occurrence* - the fraction of one channel's
+    signal that overlaps above-threshold signal in the other - not
+    *correlation* of intensities (Aaron et al., 2018). M1 is the
+    fraction of the channel-A intensity that lies in pixels where
+    channel B is above ``threshold_b``. M2 is the symmetric
+    counterpart for channel B above ``threshold_a``. Asymmetry
+    between the two is meaningful - it reflects the difference in
+    how much of each channel co-occurs with the other.
+
+    Because a threshold is always applied, the values the plugin
+    reports are the *thresholded* coefficients, written ``tM1`` /
+    ``tM2`` in the results.
 
     Wraps `skimage.measure.manders_coloc_coeff`, which
     expects a binary mask for the second image; we threshold

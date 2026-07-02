@@ -2,11 +2,11 @@
 
 A single QWidget that wires the pure-compute layers (_metrics,
 _masking, _analysis, _diagnostics) to napari layers via magicgui
-combos and runs the work on a background thread. Two tabs: an
-"Intensity correlation" tab with the per-region metric table +
-cytofluorogram and CSV/figure export, and a "Diagnostics" tab that
-renders one single-pair diagnostic plot at a time (Costes
-randomization, Van Steensel CCF, or Li ICA).
+combos and runs the work on a background thread. A "Pixel-based"
+tab with the per-region metric table + cytofluorogram and
+CSV/figure export, a "Diagnostics" tab that renders one single-pair
+diagnostic plot at a time (Costes randomization, Van Steensel CCF,
+or Li ICA), and an "Object-based" tab for object-level analysis.
 """
 
 import contextlib
@@ -180,7 +180,7 @@ class ColocalizationWidget(QWidget):
         # the other. Inputs are not shared - diagnostics are always
         # pairwise, so each tab carries the channel selectors it needs.
         self._tabs = QTabWidget()
-        self._tabs.addTab(self._build_intensity_tab(), 'Intensity correlation')
+        self._tabs.addTab(self._build_intensity_tab(), 'Pixel-based')
         self._tabs.addTab(self._build_diagnostics_tab(), 'Diagnostics')
         self._tabs.addTab(self._build_object_tab(), 'Object-based')
 
@@ -377,7 +377,7 @@ class ColocalizationWidget(QWidget):
             cb.setChecked(checked)
             cb.toggled.connect(self._on_metrics_changed)
         return self._make_group(
-            'Correlation metrics',
+            'Colocalization metrics',
             self._cb_pcc,
             self._cb_srcc,
             self._cb_icq,
@@ -999,8 +999,8 @@ class ColocalizationWidget(QWidget):
             ('overlap', 'Overlap r'),
             ('k1', 'k1'),
             ('k2', 'k2'),
-            ('m1', 'M1'),
-            ('m2', 'M2'),
+            ('tm1', 'tM1'),
+            ('tm2', 'tM2'),
         ):
             value = row.get(key)
             if value is not None and not (

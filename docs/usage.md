@@ -17,17 +17,17 @@ benchmark image (~50 % colocalization) downloaded once and cached under
 
 <figure markdown="span">
   ![Widget at first open](img/usage_widget_initial.png){ width=380 }
-  <figcaption>The Intensity correlation tab at first open.</figcaption>
+  <figcaption>The Pixel-based tab at first open.</figcaption>
 </figure>
 
 The widget is split into three tabs, each self-contained (its own channel
 selectors and Run button):
 
-- **Intensity correlation** - the per-region metric table and cytofluorogram.
+- **Pixel-based** - the per-region metric table and cytofluorogram.
 - **Diagnostics** - single-pair diagnostic plots.
 - **Object-based** - object-level coincidence and overlap.
 
-## Intensity correlation tab
+## Pixel-based tab
 
 ### Mode
 
@@ -70,10 +70,13 @@ top:
 The dropdown updates as you add, remove or rename Shapes/Labels layers; image
 layers are excluded. The region's spatial shape must match the channels'.
 
-### Correlation metrics
+### Colocalization metrics
 
 Five checkboxes: **Pearson**, **Spearman**, **Li ICQ**, **Overlap (r, k1, k2)**
-and **Manders**. Only **Spearman** is on by default (the most outlier-robust).
+and **Manders**. The first three measure intensity *correlation*; Overlap
+and Manders measure *co-occurrence*
+(see [metrics.md](metrics.md#co-occurrence-versus-correlation)).
+Only **Spearman** is on by default (the most outlier-robust).
 Pick any subset; unrequested metrics are blank in the table. See
 [metrics.md](metrics.md) for what each one means.
 
@@ -84,7 +87,7 @@ Visible only when **Manders** is checked - a **Method** dropdown:
 - **Costes (auto)** *(default)* - the iterative Costes threshold (orthogonal
   regression + bisection, matched to Fiji Coloc 2).
 - **Otsu / Li / Triangle / Yen / Mean / IsoData** - a per-channel
-  histogram threshold (`skimage.filters`), giving the thresholded M1/M2.
+  histogram threshold (`skimage.filters`), giving the thresholded tM1/tM2.
 - **Manual** - reveals **T_a** / **T_b** spinboxes for explicit values.
 
 In all-to-all mode the chosen method applies to every channel pair.
@@ -96,7 +99,7 @@ the button disables while running). The **Results** group then appears.
 
 The **table** has one row per *(channel pair, region[, slice])*: `region`,
 `slice`, `channel_a`, `channel_b`, `n_pixels`, the metric columns (`pcc` +
-`pcc_pvalue`, `srcc` + `srcc_pvalue`, `icq`, `overlap`/`k1`/`k2`, `m1`/`m2`)
+`pcc_pvalue`, `srcc` + `srcc_pvalue`, `icq`, `overlap`/`k1`/`k2`, `tm1`/`tm2`)
 and `threshold_a`/`threshold_b`. Click a header to sort; multi-select with
 **Ctrl/Shift-click**. If a region's metric can't be computed (too few pixels,
 a constant or empty channel) its cell is left blank and a note below the table

@@ -35,7 +35,7 @@ _METRIC_VALUE_KEYS = {
     'srcc': ('srcc',),
     'icq': ('icq',),
     'overlap': ('overlap', 'k1', 'k2'),
-    'mcc': ('m1', 'm2'),
+    'mcc': ('tm1', 'tm2'),
 }
 
 ALL_METRICS = ('pcc', 'srcc', 'icq', 'overlap', 'mcc')
@@ -53,8 +53,8 @@ COLUMNS = (
     'overlap',
     'k1',
     'k2',
-    'm1',
-    'm2',
+    'tm1',
+    'tm2',
     'threshold_a',
     'threshold_b',
 )
@@ -76,8 +76,8 @@ def _empty_row(region, channel_a, channel_b, n_pixels):
         'overlap': nan,
         'k1': nan,
         'k2': nan,
-        'm1': nan,
-        'm2': nan,
+        'tm1': nan,
+        'tm2': nan,
         'threshold_a': nan,
         'threshold_b': nan,
     }
@@ -312,8 +312,8 @@ def analyse_pairwise(
                 threshold_b,
             )
             m1, m2 = manders(a, b, t_a, t_b, mask=region_mask)
-            row['m1'] = m1
-            row['m2'] = m2
+            row['tm1'] = m1
+            row['tm2'] = m2
             row['threshold_a'] = t_a
             row['threshold_b'] = t_b
         if region_warnings is not None and _row_has_uncomputed(row, metrics):

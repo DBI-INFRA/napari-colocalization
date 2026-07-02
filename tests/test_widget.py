@@ -47,7 +47,7 @@ def _region_options(widget):
 
 
 def _add_pair(widget, a, b=None):
-    """Add image layers A and B and select them on the Intensity tab."""
+    """Add image layers A and B and select them on the Pixel-based tab."""
     viewer = widget._viewer
     layer_a = viewer.add_image(a, name='a')
     layer_b = viewer.add_image(a.copy() if b is None else b, name='b')
@@ -194,7 +194,7 @@ def test_auto_threshold_manders(widget, qtbot, rng):
     widget._cb_mcc.setChecked(True)
     _select(widget._threshold_combo, 'otsu')
     _run(widget, qtbot)
-    assert float(_cell(widget._table, 0, 'm1')) == pytest.approx(1.0)
+    assert float(_cell(widget._table, 0, 'tm1')) == pytest.approx(1.0)
 
 
 def test_uncomputable_region_is_summarised(widget, qtbot, rng):

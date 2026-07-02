@@ -28,9 +28,11 @@ leaving napari.
 
 ## Features
 
-- **Five colocalization metrics**: Pearson (PCC), Spearman rank (SRCC), Li
-  Intensity Correlation Quotient (ICQ), Manders' overlap coefficient with
-  split coefficients (r, k1, k2), and Manders' coefficients M1/M2 (MCC).
+- **Five colocalization metrics**, both families: three of *correlation* —
+  Pearson (PCC), Spearman rank (SRCC) and Li's Intensity Correlation
+  Quotient (ICQ) — and two of *co-occurrence* — Manders' overlap coefficient
+  with split coefficients (r, k1, k2) and Manders' thresholded coefficients
+  tM1/tM2.
 - **Pairwise or all-to-all** mode, **2D and 3D**, with optional
   **per-Z-slice** analysis (one row per plane).
 - **Region-restricted analysis** via a Shapes or Labels layer - each non-zero

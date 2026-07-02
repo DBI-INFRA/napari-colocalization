@@ -34,7 +34,7 @@ def test_pairwise_all_metrics_populated(rng):
     assert row['pcc'] == pytest.approx(1.0)
     assert row['icq'] == pytest.approx(0.5)
     assert row['overlap'] == pytest.approx(1.0)
-    assert row['m1'] == pytest.approx(1.0)
+    assert row['tm1'] == pytest.approx(1.0)
 
 
 def test_pairwise_unrequested_metrics_are_nan(rng):
@@ -43,7 +43,7 @@ def test_pairwise_unrequested_metrics_are_nan(rng):
     assert not np.isnan(row['pcc'])
     assert np.isnan(row['srcc'])
     assert np.isnan(row['overlap'])
-    assert np.isnan(row['m1'])
+    assert np.isnan(row['tm1'])
 
 
 def test_pairwise_one_row_per_labelled_region():
@@ -61,7 +61,7 @@ def test_pairwise_one_row_per_labelled_region():
     )
     assert {r['region'] for r in rows} == {1, 2}
     assert all(r['n_pixels'] == 50 for r in rows)
-    assert all(r['m1'] == pytest.approx(1.0) for r in rows)
+    assert all(r['tm1'] == pytest.approx(1.0) for r in rows)
 
 
 def test_pairwise_works_in_3d(rng):
@@ -75,7 +75,7 @@ def test_pairwise_works_in_3d(rng):
         threshold_b=0.0,
     )[0]
     assert row['pcc'] == pytest.approx(1.0)
-    assert row['m1'] == pytest.approx(1.0)
+    assert row['tm1'] == pytest.approx(1.0)
 
 
 def test_pairwise_invalid_arguments_raise():
@@ -95,13 +95,13 @@ def test_auto_threshold_method():
     row = analyse_pairwise(
         img, img.copy(), metrics=('mcc',), threshold_method='otsu'
     )[0]
-    assert row['m1'] == pytest.approx(1.0)
+    assert row['tm1'] == pytest.approx(1.0)
     assert 0.0 < row['threshold_a'] < 1.0
     # a constant channel has no Otsu threshold -> M1/M2 are NaN
     const = analyse_pairwise(
         np.ones((20, 20)), img, metrics=('mcc',), threshold_method='otsu'
     )[0]
-    assert np.isnan(const['m1'])
+    assert np.isnan(const['tm1'])
 
 
 def test_region_warnings_flag_uncomputable_regions(rng):
