@@ -352,15 +352,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#intensity-correlation-tab" class="md-nav__link">
+  <a href="#pixel-based-tab" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Intensity correlation tab
+        Pixel-based tab
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Intensity correlation tab">
+    <nav class="md-nav" aria-label="Pixel-based tab">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -397,10 +397,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#correlation-metrics" class="md-nav__link">
+  <a href="#colocalization-metrics" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Correlation metrics
+        Colocalization metrics
       
     </span>
   </a>
@@ -556,15 +556,15 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#intensity-correlation-tab" class="md-nav__link">
+  <a href="#pixel-based-tab" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Intensity correlation tab
+        Pixel-based tab
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Intensity correlation tab">
+    <nav class="md-nav" aria-label="Pixel-based tab">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -601,10 +601,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#correlation-metrics" class="md-nav__link">
+  <a href="#colocalization-metrics" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Correlation metrics
+        Colocalization metrics
       
     </span>
   </a>
@@ -697,16 +697,16 @@ benchmark image (~50 % colocalization) downloaded once and cached under
 <figure>
   <img alt="Widget at first open" src="../img/usage_widget_initial.png" width="380" />
 <br />
-<figcaption>The Intensity correlation tab at first open.</figcaption>
+<figcaption>The Pixel-based tab at first open.</figcaption>
 </figure>
 <p>The widget is split into three tabs, each self-contained (its own channel
 selectors and Run button):</p>
 <ul>
-<li><strong>Intensity correlation</strong> - the per-region metric table and cytofluorogram.</li>
+<li><strong>Pixel-based</strong> - the per-region metric table and cytofluorogram.</li>
 <li><strong>Diagnostics</strong> - single-pair diagnostic plots.</li>
 <li><strong>Object-based</strong> - object-level coincidence and overlap.</li>
 </ul>
-<h2 id="intensity-correlation-tab">Intensity correlation tab<a class="headerlink" href="#intensity-correlation-tab" title="Permanent link">&para;</a></h2>
+<h2 id="pixel-based-tab">Pixel-based tab<a class="headerlink" href="#pixel-based-tab" title="Permanent link">&para;</a></h2>
 <h3 id="mode">Mode<a class="headerlink" href="#mode" title="Permanent link">&para;</a></h3>
 <p>Choose how channels are supplied:</p>
 <ul>
@@ -741,9 +741,12 @@ top:</p>
 </ul>
 <p>The dropdown updates as you add, remove or rename Shapes/Labels layers; image
 layers are excluded. The region's spatial shape must match the channels'.</p>
-<h3 id="correlation-metrics">Correlation metrics<a class="headerlink" href="#correlation-metrics" title="Permanent link">&para;</a></h3>
+<h3 id="colocalization-metrics">Colocalization metrics<a class="headerlink" href="#colocalization-metrics" title="Permanent link">&para;</a></h3>
 <p>Five checkboxes: <strong>Pearson</strong>, <strong>Spearman</strong>, <strong>Li ICQ</strong>, <strong>Overlap (r, k1, k2)</strong>
-and <strong>Manders</strong>. Only <strong>Spearman</strong> is on by default (the most outlier-robust).
+and <strong>Manders</strong>. The first three measure intensity <em>correlation</em>; Overlap
+and Manders measure <em>co-occurrence</em>
+(see <a href="../metrics/#co-occurrence-versus-correlation">metrics.md</a>).
+Only <strong>Spearman</strong> is on by default (the most outlier-robust).
 Pick any subset; unrequested metrics are blank in the table. See
 <a href="../metrics/">metrics.md</a> for what each one means.</p>
 <h3 id="manders-threshold">Manders threshold<a class="headerlink" href="#manders-threshold" title="Permanent link">&para;</a></h3>
@@ -752,7 +755,7 @@ Pick any subset; unrequested metrics are blank in the table. See
 <li><strong>Costes (auto)</strong> <em>(default)</em> - the iterative Costes threshold (orthogonal
   regression + bisection, matched to Fiji Coloc 2).</li>
 <li><strong>Otsu / Li / Triangle / Yen / Mean / IsoData</strong> - a per-channel
-  histogram threshold (<code>skimage.filters</code>), giving the thresholded M1/M2.</li>
+  histogram threshold (<code>skimage.filters</code>), giving the thresholded tM1/tM2.</li>
 <li><strong>Manual</strong> - reveals <strong>T_a</strong> / <strong>T_b</strong> spinboxes for explicit values.</li>
 </ul>
 <p>In all-to-all mode the chosen method applies to every channel pair.</p>
@@ -761,7 +764,7 @@ Pick any subset; unrequested metrics are blank in the table. See
 the button disables while running). The <strong>Results</strong> group then appears.</p>
 <p>The <strong>table</strong> has one row per <em>(channel pair, region[, slice])</em>: <code>region</code>,
 <code>slice</code>, <code>channel_a</code>, <code>channel_b</code>, <code>n_pixels</code>, the metric columns (<code>pcc</code> +
-<code>pcc_pvalue</code>, <code>srcc</code> + <code>srcc_pvalue</code>, <code>icq</code>, <code>overlap</code>/<code>k1</code>/<code>k2</code>, <code>m1</code>/<code>m2</code>)
+<code>pcc_pvalue</code>, <code>srcc</code> + <code>srcc_pvalue</code>, <code>icq</code>, <code>overlap</code>/<code>k1</code>/<code>k2</code>, <code>tm1</code>/<code>tm2</code>)
 and <code>threshold_a</code>/<code>threshold_b</code>. Click a header to sort; multi-select with
 <strong>Ctrl/Shift-click</strong>. If a region's metric can't be computed (too few pixels,
 a constant or empty channel) its cell is left blank and a note below the table

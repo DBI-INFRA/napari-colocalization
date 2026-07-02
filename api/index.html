@@ -1875,12 +1875,17 @@ J. Neurosci. 24(16), 4070-4081.</p>
     <div class="doc doc-contents ">
 
         <p>Manders' colocalization coefficients M1 and M2.</p>
-<p>M1 is the fraction of the channel-A intensity that lies in
-pixels where channel B is above <code>threshold_b</code>. M2 is the
-symmetric counterpart for channel B above <code>threshold_a</code>.
-Asymmetry between the two is meaningful - it reflects the
-difference in how much of each channel co-occurs with the
-other.</p>
+<p>These measure <em>co-occurrence</em> - the fraction of one channel's
+signal that overlaps above-threshold signal in the other - not
+<em>correlation</em> of intensities (Aaron et al., 2018). M1 is the
+fraction of the channel-A intensity that lies in pixels where
+channel B is above <code>threshold_b</code>. M2 is the symmetric
+counterpart for channel B above <code>threshold_a</code>. Asymmetry
+between the two is meaningful - it reflects the difference in
+how much of each channel co-occurs with the other.</p>
+<p>Because a threshold is always applied, the values the plugin
+reports are the <em>thresholded</em> coefficients, written <code>tM1</code> /
+<code>tM2</code> in the results.</p>
 <p>Wraps <code>skimage.measure.manders_coloc_coeff</code>, which
 expects a binary mask for the second image; we threshold
 internally and then call it twice.</p>
@@ -2842,7 +2847,7 @@ export, and the row dicts:</p>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a> <span class="s1">&#39;pcc&#39;</span><span class="p">,</span> <span class="s1">&#39;pcc_pvalue&#39;</span><span class="p">,</span> <span class="s1">&#39;srcc&#39;</span><span class="p">,</span> <span class="s1">&#39;srcc_pvalue&#39;</span><span class="p">,</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a> <span class="s1">&#39;icq&#39;</span><span class="p">,</span>
 <a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a> <span class="s1">&#39;overlap&#39;</span><span class="p">,</span> <span class="s1">&#39;k1&#39;</span><span class="p">,</span> <span class="s1">&#39;k2&#39;</span><span class="p">,</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a> <span class="s1">&#39;m1&#39;</span><span class="p">,</span> <span class="s1">&#39;m2&#39;</span><span class="p">,</span> <span class="s1">&#39;threshold_a&#39;</span><span class="p">,</span> <span class="s1">&#39;threshold_b&#39;</span><span class="p">)</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a> <span class="s1">&#39;tm1&#39;</span><span class="p">,</span> <span class="s1">&#39;tm2&#39;</span><span class="p">,</span> <span class="s1">&#39;threshold_a&#39;</span><span class="p">,</span> <span class="s1">&#39;threshold_b&#39;</span><span class="p">)</span>
 </code></pre></div>
 <p>(<code>slice</code> is the plane index for per-Z-slice runs, and <code>NaN</code> otherwise.)</p>
 
@@ -4521,7 +4526,7 @@ on first use and caches it under <code>~/.cache/napari-colocalization/</code>.</
         <p>Synthetic two-channel sample data for colocalization.</p>
 <p>Synthetic samples (2D, 3D): gaussian blobs with channel B copying
 60 % of channel A's blobs plus independent blobs and noise, giving
-PCC ~ 0.7 and Manders M1/M2 ~ 0.6.</p>
+PCC ~ 0.7 and Manders tM1/tM2 ~ 0.6.</p>
 <p>CBS006RBM: red and blue channels with ~50 % colocalization,
 from the Colocalization Benchmark Source.
 The TIFF is downloaded once and cached in ~/.cache/napari-colocalization/.</p>
