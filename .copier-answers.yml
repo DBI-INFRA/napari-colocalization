@@ -4,8 +4,8 @@ _src_path: https://github.com/napari/napari-plugin-template
 display_name: Colocalization
 email: ''
 full_name: Jesko Wagner
-github_repository_url: https://github.com/jeskowagner/napari-colocalization
-github_username_or_organization: jeskowagner
+github_repository_url: https://github.com/dbi-infra/napari-colocalization
+github_username_or_organization: dbi-infra
 include_reader_plugin: false
 include_sample_data_plugin: true
 include_widget_plugin: true

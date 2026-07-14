@@ -61,10 +61,10 @@ docs = [
 napari-colocalization = "napari_colocalization:napari.yaml"
 
 [project.urls]
-"Bug Tracker" = "https://github.com/jeskowagner/napari-colocalization/issues"
-"Documentation" = "https://github.com/jeskowagner/napari-colocalization#README.md"
-"Source Code" = "https://github.com/jeskowagner/napari-colocalization"
-"User Support" = "https://github.com/jeskowagner/napari-colocalization/issues"
+"Bug Tracker" = "https://github.com/dbi-infra/napari-colocalization/issues"
+"Documentation" = "https://github.com/dbi-infra/napari-colocalization#README.md"
+"Source Code" = "https://github.com/dbi-infra/napari-colocalization"
+"User Support" = "https://github.com/dbi-infra/napari-colocalization/issues"
 
 [build-system]
 requires = ["setuptools>=77.0.3", "setuptools_scm"]
