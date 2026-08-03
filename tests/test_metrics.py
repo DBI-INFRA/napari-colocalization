@@ -139,10 +139,44 @@ def test_costes_threshold_steep_slope_stays_in_range(rng):
     assert b.min() <= t_b <= b.max()
 
 
-def test_costes_threshold_anticorrelated_returns_max(rng):
+def test_costes_threshold_anticorrelated_is_nan(rng):
+    # A negative slope means there is no threshold to find. Returning
+    # max(a)/max(b) here (as Coloc 2 does) would make manders() report
+    # exactly 0.0, which reads as a measured "no co-occurrence" rather
+    # than "no threshold could be fitted" - so we return nan instead.
     a = rng.random((64, 64))
-    b = -a + 0.01 * rng.random((64, 64))  # negative slope -> no threshold
-    assert costes_threshold(a, b) == pytest.approx((a.max(), b.max()))
+    b = -a + 0.01 * rng.random((64, 64))
+    assert all(np.isnan(t) for t in costes_threshold(a, b))
+    assert all(np.isnan(m) for m in manders(a, b, *costes_threshold(a, b)))
+
+
+def test_costes_threshold_constant_channel_is_nan():
+    constant = np.ones((32, 32))
+    varied = np.arange(32 * 32, dtype=float).reshape(32, 32)
+    assert all(np.isnan(t) for t in costes_threshold(constant, varied))
+
+
+def test_overlap_is_dtype_independent():
+    # skimage's manders_overlap_coeff squares in the input dtype, so an
+    # integer image overflows and r escapes [0, 1]. We accumulate in
+    # float64 instead: uint8/uint16 must agree with float64.
+    rng = np.random.default_rng(0)
+    a8 = rng.integers(0, 256, (64, 64)).astype(np.uint8)
+    b8 = (a8 // 2 + 20).astype(np.uint8)
+    expected = overlap(a8.astype(np.float64), b8.astype(np.float64))
+    assert overlap(a8, b8) == pytest.approx(expected)
+    assert overlap(a8.astype(np.uint16), b8.astype(np.uint16)) == (
+        pytest.approx(expected)
+    )
+    assert 0.0 <= overlap(a8, b8)[0] <= 1.0
+
+
+def test_overlap_negative_input_is_nan(rng):
+    # Background subtraction can push intensities below zero; r is only
+    # defined for one-signed data. nan, not a raise (which would abort
+    # the whole run) and not an out-of-range number.
+    a = rng.random((32, 32)) - 0.5
+    assert all(np.isnan(v) for v in overlap(a, a.copy()))
 
 
 def test_costes_regression_is_orthogonal_not_ols(rng):

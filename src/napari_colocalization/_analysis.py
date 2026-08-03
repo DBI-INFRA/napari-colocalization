@@ -149,7 +149,7 @@ def _describe_channel(flat, name):
     return f"channel '{name}' is constant"
 
 
-def _skip_reason(a, b, region_mask, channel_a, channel_b):
+def _skip_reason(a, b, region_mask, channel_a, channel_b, row, metrics):
     """Human-readable reason a region's metrics could not compute."""
     a_flat, b_flat = _flatten_with_mask(a, b, region_mask)
     if a_flat.size < 2:
@@ -162,7 +162,20 @@ def _skip_reason(a, b, region_mask, channel_a, channel_b):
         )
         if part
     ]
-    return '; '.join(parts) if parts else 'metric undefined for this region'
+    if parts:
+        return '; '.join(parts)
+    # Both channels carry signal, so the only remaining known cause is
+    # a threshold that could not be fitted (e.g. Costes on a pair with
+    # a non-positive regression slope). Naming it matters: without a
+    # threshold tM1/tM2 are *unmeasured*, not measured as zero.
+    if 'mcc' in metrics and not (
+        np.isfinite(row['threshold_a']) and np.isfinite(row['threshold_b'])
+    ):
+        return (
+            'no Manders threshold could be determined '
+            '(try a different threshold method)'
+        )
+    return 'metric undefined for this region'
 
 
 def analyse_pairwise(
@@ -317,7 +330,9 @@ def analyse_pairwise(
             row['threshold_a'] = t_a
             row['threshold_b'] = t_b
         if region_warnings is not None and _row_has_uncomputed(row, metrics):
-            reason = _skip_reason(a, b, region_mask, channel_a, channel_b)
+            reason = _skip_reason(
+                a, b, region_mask, channel_a, channel_b, row, metrics
+            )
             region_warnings.append(
                 f'region {region_id} ({channel_a} vs {channel_b}): {reason}'
             )

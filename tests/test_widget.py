@@ -394,8 +394,10 @@ def test_object_rerun_clears_previous_overlays(widget, qtbot):
 
     widget._on_object_run_clicked()
     qtbot.waitUntil(
-        lambda: bool(widget._object_overlay_layers)
-        and widget._object_overlay_layers[0] not in first,
+        lambda: (
+            bool(widget._object_overlay_layers)
+            and widget._object_overlay_layers[0] not in first
+        ),
         timeout=10000,
     )
     assert all(layer not in viewer.layers for layer in first)

@@ -144,10 +144,14 @@ The split `k1`/`k2` help when one channel is much sparser than the other.
 **Watch out for.**
 - `r` hides the sign of any relationship; always read it next to PCC or
   ICQ, never alone.
-- Like tM1/tM2 it assumes non-negative intensities; subtract background
-  first if your data has a strong offset.
+- Like tM1/tM2 it assumes non-negative intensities. If background
+  subtraction has pushed either channel below zero, `r`/`k1`/`k2` are
+  undefined and reported as blank/`NaN` — use PCC, SRCC or ICQ, which
+  are all well defined on signed data.
 - Any coefficient whose denominator is zero (an all-zero channel within
   the region) is reported as a blank/`NaN` cell.
+- All three are accumulated in float64 regardless of the image dtype, so
+  8- and 16-bit images give the same answer as their float equivalents.
 
 Computed locally in `_metrics.overlap`; the three values populate the
 `overlap`, `k1` and `k2` columns.
@@ -212,12 +216,18 @@ Fiji's **Coloc 2** `AutoThresholdRegression`):
    channel B.
 3. At each candidate, compute the Pearson correlation of the
    below-threshold pixels (`a < T_a` **or** `b < T_b`). Bisect downward
-   while that correlation is positive and upward when it is non-positive,
-   converging on the threshold where the background pixels stop
-   correlating.
+   while that correlation is zero or positive, and upward when it is
+   negative or undefined, converging on the threshold where the
+   background pixels stop correlating.
 
-Falls back to `(max(a), max(b))` when the regression slope is
-non-positive or undefined (no linear co-occurrence to threshold for).
+When no threshold can be fitted — fewer than two pixels, a constant
+channel, or a regression slope that is non-positive or undefined (no
+linear co-occurrence to threshold for) — the thresholds and the
+resulting tM1/tM2 are reported as blank/`NaN`, and the note below the
+table says so. Fiji's Coloc 2 instead falls back to `(max(a), max(b))`
+here; that yields tM1 = tM2 = exactly `0.00`, which is easy to misread
+as a measured "nothing co-occurs" rather than "nothing could be
+measured", so this plugin deliberately diverges.
 
 The selected thresholds appear in the `threshold_a` / `threshold_b`
 columns of the results table and as red reference lines on the scatter
@@ -258,8 +268,6 @@ observed PCC is plotted against that null, with a right-tailed p-value
 `(#{null ≥ observed} + 1) / (n_iter + 1)` and a z-score. A genuine
 colocalization sits far to the right of the null. The block size should
 approximate the point-spread-function width. Works on 2D and 3D images.
-
-This is the Costes randomization the v1 metrics page noted as missing.
 
 ### Van Steensel cross-correlation function (CCF)
 

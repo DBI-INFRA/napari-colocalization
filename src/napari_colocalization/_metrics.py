@@ -262,13 +262,15 @@ def overlap(a, b, mask=None):
     channel and are sensitive to such differences - their
     asymmetry is informative.
 
-    ``r`` is delegated to
-    `skimage.measure.manders_overlap_coeff`. The split
-    coefficients k1/k2 have no scikit-image equivalent
+    All three are computed locally from the same intensity sums.
+    `skimage.measure.manders_overlap_coeff` would supply ``r``,
+    but it squares and multiplies in the *input* dtype, so an
+    integer image (uint8/uint16 - what a microscopy TIFF loads
+    as) overflows and yields a value outside ``[0, 1]``; k1/k2
+    have no scikit-image equivalent anyway
     (`skimage.measure.manders_coloc_coeff` computes the
     threshold-gated M1/M2 used by `manders`, a different
-    quantity), so they are derived from the same intensity sums
-    here.
+    quantity).
 
     Parameters
     ----------
@@ -284,7 +286,9 @@ def overlap(a, b, mask=None):
         The overlap coefficient and the two split coefficients.
         Any coefficient whose denominator is zero (an all-zero
         channel within the region) is returned as ``nan``; all
-        three are ``nan`` for an empty region.
+        three are ``nan`` for an empty region, or when either
+        channel contains negative values (these coefficients are
+        defined only for non-negative intensities).
 
     References
     ----------
@@ -309,20 +313,25 @@ def overlap(a, b, mask=None):
     b_flat = b_flat.astype(np.float64, copy=False)
     if a_flat.size == 0:
         return float('nan'), float('nan'), float('nan')
+    # r is only defined for non-negative intensities (it is the
+    # un-centred Pearson coefficient, and the [0, 1] range depends on
+    # both channels being one-signed). Background-subtracted data can
+    # go negative, so report nan rather than a number outside the
+    # documented range - and rather than raising, which would abort a
+    # whole multi-region run over one signed channel.
+    if a_flat.min() < 0 or b_flat.min() < 0:
+        return float('nan'), float('nan'), float('nan')
+    # The sums drive all three coefficients. They are accumulated in
+    # float64 (cast above) because squaring in the input dtype
+    # overflows for the integer images microscopy TIFFs load as.
     sum_aa = float(np.sum(a_flat * a_flat))
     sum_bb = float(np.sum(b_flat * b_flat))
-    # The overlap coefficient r is delegated to scikit-image. k1/k2
-    # have no scikit-image equivalent (manders_coloc_coeff computes
-    # the threshold-gated M1/M2 - a different quantity), so they are
-    # derived locally from the shared intensity sums. The size/sum
-    # guards keep the "never raise, return nan" contract: an empty
-    # region or a zero-variance channel would otherwise make
-    # manders_overlap_coeff raise or emit a divide warning.
-    if sum_aa > 0 and sum_bb > 0:
-        r = float(measure.manders_overlap_coeff(a, b, mask=mask))
-    else:
-        r = float('nan')
     sum_ab = float(np.sum(a_flat * b_flat))
+    r = (
+        float(sum_ab / np.sqrt(sum_aa * sum_bb))
+        if sum_aa > 0 and sum_bb > 0
+        else float('nan')
+    )
     k1 = sum_ab / sum_aa if sum_aa > 0 else float('nan')
     k2 = sum_ab / sum_bb if sum_bb > 0 else float('nan')
     return r, k1, k2
@@ -415,8 +424,8 @@ def costes_threshold(a, b, mask=None, max_iter=100):
        ``T_a = (T_b - c)/m``).
     3. At each candidate, compute the Pearson correlation of the
        below-threshold pixels (``a < T_a`` **or** ``b < T_b``).
-       Bisect downward while that correlation is positive and
-       upward when it is non-positive (or undefined), converging on
+       Bisect downward while that correlation is zero or positive,
+       and upward when it is negative or undefined, converging on
        the threshold where the background pixels stop correlating.
 
     Parameters
@@ -433,9 +442,18 @@ def costes_threshold(a, b, mask=None, max_iter=100):
     -------
     threshold_a, threshold_b : float
         Per-channel thresholds for `manders`, clamped to the
-        data range. Falls back to ``(max(a), max(b))`` when the
-        regression slope is non-positive or undefined (no
+        data range, or ``(nan, nan)`` when no threshold can be
+        determined: fewer than two pixels, a constant channel, or
+        a regression slope that is non-positive or undefined (no
         co-occurrence to threshold for).
+
+        Coloc 2 instead falls back to ``(max(a), max(b))`` here and
+        emits a warning. We deliberately diverge: that fallback
+        makes `manders` return exactly ``0.0``, which reads as the
+        measured result "none of channel A co-occurs with B" rather
+        than "no threshold could be fitted". ``nan`` keeps the two
+        distinguishable - the caller reports a blank cell and the
+        reason instead of a number that was never measured.
 
     References
     ----------
@@ -447,20 +465,19 @@ def costes_threshold(a, b, mask=None, max_iter=100):
     a_flat = a_flat.astype(np.float64, copy=False)
     b_flat = b_flat.astype(np.float64, copy=False)
 
+    nan = float('nan')
     if a_flat.size < 2:
-        a_max = float(a_flat.max()) if a_flat.size else 0.0
-        b_max = float(b_flat.max()) if b_flat.size else 0.0
-        return a_max, b_max
+        return nan, nan
 
     if a_flat.std() == 0 or b_flat.std() == 0:
-        return float(a_flat.max()), float(b_flat.max())
+        return nan, nan
 
     slope, intercept = costes_regression(a_flat, b_flat)
     a_max, a_min = float(a_flat.max()), float(a_flat.min())
     b_max, b_min = float(b_flat.max()), float(b_flat.min())
 
     if not np.isfinite(slope) or slope <= 0:
-        return a_max, b_max
+        return nan, nan
 
     # Step the channel that resolves the line best (Coloc 2: ch1 when
     # |m| < 1, else ch2), mapping the stepped value onto the other
@@ -480,8 +497,8 @@ def costes_threshold(a, b, mask=None, max_iter=100):
 
         threshold, upper, span = 0.5 * (b_max + b_min), b_max, b_max - b_min
 
-    # Bisection: positive below-r -> threshold too high, step down;
-    # non-positive or undefined -> step up. Step halves each round.
+    # Bisection: zero-or-positive below-r -> threshold too high, step
+    # down; negative or undefined -> step up. Step halves each round.
     # Coloc 2 stops at a step of one integer intensity level; we use a
     # tolerance relative to the data span so it also works on
     # float-valued (e.g. 0..1 normalised) images.
