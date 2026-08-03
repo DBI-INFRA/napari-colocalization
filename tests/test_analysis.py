@@ -97,11 +97,36 @@ def test_auto_threshold_method():
     )[0]
     assert row['tm1'] == pytest.approx(1.0)
     assert 0.0 < row['threshold_a'] < 1.0
-    # a constant channel has no Otsu threshold -> M1/M2 are NaN
+    # A constant channel A has no Otsu threshold, but only tM2 needs
+    # one: tM1 sums A's intensity and gates on B, so for a uniform A it
+    # is still defined and reduces to the area fraction of B's mask
+    # (100 of 400 px). Blanking it too would hide a real measurement.
     const = analyse_pairwise(
         np.ones((20, 20)), img, metrics=('mcc',), threshold_method='otsu'
     )[0]
-    assert np.isnan(const['tm1'])
+    assert np.isnan(const['threshold_a'])
+    assert const['tm1'] == pytest.approx(0.25)
+    assert np.isnan(const['tm2'])
+
+
+def test_signed_channel_does_not_abort_the_run(rng):
+    # Background subtraction pushes pixels below zero. The co-occurrence
+    # metrics are undefined there, but the correlation ones are not - a
+    # signed channel must not take the whole run down with it.
+    a = rng.random((16, 16)) - 0.5
+    b = rng.random((16, 16))
+    row = analyse_pairwise(
+        a,
+        b,
+        metrics=('pcc', 'srcc', 'icq', 'overlap', 'mcc'),
+        threshold_method='manual',
+        threshold_a=0.0,
+        threshold_b=0.0,
+    )[0]
+    for key in ('pcc', 'srcc', 'icq'):
+        assert not np.isnan(row[key])
+    assert np.isnan(row['overlap'])
+    assert np.isnan(row['tm1'])
 
 
 def test_region_warnings_flag_uncomputable_regions(rng):

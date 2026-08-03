@@ -90,6 +90,41 @@ def test_manders_zero_intensity_is_nan():
     assert np.isnan(m1) and np.isnan(m2)
 
 
+def test_manders_coefficients_are_decided_independently():
+    # tM1 divides by sum(A), so an empty B makes it 0.0 - a measured
+    # "none of A co-occurs with B" - while tM2 (dividing by sum(B)) is
+    # genuinely undefined. Blanking both would hide the first result.
+    ones = np.ones((10, 10))
+    zeros = np.zeros((10, 10))
+    m1, m2 = manders(ones, zeros, threshold_a=0.5, threshold_b=0.5)
+    assert m1 == pytest.approx(0.0)
+    assert np.isnan(m2)
+    m1, m2 = manders(zeros, ones, threshold_a=0.5, threshold_b=0.5)
+    assert np.isnan(m1)
+    assert m2 == pytest.approx(0.0)
+
+
+def test_manders_undefined_threshold_blanks_only_its_own_coefficient():
+    # threshold_b gates tM1 and threshold_a gates tM2, so an undefined
+    # threshold on one channel leaves the other coefficient computable.
+    a = np.ones((10, 10))
+    b = np.zeros((10, 10))
+    b[:5] = 1.0
+    m1, m2 = manders(a, b, threshold_a=float('nan'), threshold_b=0.5)
+    assert m1 == pytest.approx(0.5)
+    assert np.isnan(m2)
+
+
+def test_manders_negative_input_is_nan_not_raise():
+    # skimage's manders_coloc_coeff raises on negative pixels, which
+    # aborted the whole run for one background-subtracted channel.
+    a = np.full((10, 10), -1.0)
+    b = np.ones((10, 10))
+    m1, m2 = manders(a, b, threshold_a=0.5, threshold_b=0.5)
+    assert np.isnan(m1)  # summing a signed channel is meaningless...
+    assert m2 == pytest.approx(0.0)  # ...but gating on it is fine
+
+
 # -- Overlap r / k1 / k2 ----------------------------------------------
 
 

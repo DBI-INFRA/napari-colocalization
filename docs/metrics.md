@@ -189,10 +189,21 @@ varying intensities.
   if you don't have a principled way to set it manually.
 - High background offsets confuse Costes - pre-process or set thresholds
   manually.
+- Both assume non-negative intensities. If background subtraction has
+  pushed a channel below zero, the coefficient that *sums* that channel
+  is reported as blank/`NaN` (its "fraction of the total" reading breaks
+  down once values can cancel), while PCC, SRCC and ICQ remain valid.
 
-We delegate to
-[`skimage.measure.manders_coloc_coeff`](https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.manders_coloc_coeff)
-after applying the chosen thresholds.
+Note that tM1 and tM2 are decided **independently**, so one can be
+blank while the other carries a number. Each looks at a different
+denominator: tM1 divides by the total of channel A and only *gates* on
+`T_b`, and tM2 mirrors that. So a region where B is empty gives
+tM1 = 0 (a real measurement: none of A co-occurs with B) alongside a
+blank tM2 (nothing to divide by) - and a channel with no auto-threshold
+blanks only the coefficient that needed that threshold. A blank cell
+always means "not measurable", never "measured as zero".
+
+Computed in `_metrics.manders` directly from the intensity sums.
 
 ### Costes' auto-threshold
 

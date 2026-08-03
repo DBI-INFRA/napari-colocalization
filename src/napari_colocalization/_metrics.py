@@ -2,9 +2,16 @@
 
 No napari / qtpy imports here - every function in this module
 operates on ndarrays so it can be tested headlessly and reused
-from scripts. PCC and Manders delegate to scikit-image; SRCC
-uses scipy.stats; Costes auto-threshold is implemented locally
-because scikit-image does not provide it.
+from scripts. PCC delegates to scikit-image and SRCC to
+scipy.stats; the Manders coefficients, the overlap coefficient
+and the Costes auto-threshold are computed locally, either
+because scikit-image has no equivalent or because its version
+raises where this module returns ``nan`` (see below).
+
+Failure policy: a metric that cannot be computed returns ``nan``
+rather than raising. Callers analyse many regions in one run, and
+one degenerate region - or one background-subtracted channel -
+must not destroy the results for all the others.
 """
 
 import numpy as np
@@ -195,9 +202,16 @@ def manders(a, b, threshold_a, threshold_b, mask=None):
     reports are the *thresholded* coefficients, written ``tM1`` /
     ``tM2`` in the results.
 
-    Wraps `skimage.measure.manders_coloc_coeff`, which
-    expects a binary mask for the second image; we threshold
-    internally and then call it twice.
+    The two coefficients are decided **independently**: each is
+    ``nan`` only when *its own* inputs are unusable, so a region
+    where one channel is absent still reports the other's
+    coefficient rather than blanking both.
+
+    Computed from the intensity sums directly rather than via
+    `skimage.measure.manders_coloc_coeff`, which couples the two
+    (it returns ``0`` for an empty channel, where ``nan`` is
+    wanted) and rejects negative pixels by raising - aborting a
+    whole multi-region run over one background-subtracted channel.
 
     Parameters
     ----------
@@ -206,7 +220,10 @@ def manders(a, b, threshold_a, threshold_b, mask=None):
     threshold_a, threshold_b : float
         Per-channel thresholds. Use `costes_threshold` to
         derive them automatically, or pass values you have set
-        manually.
+        manually. A ``nan`` threshold (an auto-threshold has none
+        for a constant channel) blanks only the coefficient that
+        needs it: ``threshold_b`` gates M1, ``threshold_a`` gates
+        M2.
     mask : array_like of bool, optional
         Boolean array selecting the analysed region. ``None``
         analyses every pixel.
@@ -214,8 +231,12 @@ def manders(a, b, threshold_a, threshold_b, mask=None):
     Returns
     -------
     m1, m2 : float
-        Each in ``[0, 1]``, or ``nan`` if the analysed region
-        contains no positive intensity in either channel.
+        Each in ``[0, 1]``. ``m1`` is ``nan`` when the region is
+        empty, when ``threshold_b`` is not finite, or when channel
+        A carries no signal (``sum <= 0``) or any negative value -
+        the "fraction of A's intensity" reading breaks down if A's
+        own values can cancel. ``m2`` is ``nan`` under the mirrored
+        conditions on ``threshold_a`` and channel B.
 
     Examples
     --------
@@ -227,20 +248,30 @@ def manders(a, b, threshold_a, threshold_b, mask=None):
     >>> round(m1, 2), round(m2, 2)
     (0.5, 1.0)
     """
-    a = np.asarray(a)
-    b = np.asarray(b)
-    if not (np.isfinite(threshold_a) and np.isfinite(threshold_b)):
-        # An auto-threshold can be NaN for a constant/empty channel;
-        # M1/M2 are then undefined rather than spuriously 0.
-        return float('nan'), float('nan')
-    a_above = a > threshold_a
-    b_above = b > threshold_b
+    nan = float('nan')
     a_flat, b_flat = _flatten_with_mask(a, b, mask)
-    if a_flat.size == 0 or a_flat.sum() == 0 or b_flat.sum() == 0:
-        return float('nan'), float('nan')
-    m1 = measure.manders_coloc_coeff(a, b_above, mask=mask)
-    m2 = measure.manders_coloc_coeff(b, a_above, mask=mask)
-    return float(m1), float(m2)
+    if a_flat.size == 0:
+        return nan, nan
+    a_flat = a_flat.astype(np.float64, copy=False)
+    b_flat = b_flat.astype(np.float64, copy=False)
+    # Each coefficient stands on its own channel: M1 *sums* A's
+    # intensity and only *gates* on B (via threshold_b), so it needs a
+    # usable A and a finite threshold_b - nothing more. Deciding the
+    # two separately keeps "B is absent, so none of A co-occurs"
+    # (M1 = 0) distinguishable from "M1 could not be computed".
+    sum_a = float(a_flat.sum())
+    sum_b = float(b_flat.sum())
+    m1 = (
+        float(a_flat[b_flat > threshold_b].sum() / sum_a)
+        if np.isfinite(threshold_b) and sum_a > 0 and a_flat.min() >= 0
+        else nan
+    )
+    m2 = (
+        float(b_flat[a_flat > threshold_a].sum() / sum_b)
+        if np.isfinite(threshold_a) and sum_b > 0 and b_flat.min() >= 0
+        else nan
+    )
+    return m1, m2
 
 
 def overlap(a, b, mask=None):
