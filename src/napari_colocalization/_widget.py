@@ -27,6 +27,7 @@ from qtpy.QtWidgets import (
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
+    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -1524,14 +1525,18 @@ class ColocalizationWidget(QWidget):
         self._diag_scramble_button.clicked.connect(
             self._on_diag_scramble_clicked
         )
+        # Two columns, not one row: five buttons side by side overflow a
+        # docked panel, and this tab's scroll area has no horizontal bar,
+        # so the overflow would be unreachable rather than merely tight.
+        # Grouped by what they do - run, export, add to the viewer.
         row = QWidget()
-        layout = QHBoxLayout(row)
+        layout = QGridLayout(row)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self._diag_run_button)
-        layout.addWidget(self._diag_cancel_button)
-        layout.addWidget(self._diag_export_button)
-        layout.addWidget(self._diag_export_values_button)
-        layout.addWidget(self._diag_scramble_button)
+        layout.addWidget(self._diag_run_button, 0, 0)
+        layout.addWidget(self._diag_cancel_button, 0, 1)
+        layout.addWidget(self._diag_export_button, 1, 0)
+        layout.addWidget(self._diag_export_values_button, 1, 1)
+        layout.addWidget(self._diag_scramble_button, 2, 0, 1, 2)
         return row
 
     def _build_diag_results_group(self):
