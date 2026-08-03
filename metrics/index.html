@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -896,10 +896,14 @@ The split <code>k1</code>/<code>k2</code> help when one channel is much sparser 
 <p><strong>Watch out for.</strong>
 - <code>r</code> hides the sign of any relationship; always read it next to PCC or
   ICQ, never alone.
-- Like tM1/tM2 it assumes non-negative intensities; subtract background
-  first if your data has a strong offset.
+- Like tM1/tM2 it assumes non-negative intensities. If background
+  subtraction has pushed either channel below zero, <code>r</code>/<code>k1</code>/<code>k2</code> are
+  undefined and reported as blank/<code>NaN</code> — use PCC, SRCC or ICQ, which
+  are all well defined on signed data.
 - Any coefficient whose denominator is zero (an all-zero channel within
-  the region) is reported as a blank/<code>NaN</code> cell.</p>
+  the region) is reported as a blank/<code>NaN</code> cell.
+- All three are accumulated in float64 regardless of the image dtype, so
+  8- and 16-bit images give the same answer as their float equivalents.</p>
 <p>Computed locally in <code>_metrics.overlap</code>; the three values populate the
 <code>overlap</code>, <code>k1</code> and <code>k2</code> columns.</p>
 <h2 id="manders-tm1tm2">Manders (tM1/tM2)<a class="headerlink" href="#manders-tm1tm2" title="Permanent link">&para;</a></h2>
@@ -928,10 +932,20 @@ varying intensities.</p>
 - Manders is sensitive to the choice of threshold. Use Costes (below)
   if you don't have a principled way to set it manually.
 - High background offsets confuse Costes - pre-process or set thresholds
-  manually.</p>
-<p>We delegate to
-<a href="https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.manders_coloc_coeff"><code>skimage.measure.manders_coloc_coeff</code></a>
-after applying the chosen thresholds.</p>
+  manually.
+- Both assume non-negative intensities. If background subtraction has
+  pushed a channel below zero, the coefficient that <em>sums</em> that channel
+  is reported as blank/<code>NaN</code> (its "fraction of the total" reading breaks
+  down once values can cancel), while PCC, SRCC and ICQ remain valid.</p>
+<p>Note that tM1 and tM2 are decided <strong>independently</strong>, so one can be
+blank while the other carries a number. Each looks at a different
+denominator: tM1 divides by the total of channel A and only <em>gates</em> on
+<code>T_b</code>, and tM2 mirrors that. So a region where B is empty gives
+tM1 = 0 (a real measurement: none of A co-occurs with B) alongside a
+blank tM2 (nothing to divide by) - and a channel with no auto-threshold
+blanks only the coefficient that needed that threshold. A blank cell
+always means "not measurable", never "measured as zero".</p>
+<p>Computed in <code>_metrics.manders</code> directly from the intensity sums.</p>
 <h3 id="costes-auto-threshold">Costes' auto-threshold<a class="headerlink" href="#costes-auto-threshold" title="Permanent link">&para;</a></h3>
 <p>Manders' coefficients depend on a per-channel threshold separating
 "signal" from "background". Picking the threshold by eye is subjective;
@@ -952,12 +966,18 @@ Fiji's <strong>Coloc 2</strong> <code>AutoThresholdRegression</code>):</p>
    channel B.</li>
 <li>At each candidate, compute the Pearson correlation of the
    below-threshold pixels (<code>a &lt; T_a</code> <strong>or</strong> <code>b &lt; T_b</code>). Bisect downward
-   while that correlation is positive and upward when it is non-positive,
-   converging on the threshold where the background pixels stop
-   correlating.</li>
+   while that correlation is zero or positive, and upward when it is
+   negative or undefined, converging on the threshold where the
+   background pixels stop correlating.</li>
 </ol>
-<p>Falls back to <code>(max(a), max(b))</code> when the regression slope is
-non-positive or undefined (no linear co-occurrence to threshold for).</p>
+<p>When no threshold can be fitted — fewer than two pixels, a constant
+channel, or a regression slope that is non-positive or undefined (no
+linear co-occurrence to threshold for) — the thresholds and the
+resulting tM1/tM2 are reported as blank/<code>NaN</code>, and the note below the
+table says so. Fiji's Coloc 2 instead falls back to <code>(max(a), max(b))</code>
+here; that yields tM1 = tM2 = exactly <code>0.00</code>, which is easy to misread
+as a measured "nothing co-occurs" rather than "nothing could be
+measured", so this plugin deliberately diverges.</p>
 <p>The selected thresholds appear in the <code>threshold_a</code> / <code>threshold_b</code>
 columns of the results table and as red reference lines on the scatter
 plot. The orthogonal regression line is overlaid as a cyan dashed line
@@ -992,7 +1012,6 @@ observed PCC is plotted against that null, with a right-tailed p-value
 <code>(#{null ≥ observed} + 1) / (n_iter + 1)</code> and a z-score. A genuine
 colocalization sits far to the right of the null. The block size should
 approximate the point-spread-function width. Works on 2D and 3D images.</p>
-<p>This is the Costes randomization the v1 metrics page noted as missing.</p>
 <h3 id="van-steensel-cross-correlation-function-ccf">Van Steensel cross-correlation function (CCF)<a class="headerlink" href="#van-steensel-cross-correlation-function-ccf" title="Permanent link">&para;</a></h3>
 <p>Shifts channel B relative to A by ±<code>max_shift</code> pixels and plots the PCC
 at each shift. A peak <strong>at</strong> shift 0 indicates colocalization; a central
@@ -1126,7 +1145,7 @@ reporting more than one is good practice.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.expand", "navigation.top", "content.code.copy", "content.code.annotate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
         <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML"></script>
       

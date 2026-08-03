@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -29,7 +29,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -1393,9 +1393,15 @@ the symbols below are stable and intended to be imported.</p>
         <p>Pure-numpy colocalization metrics.</p>
 <p>No napari / qtpy imports here - every function in this module
 operates on ndarrays so it can be tested headlessly and reused
-from scripts. PCC and Manders delegate to scikit-image; SRCC
-uses scipy.stats; Costes auto-threshold is implemented locally
-because scikit-image does not provide it.</p>
+from scripts. PCC delegates to scikit-image and SRCC to
+scipy.stats; the Manders coefficients, the overlap coefficient
+and the Costes auto-threshold are computed locally, either
+because scikit-image has no equivalent or because its version
+raises where this module returns <code>nan</code> (see below).</p>
+<p>Failure policy: a metric that cannot be computed returns <code>nan</code>
+rather than raising. Callers analyse many regions in one run, and
+one degenerate region - or one background-subtracted channel -
+must not destroy the results for all the others.</p>
 
 
 
@@ -1886,9 +1892,15 @@ how much of each channel co-occurs with the other.</p>
 <p>Because a threshold is always applied, the values the plugin
 reports are the <em>thresholded</em> coefficients, written <code>tM1</code> /
 <code>tM2</code> in the results.</p>
-<p>Wraps <code>skimage.measure.manders_coloc_coeff</code>, which
-expects a binary mask for the second image; we threshold
-internally and then call it twice.</p>
+<p>The two coefficients are decided <strong>independently</strong>: each is
+<code>nan</code> only when <em>its own</em> inputs are unusable, so a region
+where one channel is absent still reports the other's
+coefficient rather than blanking both.</p>
+<p>Computed from the intensity sums directly rather than via
+<code>skimage.measure.manders_coloc_coeff</code>, which couples the two
+(it returns <code>0</code> for an empty channel, where <code>nan</code> is
+wanted) and rejects negative pixels by raising - aborting a
+whole multi-region run over one background-subtracted channel.</p>
 
 
 <table>
@@ -1939,7 +1951,10 @@ internally and then call it twice.</p>
               <div class="doc-md-description">
                 <p>Per-channel thresholds. Use <code>costes_threshold</code> to
 derive them automatically, or pass values you have set
-manually.</p>
+manually. A <code>nan</code> threshold (an auto-threshold has none
+for a constant channel) blanks only the coefficient that
+needs it: <code>threshold_b</code> gates M1, <code>threshold_a</code> gates
+M2.</p>
               </div>
               <p>
                   <span class="doc-param-annotation">
@@ -1957,7 +1972,10 @@ manually.</p>
               <div class="doc-md-description">
                 <p>Per-channel thresholds. Use <code>costes_threshold</code> to
 derive them automatically, or pass values you have set
-manually.</p>
+manually. A <code>nan</code> threshold (an auto-threshold has none
+for a constant channel) blanks only the coefficient that
+needs it: <code>threshold_b</code> gates M1, <code>threshold_a</code> gates
+M2.</p>
               </div>
               <p>
                   <span class="doc-param-annotation">
@@ -2008,8 +2026,12 @@ analyses every pixel.</p>
             </td>
             <td class="doc-returns-details">
               <div class="doc-md-description">
-                <p>Each in <code>[0, 1]</code>, or <code>nan</code> if the analysed region
-contains no positive intensity in either channel.</p>
+                <p>Each in <code>[0, 1]</code>. <code>m1</code> is <code>nan</code> when the region is
+empty, when <code>threshold_b</code> is not finite, or when channel
+A carries no signal (<code>sum &lt;= 0</code>) or any negative value -
+the "fraction of A's intensity" reading breaks down if A's
+own values can cancel. <code>m2</code> is <code>nan</code> under the mirrored
+conditions on <code>threshold_a</code> and channel B.</p>
               </div>
             </td>
           </tr>
@@ -2059,13 +2081,15 @@ insensitive to a difference in mean brightness between the two
 channels. <code>k1</code> and <code>k2</code> split that co-occurrence per
 channel and are sensitive to such differences - their
 asymmetry is informative.</p>
-<p><code>r</code> is delegated to
-<code>skimage.measure.manders_overlap_coeff</code>. The split
-coefficients k1/k2 have no scikit-image equivalent
+<p>All three are computed locally from the same intensity sums.
+<code>skimage.measure.manders_overlap_coeff</code> would supply <code>r</code>,
+but it squares and multiplies in the <em>input</em> dtype, so an
+integer image (uint8/uint16 - what a microscopy TIFF loads
+as) overflows and yields a value outside <code>[0, 1]</code>; k1/k2
+have no scikit-image equivalent anyway
 (<code>skimage.measure.manders_coloc_coeff</code> computes the
 threshold-gated M1/M2 used by <code>manders</code>, a different
-quantity), so they are derived from the same intensity sums
-here.</p>
+quantity).</p>
 
 
 <table>
@@ -2152,7 +2176,9 @@ here.</p>
                 <p>The overlap coefficient and the two split coefficients.
 Any coefficient whose denominator is zero (an all-zero
 channel within the region) is returned as <code>nan</code>; all
-three are <code>nan</code> for an empty region.</p>
+three are <code>nan</code> for an empty region, or when either
+channel contains negative values (these coefficients are
+defined only for non-negative intensities).</p>
               </div>
             </td>
           </tr>
@@ -2209,8 +2235,8 @@ labelling of DNA and confocal microscopy.</em> J. Cell Sci. 103,
    <code>T_a = (T_b - c)/m</code>).</li>
 <li>At each candidate, compute the Pearson correlation of the
    below-threshold pixels (<code>a &lt; T_a</code> <strong>or</strong> <code>b &lt; T_b</code>).
-   Bisect downward while that correlation is positive and
-   upward when it is non-positive (or undefined), converging on
+   Bisect downward while that correlation is zero or positive,
+   and upward when it is negative or undefined, converging on
    the threshold where the background pixels stop correlating.</li>
 </ol>
 
@@ -2317,9 +2343,17 @@ also stops once the step falls below one intensity unit.</p>
             <td class="doc-returns-details">
               <div class="doc-md-description">
                 <p>Per-channel thresholds for <code>manders</code>, clamped to the
-data range. Falls back to <code>(max(a), max(b))</code> when the
-regression slope is non-positive or undefined (no
+data range, or <code>(nan, nan)</code> when no threshold can be
+determined: fewer than two pixels, a constant channel, or
+a regression slope that is non-positive or undefined (no
 co-occurrence to threshold for).</p>
+<p>Coloc 2 instead falls back to <code>(max(a), max(b))</code> here and
+emits a warning. We deliberately diverge: that fallback
+makes <code>manders</code> return exactly <code>0.0</code>, which reads as the
+measured result "none of channel A co-occurs with B" rather
+than "no threshold could be fitted". <code>nan</code> keeps the two
+distinguishable - the caller reports a blank cell and the
+reason instead of a number that was never measured.</p>
               </div>
             </td>
           </tr>
@@ -3751,6 +3785,11 @@ of the observed value against the null.</p>
     </table>
 
 
+<details class="see-also" open>
+  <summary>See Also</summary>
+  <p>costes_randomization_steps : generator form, for progress and cancel.</p>
+</details>
+
     </div>
 
 </div>
@@ -3948,6 +3987,11 @@ pair is degenerate.</p>
       </tbody>
     </table>
 
+
+<details class="see-also" open>
+  <summary>See Also</summary>
+  <p>van_steensel_ccf_steps : generator form, for progress and cancel.</p>
+</details>
 
     </div>
 
@@ -4301,8 +4345,11 @@ zeros when the channel has no defined threshold (constant).</p>
 
         <p>Object-based colocalization between two labelled images.</p>
 <p>Reports, for every object in each channel, whether its centroid
-is <strong>coincident</strong> with an object of the other channel and whether
-it <strong>overlaps</strong> one.</p>
+is <strong>coincident</strong> with an object of the other channel, whether it
+<strong>overlaps</strong> one, and how far its centroid is from the nearest
+centroid in the other channel (in pixels). The distance is the
+graded companion to the two boolean measures - a non-coincident
+object 2 px away and one 200 px away are very different results.</p>
 
 
 <table>
@@ -4419,8 +4466,10 @@ it <strong>overlaps</strong> one.</p>
             </td>
             <td class="doc-returns-details">
               <div class="doc-md-description">
-                <p>Object counts and coincident/overlap counts and fractions per
-channel.</p>
+                <p>Object counts, coincident/overlap counts and fractions per
+channel, and the median nearest-neighbour distance per
+channel (<code>nan</code> when a channel has no objects to measure
+to).</p>
               </div>
                 <p>
                   <span class="doc-returns-annotation">
@@ -4736,7 +4785,7 @@ into its red and green channels. The two dyes strongly colocalise
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.expand", "navigation.top", "content.code.copy", "content.code.annotate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
         <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML"></script>
       

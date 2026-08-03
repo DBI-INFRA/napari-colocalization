@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -456,6 +456,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#exported-csvs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exported CSVs
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -660,6 +671,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#exported-csvs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exported CSVs
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -756,7 +778,13 @@ Pick any subset; unrequested metrics are blank in the table. See
   regression + bisection, matched to Fiji Coloc 2).</li>
 <li><strong>Otsu / Li / Triangle / Yen / Mean / IsoData</strong> - a per-channel
   histogram threshold (<code>skimage.filters</code>), giving the thresholded tM1/tM2.</li>
-<li><strong>Manual</strong> - reveals <strong>T_a</strong> / <strong>T_b</strong> spinboxes for explicit values.</li>
+<li><strong>Manual</strong> - reveals <strong>T_a</strong> / <strong>T_b</strong> spinboxes for explicit values. Each
+  box is seeded from its channel's own intensity range: the bounds match the
+  layer, the step is a hundredth of that range, and the tooltip spells the
+  range out — so a 16-bit channel steps in hundreds rather than in 0.01, and a
+  normalised 0–1 channel keeps full precision. Changing the selected layer
+  re-seeds the box, since a threshold from a channel with a different range
+  no longer means anything.</li>
 </ul>
 <p>In all-to-all mode the chosen method applies to every channel pair.</p>
 <h3 id="run-and-results">Run and results<a class="headerlink" href="#run-and-results" title="Permanent link">&para;</a></h3>
@@ -780,7 +808,8 @@ outline, or <code>show_selected_label</code> for a single Labels row).</p>
 <p>Three actions sit below: <strong>Export CSV…</strong> (the table), <strong>Export figure…</strong> (the
 cytofluorogram, at a chosen size/DPI and format), and <strong>Add coloc mask
 layer</strong> (a Labels layer of the pixels above both Manders thresholds for the
-selected row).</p>
+selected row). See <a href="#exported-csvs">Exported CSVs</a> for what the file records
+beyond the table itself.</p>
 <h2 id="diagnostics-tab">Diagnostics tab<a class="headerlink" href="#diagnostics-tab" title="Permanent link">&para;</a></h2>
 <p>For a single channel pair (its own <strong>Image A</strong>/<strong>Image B</strong> and optional
 <strong>Region</strong>), the <strong>Diagnostic</strong> dropdown picks one plot:</p>
@@ -799,9 +828,21 @@ selected row).</p>
 <br />
 <figcaption>Costes randomization on the Diagnostics tab.</figcaption>
 </figure>
-<p><strong>Run diagnostic</strong> renders the plot and a one-line summary. <strong>Export
-figure…</strong> saves it. For Costes randomization, <strong>Add scrambled example</strong> adds
-one block-scrambled copy of Image B to the viewer as an Image layer.</p>
+<p><strong>Run diagnostic</strong> renders the plot and a one-line summary. Costes
+randomization and the CCF report progress on a bar while they run, and
+<strong>Cancel</strong> stops them at the next iteration — worth knowing before setting
+<strong>Iterations</strong> high, since the null is built one scramble at a time and
+100 000 of them takes minutes. A cancelled run leaves the previous result
+cleared and the controls ready for another go.</p>
+<p><strong>Export figure…</strong> saves the picture; <strong>Export values…</strong> saves the numbers behind it
+as CSV — the null distribution (<code>iteration</code>, <code>null_pcc</code>) for Costes, the
+curve (<code>shift_px</code>, <code>pearson_r</code>) for the CCF, or the per-pixel points (<code>a</code>,
+<code>b</code>, <code>product</code>) for Li ICA. The run's scalars (observed PCC, p, z, or ICQ)
+ride along as extra columns. Both buttons stay disabled until a diagnostic
+has been run. For Costes randomization, <strong>Add scrambled example</strong> adds one
+block-scrambled copy of Image B to the viewer as an Image layer.</p>
+<p>Note that the Li ICA export is one row <em>per pixel</em>, so it can be a large
+file for a big stack; the confirmation message reports the row count.</p>
 <h2 id="object-based-tab">Object-based tab<a class="headerlink" href="#object-based-tab" title="Permanent link">&para;</a></h2>
 <p>Compares segmented <em>objects</em> between two channels. <strong>Objects from</strong> chooses
 the source:</p>
@@ -822,11 +863,68 @@ nearest-neighbour links (Vectors)</strong>.</p>
 </figure>
 <p><strong>Run object analysis</strong> fills the <strong>Object results</strong> table - one row per
 object (<code>channel</code>, <code>object</code>, <code>n_pixels</code>, <code>centroid</code>, <code>coincident</code>,
-<code>overlap</code>) - with a per-channel summary below. <em>Coincident</em> means the
-object's centroid falls inside an object of the other channel; <em>overlap</em>
-means its pixels touch one. If overlays are enabled, object centroids are
+<code>overlap</code>, <code>nn_distance_px</code>). <em>Coincident</em> means the object's centroid
+falls inside an object of the other channel; <em>overlap</em> means its pixels
+touch one.</p>
+<p><code>nn_distance_px</code> is the distance from the object's centroid to the nearest
+centroid in the <em>other</em> channel. It is the graded companion to the two
+yes/no measures: an object
+that misses by 2 px and one that misses by 200 px both read as "no", but
+they are not the same result. The distance is in <strong>pixels</strong>, matching
+<code>n_pixels</code> and the centroid columns beside it — the plugin does not apply a
+layer's physical <code>scale</code> anywhere, so convert yourself if you need microns.
+It is blank when the other channel has no objects to measure to. If overlays are enabled, object centroids are
 added as Points layers (coloured by each channel's colormap) and the
 nearest-neighbour links as a Vectors layer; re-running replaces them.</p>
+<p><strong>Export CSV…</strong> (next to the Run button, disabled until there are results)
+saves the per-object table. The <code>centroid</code> tuple is split into one column per
+axis — <code>centroid_0</code>, <code>centroid_1</code> and, for a 3D image, <code>centroid_2</code> — so the
+coordinates are usable downstream without string-parsing.</p>
+<h2 id="exported-csvs">Exported CSVs<a class="headerlink" href="#exported-csvs" title="Permanent link">&para;</a></h2>
+<p>All three tabs write plain CSV that opens unchanged in Excel or
+<code>pandas.read_csv</code> (no <code>comment=</code> flag needed). Alongside the data columns,
+each file repeats a few <strong>provenance</strong> columns on every row, recording how the
+run was configured:</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>plugin_version</code></td>
+<td>the plugin version that computed the numbers</td>
+</tr>
+<tr>
+<td><code>analysed_at</code></td>
+<td>local timestamp of the run</td>
+</tr>
+<tr>
+<td><code>region_layer</code></td>
+<td>the Shapes/Labels layer used, or blank for whole-image</td>
+</tr>
+<tr>
+<td><code>mode</code>, <code>metrics</code>, <code>threshold_method</code>, <code>slice_axis</code></td>
+<td>Pixel-based run settings</td>
+</tr>
+<tr>
+<td><code>objects_from</code>, <code>threshold_method</code>, <code>min_object_size</code></td>
+<td>Object-based run settings</td>
+</tr>
+<tr>
+<td><code>diagnostic</code>, <code>channel_a</code>/<code>channel_b</code>, <code>n_iter</code>, <code>block_size</code>, <code>max_shift</code></td>
+<td>Diagnostics run settings</td>
+</tr>
+</tbody>
+</table>
+<p>Fields that don't apply are left blank rather than filled with a default — a
+<code>threshold_method</code> of <code>costes</code> is only recorded if Manders was actually
+requested, so an empty cell means "no threshold was applied", not "unknown".
+The point is that a saved file says how it was produced: the metric columns
+alone can't tell a reader whether <code>threshold_a</code> came from Costes, Otsu, or a
+number typed by hand.</p>
 
 
 
@@ -885,7 +983,7 @@ nearest-neighbour links as a Vectors layer; re-running replaces them.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.expand", "navigation.top", "content.code.copy", "content.code.annotate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
         <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML"></script>
       
