@@ -354,6 +354,44 @@ def test_diagnostic_run_summarises(widget, qtbot, rng, method, expected):
     assert expected in widget._diag_summary_label.text()
 
 
+def test_diagnostic_cancel_stops_the_run(widget, qtbot, rng):
+    # 20 000 iterations on a 256x256 pair runs for tens of seconds;
+    # Cancel has to interrupt it rather than wait for the null.
+    a = rng.random((256, 256)).astype(np.float32)
+    viewer = widget._viewer
+    widget._diag_image_a_combo.value = viewer.add_image(a, name='a')
+    widget._diag_image_b_combo.value = viewer.add_image(a.copy(), name='b')
+    _select(widget._diag_method_combo, 'costes')
+    widget._costes_niter.setValue(20000)
+    widget._on_diag_run_clicked()
+    assert widget._diag_cancel_button.isEnabled()
+    assert not widget._diag_run_button.isEnabled()
+
+    # Wait for real progress, so this cancels a run that is genuinely
+    # under way rather than one that never started.
+    qtbot.waitUntil(lambda: widget._diag_progress.value() > 0, timeout=20000)
+    widget._on_diag_cancel_clicked()
+    qtbot.waitUntil(
+        lambda: 'cancelled' in widget._diag_summary_label.text().lower(),
+        timeout=30000,
+    )
+    # Controls return to their resting state, ready for another run.
+    assert widget._diag_run_button.isEnabled()
+    assert not widget._diag_cancel_button.isEnabled()
+    assert widget._diag_cancel_button.text() == 'Cancel'
+
+
+def test_update_progress_reports_percent(widget):
+    bar = widget._diag_progress
+    widget._update_progress(bar, (25, 200))
+    assert bar.value() == 12
+    widget._update_progress(bar, (200, 200))
+    assert bar.value() == 100
+    # A malformed yield must not take the run down.
+    widget._update_progress(bar, None)
+    assert bar.value() == 100
+
+
 def test_diag_costes_validation(widget, rng):
     viewer = widget._viewer
     a = rng.random((8, 16, 16)).astype(np.float32)  # 3D
@@ -468,6 +506,43 @@ def test_diagnostic_value_export(
     assert first['diagnostic'] == method
     assert first['channel_a'] == 'a'
     assert all(column in first for column in columns)
+
+
+def test_manual_threshold_spins_track_the_selected_layers(widget):
+    # Seeded from the layer's own range: a 16-bit channel must not be
+    # left stepping by 0.01 over +/-1e9 with no hint of its units.
+    viewer = widget._viewer
+    a = (np.arange(256 * 256, dtype=np.uint16) % 4096).reshape(256, 256)
+    b = np.linspace(0.0, 1.0, 256 * 256, dtype=np.float32).reshape(256, 256)
+    widget._image_a_combo.value = viewer.add_image(a, name='sixteen_bit')
+    widget._image_b_combo.value = viewer.add_image(b, name='normalised')
+    _select(widget._threshold_combo, 'manual')
+
+    assert widget._th_a_spin.maximum() == pytest.approx(4095.0, rel=1e-3)
+    assert widget._th_a_spin.singleStep() > 1.0  # usable on a 16-bit range
+    assert widget._th_a_spin.value() == pytest.approx(2047.5, rel=1e-2)
+    assert 'sixteen_bit' in widget._th_a_spin.toolTip()
+
+    # The 0-1 channel keeps fine resolution rather than inheriting the
+    # coarse step that suits its 16-bit neighbour.
+    assert widget._th_b_spin.maximum() == pytest.approx(1.0)
+    assert widget._th_b_spin.singleStep() < 0.1
+    assert widget._th_b_spin.decimals() >= 6
+
+
+def test_object_table_shows_nn_distance(widget, qtbot):
+    img_a = np.zeros((20, 20), dtype=np.float32)
+    img_a[2:6, 2:6] = 1.0
+    img_b = np.zeros((20, 20), dtype=np.float32)
+    img_b[12:16, 12:16] = 1.0
+    viewer = widget._viewer
+    widget._obj_image_a_combo.value = viewer.add_image(img_a, name='a')
+    widget._obj_image_b_combo.value = viewer.add_image(img_b, name='b')
+    widget._on_object_run_clicked()
+    qtbot.waitUntil(lambda: widget._object_table.rowCount() > 0, timeout=10000)
+    # Rendered as a short number, not a raw repr.
+    assert _cell(widget._object_table, 0, 'nn_distance_px') == '14.14'
+    assert 'median NN' in widget._obj_summary_label.text()
 
 
 def test_object_source_toggle(widget):

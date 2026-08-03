@@ -31,6 +31,7 @@ from qtpy.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLayout,
+    QProgressBar,
     QPushButton,
     QRadioButton,
     QScrollArea,
@@ -49,10 +50,10 @@ from ._analysis import (
     analyse_pairwise,
 )
 from ._diagnostics import (
-    costes_randomization,
+    costes_randomization_steps,
     li_ica,
     scramble_example,
-    van_steensel_ccf,
+    van_steensel_ccf_steps,
 )
 from ._masking import labels_to_label_mask, shapes_to_label_mask
 from ._metrics import costes_regression
@@ -119,6 +120,39 @@ def _layer_name(layer):
     return '' if layer is None else layer.name
 
 
+def _layer_value_range(layer):
+    """``(low, high)`` intensity range of an image layer.
+
+    Prefers napari's own ``contrast_limits_range``, which it has
+    already computed, over scanning the array again - the array may be
+    a large or lazily-loaded stack.
+    """
+    for attr in ('contrast_limits_range', 'contrast_limits'):
+        limits = getattr(layer, attr, None)
+        if limits is not None and len(limits) == 2:
+            low, high = float(limits[0]), float(limits[1])
+            if np.isfinite(low) and np.isfinite(high) and high > low:
+                return low, high
+    data = np.asarray(layer.data)
+    if data.size == 0:
+        return 0.0, 1.0
+    low, high = float(np.nanmin(data)), float(np.nanmax(data))
+    return (low, high) if high > low else (low, low + 1.0)
+
+
+def _decimals_for_span(span):
+    """Digits worth showing for a range of this width.
+
+    A 16-bit channel spans ~65535, where six decimals is noise; a
+    normalised 0-1 channel needs them.
+    """
+    if span >= 1000:
+        return 0
+    if span >= 10:
+        return 2
+    return 6
+
+
 def _object_rows_for_csv(rows):
     """Split each object row's centroid tuple into per-axis columns.
 
@@ -155,6 +189,9 @@ def _format_object_cell(value):
         return 'yes' if value else 'no'
     if isinstance(value, tuple):
         return '(' + ', '.join(f'{v:g}' for v in value) + ')'
+    # bool is checked first: it is a subclass of int, not of float.
+    if isinstance(value, float):
+        return '' if np.isnan(value) else f'{value:.4g}'
     return str(value)
 
 
@@ -240,6 +277,7 @@ class ColocalizationWidget(QWidget):
         self._object_provenance = {}
         self._diag_result = None
         self._diag_provenance = {}
+        self._active_diag_worker = None
         # Full-resolution arrays / mask of the last run, kept so the
         # "Add coloc mask" output layer can be built from a selected row.
         self._channel_arrays = {}
@@ -391,6 +429,10 @@ class ColocalizationWidget(QWidget):
         self._image_b_combo = create_widget(
             label='Image B', annotation='napari.layers.Image'
         )
+        for combo in (self._image_a_combo, self._image_b_combo):
+            combo.changed.connect(
+                lambda _value=None: self._sync_threshold_spins()
+            )
         # Per-Z-slice option (JACoP B "consider Z slices separately"):
         # only meaningful for 3D+ images; one result row per slice.
         self._per_slice_check = QCheckBox('Per Z-slice')
@@ -481,9 +523,12 @@ class ColocalizationWidget(QWidget):
         )
         self._th_a_spin = QDoubleSpinBox()
         self._th_b_spin = QDoubleSpinBox()
+        # Range/step/decimals are re-seeded from the selected layers by
+        # _sync_threshold_spins; these are only placeholders for the
+        # moment before any layer exists.
         for spin in (self._th_a_spin, self._th_b_spin):
             spin.setDecimals(6)
-            spin.setRange(-1e9, 1e9)
+            spin.setRange(0.0, 1.0)
             spin.setSingleStep(0.01)
         # Manual T_a/T_b row, shown only when the method is 'manual'.
         self._manual_row = QWidget()
@@ -577,6 +622,8 @@ class ColocalizationWidget(QWidget):
         pairwise = self._mode_pairwise.isChecked()
         self._pairwise_group.setVisible(pairwise)
         self._all_group.setVisible(not pairwise)
+        # The mode decides which layer each threshold spinbox tracks.
+        self._sync_threshold_spins()
 
     def _on_metrics_changed(self):
         self._threshold_group.setVisible(self._cb_mcc.isChecked())
@@ -585,8 +632,46 @@ class ColocalizationWidget(QWidget):
         self._manual_row.setVisible(
             self._threshold_combo.currentData() == 'manual'
         )
+        self._sync_threshold_spins()
+
+    def _threshold_spin_sources(self):
+        """``((layer, spin), …)`` the manual thresholds apply to.
+
+        In all-to-all mode one pair of thresholds is used for *every*
+        channel pair, so both spinboxes take the whole stack's range.
+        """
+        if self._mode_pairwise.isChecked():
+            return (
+                (self._image_a_combo.value, self._th_a_spin),
+                (self._image_b_combo.value, self._th_b_spin),
+            )
+        stack = self._stack_combo.value
+        return ((stack, self._th_a_spin), (stack, self._th_b_spin))
+
+    def _sync_threshold_spins(self):
+        """Match the manual T_a/T_b spinboxes to the selected channels.
+
+        Without this the boxes step by 0.01 over +/-1e9 with no hint of
+        the channel's units, so reaching a threshold of 17000 on a
+        16-bit image means holding the arrow key. Re-seeding on every
+        layer change also discards a value left over from a channel
+        with a completely different range, where it meant nothing.
+        """
+        for layer, spin in self._threshold_spin_sources():
+            if layer is None:
+                continue
+            low, high = _layer_value_range(layer)
+            span = high - low
+            spin.setDecimals(_decimals_for_span(span))
+            spin.setRange(low, high)
+            spin.setSingleStep(span / 100.0)
+            spin.setValue(low + span / 2.0)
+            spin.setToolTip(
+                f'{layer.name}: {low:g} to {high:g} (step {span / 100.0:g})'
+            )
 
     def _on_stack_changed(self, layer):
+        self._sync_threshold_spins()
         if layer is None:
             self._channel_axis_spin.setMaximum(0)
             return
@@ -856,13 +941,55 @@ class ColocalizationWidget(QWidget):
             'slice_axis': '' if slice_axis is None else slice_axis,
         }
 
-    def _run_in_background(self, worker, button, on_ready, on_error):
-        """Disable ``button``, wire the worker's signals, and start it."""
+    def _run_in_background(
+        self, worker, button, on_ready, on_error, *, cancel=None, progress=None
+    ):
+        """Disable ``button``, wire the worker's signals, and start it.
+
+        ``cancel`` and ``progress`` are only passed for work that can
+        run long enough to be worth interrupting - a generator worker
+        yielding ``(done, total)``. The other tabs finish in well under
+        a second (measured), so they stay on the plain path.
+        """
         button.setEnabled(False)
         worker.returned.connect(on_ready)
         worker.errored.connect(on_error)
-        worker.finished.connect(lambda: button.setEnabled(True))
+        if progress is not None:
+            progress.setValue(0)
+            progress.setVisible(True)
+            worker.yielded.connect(
+                lambda step: self._update_progress(progress, step)
+            )
+        if cancel is not None:
+            cancel.setEnabled(True)
+        worker.finished.connect(
+            lambda: self._reset_run_controls(button, cancel, progress)
+        )
         worker.start()
+
+    @staticmethod
+    def _reset_run_controls(button, cancel, progress):
+        button.setEnabled(True)
+        if cancel is not None:
+            cancel.setEnabled(False)
+        if progress is not None:
+            progress.setVisible(False)
+
+    @staticmethod
+    def _update_progress(bar, step):
+        """Drive a 0-100 bar from a worker's ``(done, total)`` yield.
+
+        The bar is in percent rather than raw iterations so a 100 000
+        -iteration run repaints at most 100 times; the worker still
+        yields every iteration, which is what keeps Cancel responsive.
+        """
+        try:
+            done, total = step
+        except (TypeError, ValueError):
+            return
+        percent = int(100 * done / total) if total else 0
+        if percent != bar.value():
+            bar.setValue(percent)
 
     def _on_run_clicked(self):
         params = self.gather_params()
@@ -1368,6 +1495,14 @@ class ColocalizationWidget(QWidget):
     def _build_diag_run_row(self):
         self._diag_run_button = QPushButton('Run diagnostic')
         self._diag_run_button.clicked.connect(self._on_diag_run_clicked)
+        # Costes randomization is the one unbounded knob in the plugin
+        # (Iterations goes to 100 000), so this tab gets a real Cancel.
+        self._diag_cancel_button = QPushButton('Cancel')
+        self._diag_cancel_button.setToolTip(
+            'Stop the running diagnostic at the next iteration.'
+        )
+        self._diag_cancel_button.setEnabled(False)
+        self._diag_cancel_button.clicked.connect(self._on_diag_cancel_clicked)
         self._diag_export_button = QPushButton('Export figure…')
         self._diag_export_button.clicked.connect(self._on_diag_export_clicked)
         # The figure alone isn't re-analysable; this saves the numbers
@@ -1393,6 +1528,7 @@ class ColocalizationWidget(QWidget):
         layout = QHBoxLayout(row)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._diag_run_button)
+        layout.addWidget(self._diag_cancel_button)
         layout.addWidget(self._diag_export_button)
         layout.addWidget(self._diag_export_values_button)
         layout.addWidget(self._diag_scramble_button)
@@ -1402,9 +1538,13 @@ class ColocalizationWidget(QWidget):
         self._diagnostic_canvas = DiagnosticCanvas()
         self._diag_summary_label = QLabel('')
         self._diag_summary_label.setWordWrap(True)
+        self._diag_progress = QProgressBar()
+        self._diag_progress.setRange(0, 100)
+        self._diag_progress.setVisible(False)
         group = QGroupBox('Diagnostic result')
         layout = QVBoxLayout()
         layout.addWidget(self._diagnostic_canvas, stretch=1)
+        layout.addWidget(self._diag_progress)
         layout.addWidget(self._diag_summary_label)
         group.setLayout(layout)
         return group
@@ -1483,20 +1623,46 @@ class ColocalizationWidget(QWidget):
         if params is None:
             return
         self._diag_provenance = self._diag_provenance_for(params)
+        # Kept so Cancel has something to ask to stop.
+        self._active_diag_worker = self._diag_worker(params)
+        self._active_diag_worker.aborted.connect(self._on_diag_aborted)
         self._run_in_background(
-            self._diag_worker(params),
+            self._active_diag_worker,
             self._diag_run_button,
             self._on_diag_results_ready,
             self._on_diag_worker_error,
+            cancel=self._diag_cancel_button,
+            progress=self._diag_progress,
         )
+
+    def _on_diag_cancel_clicked(self):
+        worker = self._active_diag_worker
+        if worker is None:
+            return
+        # quit() only *requests* the stop; the worker checks it after
+        # the iteration in flight, so the button reports intent.
+        worker.quit()
+        self._diag_cancel_button.setEnabled(False)
+        self._diag_cancel_button.setText('Cancelling…')
+
+    def _on_diag_aborted(self):
+        self._diag_cancel_button.setText('Cancel')
+        self._diag_summary_label.setText('Diagnostic cancelled.')
+        self._diagnostic_canvas.clear('Cancelled - run a diagnostic again')
+        show_info('Diagnostic cancelled.')
 
     @staticmethod
     @thread_worker
     def _diag_worker(params):
+        """Generator worker: ``yield from`` propagates progress upward.
+
+        Yielding per iteration is what lets napari's worker notice an
+        abort request; the sub-generators carry the algorithms.
+        """
         method = params['method']
         a, b, mask = params['a'], params['b'], params['mask']
         if method == 'costes':
-            result = costes_randomization(
+            result = yield from costes_randomization_steps(
                 a,
                 b,
                 mask=mask,
@@ -1504,11 +1670,12 @@ class ColocalizationWidget(QWidget):
                 block_size=params['block_size'],
             )
         elif method == 'ccf':
-            shifts, ccf = van_steensel_ccf(
+            shifts, ccf = yield from van_steensel_ccf_steps(
                 a, b, mask=mask, max_shift=params['max_shift']
             )
             result = {'shifts': shifts, 'ccf': ccf}
         else:
+            # Single pass, no meaningful chunk boundary to report.
             result = li_ica(a, b, mask=mask)
         return method, result, params['channel_a'], params['channel_b']
 
@@ -1980,11 +2147,15 @@ class ColocalizationWidget(QWidget):
 
     @staticmethod
     def _object_summary_text(summary, name_a, name_b):
-        return (
-            f'{name_a}: {summary["n_objects_a"]} objects '
-            f'({summary["coincident_a"]} coincident, '
-            f'{summary["overlap_a"]} overlapping)    '
-            f'{name_b}: {summary["n_objects_b"]} objects '
-            f'({summary["coincident_b"]} coincident, '
-            f'{summary["overlap_b"]} overlapping)'
-        )
+        def _channel(name, suffix):
+            median = summary[f'median_nn_distance_{suffix}']
+            text = (
+                f'{name}: {summary[f"n_objects_{suffix}"]} objects '
+                f'({summary[f"coincident_{suffix}"]} coincident, '
+                f'{summary[f"overlap_{suffix}"]} overlapping'
+            )
+            if np.isfinite(median):
+                text += f', median NN {median:.4g} px'
+            return text + ')'
+
+        return f'{_channel(name_a, "a")}    {_channel(name_b, "b")}'

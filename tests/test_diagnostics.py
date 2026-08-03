@@ -3,15 +3,61 @@ import pytest
 
 from napari_colocalization._diagnostics import (
     costes_randomization,
+    costes_randomization_steps,
     li_ica,
     scramble_example,
     van_steensel_ccf,
+    van_steensel_ccf_steps,
 )
 
 
 @pytest.fixture
 def rng():
     return np.random.default_rng(seed=7)
+
+
+def _drive(steps):
+    """Exhaust a progress generator, returning ``(progress, result)``."""
+    progress = []
+    try:
+        while True:
+            progress.append(next(steps))
+    except StopIteration as exc:
+        return progress, exc.value
+
+
+# -- progress generators ----------------------------------------------
+
+
+def test_costes_steps_match_the_plain_function(rng):
+    # The plain function is a thin wrapper over the generator, so the
+    # two must not be able to drift apart.
+    a = rng.random((32, 32))
+    b = 0.7 * a + 0.3 * rng.random((32, 32))
+    kwargs = {'n_iter': 25, 'block_size': 8, 'seed': 3}
+    progress, result = _drive(costes_randomization_steps(a, b, **kwargs))
+    plain = costes_randomization(a, b, **kwargs)
+    assert progress == [(i + 1, 25) for i in range(25)]
+    assert result['p_value'] == plain['p_value']
+    np.testing.assert_allclose(result['null'], plain['null'])
+
+
+def test_ccf_steps_match_the_plain_function(rng):
+    a = rng.random((32, 32))
+    b = 0.7 * a + 0.3 * rng.random((32, 32))
+    progress, (shifts, ccf) = _drive(van_steensel_ccf_steps(a, b, max_shift=5))
+    plain_shifts, plain_ccf = van_steensel_ccf(a, b, max_shift=5)
+    assert progress == [(i + 1, 11) for i in range(11)]
+    np.testing.assert_allclose(shifts, plain_shifts)
+    np.testing.assert_allclose(ccf, plain_ccf)
+
+
+def test_steps_validate_on_first_next(rng):
+    # Building the generator is lazy; the widget relies on the error
+    # arriving as soon as it starts driving it.
+    steps = costes_randomization_steps(rng.random((8, 8)), rng.random((4, 4)))
+    with pytest.raises(ValueError, match='shape mismatch'):
+        next(steps)
 
 
 # -- Van Steensel CCF -------------------------------------------------

@@ -88,7 +88,13 @@ Visible only when **Manders** is checked - a **Method** dropdown:
   regression + bisection, matched to Fiji Coloc 2).
 - **Otsu / Li / Triangle / Yen / Mean / IsoData** - a per-channel
   histogram threshold (`skimage.filters`), giving the thresholded tM1/tM2.
-- **Manual** - reveals **T_a** / **T_b** spinboxes for explicit values.
+- **Manual** - reveals **T_a** / **T_b** spinboxes for explicit values. Each
+  box is seeded from its channel's own intensity range: the bounds match the
+  layer, the step is a hundredth of that range, and the tooltip spells the
+  range out — so a 16-bit channel steps in hundreds rather than in 0.01, and a
+  normalised 0–1 channel keeps full precision. Changing the selected layer
+  re-seeds the box, since a threshold from a channel with a different range
+  no longer means anything.
 
 In all-to-all mode the chosen method applies to every channel pair.
 
@@ -140,8 +146,14 @@ For a single channel pair (its own **Image A**/**Image B** and optional
   <figcaption>Costes randomization on the Diagnostics tab.</figcaption>
 </figure>
 
-**Run diagnostic** renders the plot and a one-line summary. **Export
-figure…** saves the picture; **Export values…** saves the numbers behind it
+**Run diagnostic** renders the plot and a one-line summary. Costes
+randomization and the CCF report progress on a bar while they run, and
+**Cancel** stops them at the next iteration — worth knowing before setting
+**Iterations** high, since the null is built one scramble at a time and
+100 000 of them takes minutes. A cancelled run leaves the previous result
+cleared and the controls ready for another go.
+
+**Export figure…** saves the picture; **Export values…** saves the numbers behind it
 as CSV — the null distribution (`iteration`, `null_pcc`) for Costes, the
 curve (`shift_px`, `pearson_r`) for the CCF, or the per-pixel points (`a`,
 `b`, `product`) for Li ICA. The run's scalars (observed PCC, p, z, or ICQ)
@@ -174,9 +186,18 @@ nearest-neighbour links (Vectors)**.
 
 **Run object analysis** fills the **Object results** table - one row per
 object (`channel`, `object`, `n_pixels`, `centroid`, `coincident`,
-`overlap`) - with a per-channel summary below. *Coincident* means the
-object's centroid falls inside an object of the other channel; *overlap*
-means its pixels touch one. If overlays are enabled, object centroids are
+`overlap`, `nn_distance_px`) - with a per-channel summary below.
+*Coincident* means the object's centroid falls inside an object of the
+other channel; *overlap* means its pixels touch one.
+
+`nn_distance_px` is the distance from the object's centroid to the nearest
+centroid in the *other* channel, and the summary line reports the median per
+channel. It is the graded companion to the two yes/no measures: an object
+that misses by 2 px and one that misses by 200 px both read as "no", but
+they are not the same result. The distance is in **pixels**, matching
+`n_pixels` and the centroid columns beside it — the plugin does not apply a
+layer's physical `scale` anywhere, so convert yourself if you need microns.
+It is blank when the other channel has no objects to measure to. If overlays are enabled, object centroids are
 added as Points layers (coloured by each channel's colormap) and the
 nearest-neighbour links as a Vectors layer; re-running replaces them.
 

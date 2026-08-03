@@ -19,6 +19,44 @@ import numpy as np
 from ._metrics import _flatten_with_mask, li_icq, pearson
 
 
+def _drain(steps):
+    """Run a progress generator to completion and return its result.
+
+    The ``*_steps`` generators below carry the real implementation and
+    yield ``(done, total)`` as they go; the plain functions are this
+    one-liner over them, so there is a single copy of each algorithm.
+    """
+    try:
+        while True:
+            next(steps)
+    except StopIteration as exc:
+        return exc.value
+
+
+def van_steensel_ccf_steps(a, b, mask=None, max_shift=20, axis=-1):
+    """Generator form of `van_steensel_ccf`.
+
+    Yields ``(done, total)`` after each shift and returns the same
+    ``(shifts, ccf)`` pair, so a caller can report progress and abort
+    between shifts instead of blocking for the whole sweep. Validation
+    errors surface on the first ``next()``, as for any generator.
+    """
+    a = np.asarray(a)
+    b = np.asarray(b)
+    if a.shape != b.shape:
+        raise ValueError(f'shape mismatch: {a.shape} vs {b.shape}')
+    if max_shift < 1:
+        raise ValueError('max_shift must be >= 1')
+    shifts = np.arange(-max_shift, max_shift + 1)
+    ccf = np.empty(shifts.size, dtype=float)
+    for i, shift in enumerate(shifts):
+        shifted = np.roll(b, int(shift), axis=axis)
+        pcc, _ = pearson(a, shifted, mask=mask)
+        ccf[i] = pcc
+        yield i + 1, int(shifts.size)
+    return shifts, ccf
+
+
 def van_steensel_ccf(a, b, mask=None, max_shift=20, axis=-1):
     """Van Steensel's cross-correlation function (CCF).
 
@@ -51,20 +89,14 @@ def van_steensel_ccf(a, b, mask=None, max_shift=20, axis=-1):
     ------
     ValueError
         If ``a`` and ``b`` differ in shape or ``max_shift < 1``.
+
+    See Also
+    --------
+    van_steensel_ccf_steps : generator form, for progress and cancel.
     """
-    a = np.asarray(a)
-    b = np.asarray(b)
-    if a.shape != b.shape:
-        raise ValueError(f'shape mismatch: {a.shape} vs {b.shape}')
-    if max_shift < 1:
-        raise ValueError('max_shift must be >= 1')
-    shifts = np.arange(-max_shift, max_shift + 1)
-    ccf = np.empty(shifts.size, dtype=float)
-    for i, shift in enumerate(shifts):
-        shifted = np.roll(b, int(shift), axis=axis)
-        pcc, _ = pearson(a, shifted, mask=mask)
-        ccf[i] = pcc
-    return shifts, ccf
+    return _drain(
+        van_steensel_ccf_steps(a, b, mask=mask, max_shift=max_shift, axis=axis)
+    )
 
 
 def li_ica(a, b, mask=None):
@@ -219,6 +251,33 @@ def costes_randomization(a, b, mask=None, n_iter=200, block_size=8, seed=None):
     ValueError
         On shape mismatch, ``block_size < 1`` or ``n_iter < 1``, or a
         ``block_size`` larger than the image in any dimension.
+
+    See Also
+    --------
+    costes_randomization_steps : generator form, for progress and cancel.
+    """
+    return _drain(
+        costes_randomization_steps(
+            a,
+            b,
+            mask=mask,
+            n_iter=n_iter,
+            block_size=block_size,
+            seed=seed,
+        )
+    )
+
+
+def costes_randomization_steps(
+    a, b, mask=None, n_iter=200, block_size=8, seed=None
+):
+    """Generator form of `costes_randomization`.
+
+    Yields ``(done, total)`` after each scramble and returns the same
+    dict. ``n_iter`` is user-facing and can be large, so this is the
+    form the widget drives: it can show progress and stop between
+    iterations rather than blocking until the whole null is built.
+    Validation errors surface on the first ``next()``.
     """
     a = np.asarray(a)
     b = np.asarray(b)
@@ -244,6 +303,7 @@ def costes_randomization(a, b, mask=None, n_iter=200, block_size=8, seed=None):
         scrambled = _scramble_blocks(b_c, block_size, rng)
         pcc, _ = pearson(a_c, scrambled, mask=mask_c)
         null[i] = pcc
+        yield i + 1, int(n_iter)
 
     finite = null[np.isfinite(null)]
     if not np.isfinite(observed) or finite.size == 0:
