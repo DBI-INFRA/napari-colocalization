@@ -118,7 +118,8 @@ outline, or `show_selected_label` for a single Labels row).
 Three actions sit below: **Export CSV…** (the table), **Export figure…** (the
 cytofluorogram, at a chosen size/DPI and format), and **Add coloc mask
 layer** (a Labels layer of the pixels above both Manders thresholds for the
-selected row).
+selected row). See [Exported CSVs](#exported-csvs) for what the file records
+beyond the table itself.
 
 ## Diagnostics tab
 
@@ -140,8 +141,16 @@ For a single channel pair (its own **Image A**/**Image B** and optional
 </figure>
 
 **Run diagnostic** renders the plot and a one-line summary. **Export
-figure…** saves it. For Costes randomization, **Add scrambled example** adds
-one block-scrambled copy of Image B to the viewer as an Image layer.
+figure…** saves the picture; **Export values…** saves the numbers behind it
+as CSV — the null distribution (`iteration`, `null_pcc`) for Costes, the
+curve (`shift_px`, `pearson_r`) for the CCF, or the per-pixel points (`a`,
+`b`, `product`) for Li ICA. The run's scalars (observed PCC, p, z, or ICQ)
+ride along as extra columns. Both buttons stay disabled until a diagnostic
+has been run. For Costes randomization, **Add scrambled example** adds one
+block-scrambled copy of Image B to the viewer as an Image layer.
+
+Note that the Li ICA export is one row *per pixel*, so it can be a large
+file for a big stack; the confirmation message reports the row count.
 
 ## Object-based tab
 
@@ -170,3 +179,31 @@ object's centroid falls inside an object of the other channel; *overlap*
 means its pixels touch one. If overlays are enabled, object centroids are
 added as Points layers (coloured by each channel's colormap) and the
 nearest-neighbour links as a Vectors layer; re-running replaces them.
+
+**Export CSV…** (next to the Run button, disabled until there are results)
+saves the per-object table. The `centroid` tuple is split into one column per
+axis — `centroid_0`, `centroid_1` and, for a 3D image, `centroid_2` — so the
+coordinates are usable downstream without string-parsing.
+
+## Exported CSVs
+
+All three tabs write plain CSV that opens unchanged in Excel or
+`pandas.read_csv` (no `comment=` flag needed). Alongside the data columns,
+each file repeats a few **provenance** columns on every row, recording how the
+run was configured:
+
+| Column | Meaning |
+|---|---|
+| `plugin_version` | the plugin version that computed the numbers |
+| `analysed_at` | local timestamp of the run |
+| `region_layer` | the Shapes/Labels layer used, or blank for whole-image |
+| `mode`, `metrics`, `threshold_method`, `slice_axis` | Pixel-based run settings |
+| `objects_from`, `threshold_method`, `min_object_size` | Object-based run settings |
+| `diagnostic`, `channel_a`/`channel_b`, `n_iter`, `block_size`, `max_shift` | Diagnostics run settings |
+
+Fields that don't apply are left blank rather than filled with a default — a
+`threshold_method` of `costes` is only recorded if Manders was actually
+requested, so an empty cell means "no threshold was applied", not "unknown".
+The point is that a saved file says how it was produced: the metric columns
+alone can't tell a reader whether `threshold_a` came from Costes, Otsu, or a
+number typed by hand.

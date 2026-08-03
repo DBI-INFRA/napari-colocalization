@@ -11,6 +11,7 @@ or Li ICA), and an "Object-based" tab for object-level analysis.
 
 import contextlib
 import csv
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -67,9 +68,78 @@ from ._plot import DiagnosticCanvas, ScatterCanvas
 if TYPE_CHECKING:
     import napari
 
+try:  # pragma: no cover - matches the guard in __init__
+    from ._version import version as _PLUGIN_VERSION
+except ImportError:  # pragma: no cover
+    _PLUGIN_VERSION = 'unknown'
+
 
 def _shape_without_axis(shape, axis):
     return tuple(s for i, s in enumerate(shape) if i != axis)
+
+
+def _write_csv(path, rows, columns, provenance=None):
+    """Write ``rows`` as CSV, with ``provenance`` repeated on every row.
+
+    Provenance travels as extra *columns* rather than a ``#``-commented
+    header so the file still opens unchanged in Excel and in
+    ``pandas.read_csv`` without a ``comment=`` flag. The repetition costs
+    a few bytes per row and buys a file that says how it was produced -
+    the numbers alone can't be reproduced from the table.
+
+    ``rows`` may be a generator - the Li ICA export is one row per pixel,
+    so nothing materialises the whole table. Returns the number of data
+    rows written.
+    """
+    provenance = dict(provenance or {})
+    fieldnames = list(columns) + list(provenance)
+    written = 0
+    with open(path, 'w', newline='') as fh:
+        writer = csv.DictWriter(fh, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(
+                {**{key: row.get(key) for key in columns}, **provenance}
+            )
+            written += 1
+    return written
+
+
+def _base_provenance():
+    """Provenance fields every export shares."""
+    return {
+        'plugin_version': _PLUGIN_VERSION,
+        'analysed_at': datetime.now()
+        .astimezone()
+        .isoformat(timespec='seconds'),
+    }
+
+
+def _layer_name(layer):
+    return '' if layer is None else layer.name
+
+
+def _object_rows_for_csv(rows):
+    """Split each object row's centroid tuple into per-axis columns.
+
+    A ``"(12.0, 34.5)"`` cell is awkward to use downstream, so the
+    centroid becomes ``centroid_0``/``centroid_1``[/``centroid_2``] in
+    the position the single column occupied.
+    """
+    ndim = max((len(row['centroid']) for row in rows), default=0)
+    axis_columns = tuple(f'centroid_{i}' for i in range(ndim))
+    columns = []
+    for column in OBJECT_COLUMNS:
+        if column == 'centroid':
+            columns.extend(axis_columns)
+        else:
+            columns.append(column)
+    flat = []
+    for row in rows:
+        out = {key: value for key, value in row.items() if key != 'centroid'}
+        out.update(dict(zip(axis_columns, row['centroid'], strict=False)))
+        flat.append(out)
+    return flat, tuple(columns)
 
 
 def _format_cell(value):
@@ -163,6 +233,13 @@ class ColocalizationWidget(QWidget):
         self._region_layer = None
         self._region_source = 'none'
         self._threshold_method = 'costes'
+        # How the last run of each tab was configured, written into that
+        # tab's CSV so a saved file records its own provenance.
+        self._provenance = {}
+        self._object_results = []
+        self._object_provenance = {}
+        self._diag_result = None
+        self._diag_provenance = {}
         # Full-resolution arrays / mask of the last run, kept so the
         # "Add coloc mask" output layer can be built from a selected row.
         self._channel_arrays = {}
@@ -755,6 +832,30 @@ class ColocalizationWidget(QWidget):
 
     # -- run -----------------------------------------------------------
 
+    @staticmethod
+    def _run_provenance(params):
+        """How this analysis was configured, for the exported CSV.
+
+        The metric columns alone don't say which threshold method
+        produced ``threshold_a``/``threshold_b``, which region layer was
+        used, or which version computed them - all of which a reader
+        needs to reproduce or trust the numbers.
+        """
+        metrics = params['metrics']
+        slice_axis = params.get('slice_axis')
+        return {
+            **_base_provenance(),
+            'mode': params['mode'],
+            'metrics': ' '.join(metrics),
+            # Only meaningful when Manders was requested; blank
+            # otherwise, so nobody reads it as having been applied.
+            'threshold_method': (
+                params['threshold_method'] if 'mcc' in metrics else ''
+            ),
+            'region_layer': _layer_name(params.get('region_layer')),
+            'slice_axis': '' if slice_axis is None else slice_axis,
+        }
+
     def _run_in_background(self, worker, button, on_ready, on_error):
         """Disable ``button``, wire the worker's signals, and start it."""
         button.setEnabled(False)
@@ -770,6 +871,9 @@ class ColocalizationWidget(QWidget):
         self._region_layer = params.get('region_layer')
         self._region_source = params.get('region_source', 'none')
         self._threshold_method = params.get('threshold_method', 'costes')
+        # Snapshot how this run was configured *now*, not at export
+        # time - by then the form (or a layer name) may have moved on.
+        self._provenance = self._run_provenance(params)
         self._run_in_background(
             self._run_worker(params),
             self._run_button,
@@ -1112,8 +1216,8 @@ class ColocalizationWidget(QWidget):
         )
         if not path:
             return
-        self.write_csv(path, self._results)
-        show_info(f'Wrote {path}')
+        self.write_csv(path, self._results, COLUMNS, self._provenance)
+        show_info(f'Wrote {len(self._results)} row(s) to {path}')
 
     def _on_export_figure_clicked(self):
         if not self._results:
@@ -1171,12 +1275,8 @@ class ColocalizationWidget(QWidget):
         )
 
     @staticmethod
-    def write_csv(path, rows):
-        with open(path, 'w', newline='') as fh:
-            writer = csv.DictWriter(fh, fieldnames=list(COLUMNS))
-            writer.writeheader()
-            for row in rows:
-                writer.writerow({k: row.get(k) for k in COLUMNS})
+    def write_csv(path, rows, columns=COLUMNS, provenance=None):
+        _write_csv(path, rows, columns, provenance)
 
     # == Diagnostics tab ===============================================
 
@@ -1270,6 +1370,16 @@ class ColocalizationWidget(QWidget):
         self._diag_run_button.clicked.connect(self._on_diag_run_clicked)
         self._diag_export_button = QPushButton('Export figure…')
         self._diag_export_button.clicked.connect(self._on_diag_export_clicked)
+        # The figure alone isn't re-analysable; this saves the numbers
+        # behind it (null distribution, CCF curve, or ICA points).
+        self._diag_export_values_button = QPushButton('Export values…')
+        self._diag_export_values_button.setToolTip(
+            'Save the numbers behind the plot as CSV.'
+        )
+        self._diag_export_values_button.setEnabled(False)
+        self._diag_export_values_button.clicked.connect(
+            self._on_diag_export_values_clicked
+        )
         # Scrambled-example output is a Costes-randomization concept.
         self._diag_scramble_button = QPushButton('Add scrambled example')
         self._diag_scramble_button.setToolTip(
@@ -1284,6 +1394,7 @@ class ColocalizationWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._diag_run_button)
         layout.addWidget(self._diag_export_button)
+        layout.addWidget(self._diag_export_values_button)
         layout.addWidget(self._diag_scramble_button)
         return row
 
@@ -1317,7 +1428,7 @@ class ColocalizationWidget(QWidget):
             show_warning(f'Shape mismatch: {a.shape} vs {b.shape}.')
             return None
         try:
-            label_mask, _ = self._resolve_region(
+            label_mask, region_layer = self._resolve_region(
                 a.shape, combo=self._diag_region_combo
             )
         except ValueError as exc:
@@ -1345,15 +1456,33 @@ class ColocalizationWidget(QWidget):
             'mask': mask,
             'channel_a': layer_a.name,
             'channel_b': layer_b.name,
+            'region_layer': region_layer,
             'n_iter': int(self._costes_niter.value()),
             'block_size': block_size,
             'max_shift': int(self._ccf_max_shift.value()),
+        }
+
+    @staticmethod
+    def _diag_provenance_for(params):
+        """How the diagnostic was configured, for the exported CSV."""
+        method = params['method']
+        return {
+            **_base_provenance(),
+            'diagnostic': method,
+            'channel_a': params['channel_a'],
+            'channel_b': params['channel_b'],
+            'region_layer': _layer_name(params.get('region_layer')),
+            # Each diagnostic has its own knobs; blank where not used.
+            'n_iter': params['n_iter'] if method == 'costes' else '',
+            'block_size': params['block_size'] if method == 'costes' else '',
+            'max_shift': params['max_shift'] if method == 'ccf' else '',
         }
 
     def _on_diag_run_clicked(self):
         params = self._gather_diag_params()
         if params is None:
             return
+        self._diag_provenance = self._diag_provenance_for(params)
         self._run_in_background(
             self._diag_worker(params),
             self._diag_run_button,
@@ -1385,6 +1514,8 @@ class ColocalizationWidget(QWidget):
 
     def _on_diag_results_ready(self, payload):
         method, result, name_a, name_b = payload
+        self._diag_result = (method, result)
+        self._diag_export_values_button.setEnabled(True)
         title = f'{name_a} vs {name_b}'
         if method == 'costes':
             self._diagnostic_canvas.plot_costes(
@@ -1442,6 +1573,63 @@ class ColocalizationWidget(QWidget):
 
     def _on_diag_export_clicked(self):
         self._export_canvas_figure(self._diagnostic_canvas, 'diagnostic.png')
+
+    @staticmethod
+    def _diag_rows_for_csv(method, result):
+        """``(rows, columns, extra_provenance)`` for one diagnostic.
+
+        The per-run scalars (p-value, ICQ, …) ride along as provenance
+        columns so the summary line and the raw values stay in one file.
+        """
+        if method == 'costes':
+            rows = (
+                {'iteration': i, 'null_pcc': float(value)}
+                for i, value in enumerate(result['null'])
+            )
+            return (
+                rows,
+                ('iteration', 'null_pcc'),
+                {
+                    'observed_pcc': result['observed'],
+                    'p_value': result['p_value'],
+                    'z_score': result['z_score'],
+                },
+            )
+        if method == 'ccf':
+            rows = (
+                {'shift_px': int(shift), 'pearson_r': float(value)}
+                for shift, value in zip(
+                    result['shifts'], result['ccf'], strict=True
+                )
+            )
+            return rows, ('shift_px', 'pearson_r'), {}
+        # Li ICA: one row per pixel, so keep it lazy.
+        rows = (
+            {'a': float(x), 'b': float(y), 'product': float(p)}
+            for x, y, p in zip(
+                result['a'], result['b'], result['products'], strict=True
+            )
+        )
+        return rows, ('a', 'b', 'product'), {'icq': result['icq']}
+
+    def _on_diag_export_values_clicked(self):
+        if self._diag_result is None:
+            show_warning('Run a diagnostic first.')
+            return
+        method, result = self._diag_result
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            'Save diagnostic values CSV',
+            f'{method}.csv',
+            'CSV (*.csv)',
+        )
+        if not path:
+            return
+        rows, columns, extra = self._diag_rows_for_csv(method, result)
+        written = _write_csv(
+            path, rows, columns, {**self._diag_provenance, **extra}
+        )
+        show_info(f'Wrote {written} row(s) to {path}')
 
     # == Object-based tab ==============================================
 
@@ -1539,10 +1727,20 @@ class ColocalizationWidget(QWidget):
     def _build_obj_run_row(self):
         self._obj_run_button = QPushButton('Run object analysis')
         self._obj_run_button.clicked.connect(self._on_object_run_clicked)
+        # Disabled rather than hidden until there are results: the
+        # affordance stays visible, and the row doesn't reflow on Run.
+        self._obj_export_button = QPushButton('Export CSV…')
+        self._obj_export_button.setToolTip(
+            'Save the per-object table (one row per object, with the '
+            'centroid split into per-axis columns).'
+        )
+        self._obj_export_button.setEnabled(False)
+        self._obj_export_button.clicked.connect(self._on_object_export_clicked)
         row = QWidget()
         layout = QHBoxLayout(row)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._obj_run_button)
+        layout.addWidget(self._obj_export_button)
         return row
 
     def _build_obj_results_group(self):
@@ -1575,7 +1773,7 @@ class ColocalizationWidget(QWidget):
                 show_warning(f'Shape mismatch: {a.shape} vs {b.shape}.')
                 return None
             try:
-                label_mask, _ = self._resolve_region(
+                label_mask, region_layer = self._resolve_region(
                     a.shape, combo=self._obj_region_combo
                 )
             except ValueError as exc:
@@ -1590,6 +1788,7 @@ class ColocalizationWidget(QWidget):
                 'min_size': int(self._obj_min_size.value()),
                 'name_a': layer_a.name,
                 'name_b': layer_b.name,
+                'region_layer': region_layer,
                 'color_a': _layer_color(layer_a),
                 'color_b': _layer_color(layer_b),
             }
@@ -1611,15 +1810,31 @@ class ColocalizationWidget(QWidget):
             'labels_b': labels_b,
             'name_a': layer_a.name,
             'name_b': layer_b.name,
+            'region_layer': None,
             # Labels layers have no single intensity colour; use defaults.
             'color_a': 'cyan',
             'color_b': 'magenta',
+        }
+
+    @staticmethod
+    def _object_provenance_for(params):
+        """How the object run was configured, for the exported CSV."""
+        from_threshold = params['source'] == 'threshold'
+        return {
+            **_base_provenance(),
+            'objects_from': params['source'],
+            # Only the threshold source segments anything; with Labels
+            # layers the segmentation happened upstream.
+            'threshold_method': params['method'] if from_threshold else '',
+            'min_object_size': params['min_size'] if from_threshold else '',
+            'region_layer': _layer_name(params.get('region_layer')),
         }
 
     def _on_object_run_clicked(self):
         params = self._gather_object_params()
         if params is None:
             return
+        self._object_provenance = self._object_provenance_for(params)
         self._clear_object_overlays()
         self._run_in_background(
             self._object_worker(params),
@@ -1665,7 +1880,9 @@ class ColocalizationWidget(QWidget):
         rows, summary, labels_a, labels_b, name_a, name_b, color_a, color_b = (
             payload
         )
+        self._object_results = rows
         self._populate_object_table(rows)
+        self._obj_export_button.setEnabled(bool(rows))
         self._obj_summary_label.setText(
             self._object_summary_text(summary, name_a, name_b)
         )
@@ -1739,6 +1956,19 @@ class ColocalizationWidget(QWidget):
         """Centroid point size scaled to the image (floored at 2 px)."""
         extent = max(shape) if len(shape) else 1
         return float(max(2.0, round(extent / 200)))
+
+    def _on_object_export_clicked(self):
+        if not self._object_results:
+            show_warning('No object results to export.')
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, 'Save object results CSV', 'objects.csv', 'CSV (*.csv)'
+        )
+        if not path:
+            return
+        rows, columns = _object_rows_for_csv(self._object_results)
+        _write_csv(path, rows, columns, self._object_provenance)
+        show_info(f'Wrote {len(rows)} object(s) to {path}')
 
     def _on_object_worker_error(self, exc):
         show_warning(f'Object analysis failed: {exc}')

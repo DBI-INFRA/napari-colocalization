@@ -232,6 +232,52 @@ def test_csv_export(widget, qtbot, rng, tmp_path):
     assert 'pcc' in rows[0]
 
 
+def test_csv_export_records_provenance(widget, qtbot, rng, tmp_path):
+    # The metric columns alone don't say how the run was configured, so
+    # a saved file has to carry that with it.
+    a = rng.random((16, 16)).astype(np.float32)
+    _add_pair(widget, a)
+    shapes = widget._viewer.add_shapes(
+        [np.array([[1.0, 1.0], [1.0, 8.0], [8.0, 8.0], [8.0, 1.0]])],
+        shape_type='polygon',
+        name='my_rois',
+    )
+    _select_region(widget, shapes)
+    widget._cb_mcc.setChecked(True)
+    _select(widget._threshold_combo, 'otsu')
+    _run(widget, qtbot)
+
+    out = tmp_path / 'results.csv'
+    widget.write_csv(str(out), widget._results, provenance=widget._provenance)
+    with open(out, newline='') as fh:
+        row = next(iter(csv.DictReader(fh)))
+    assert row['threshold_method'] == 'otsu'
+    assert row['region_layer'] == 'my_rois'
+    assert row['mode'] == 'pairwise'
+    assert 'mcc' in row['metrics']
+    assert row['plugin_version']
+    assert row['analysed_at']
+    # Data columns survive alongside the provenance ones.
+    assert 'pcc' in row
+
+
+def test_provenance_blanks_threshold_when_manders_not_requested(widget):
+    provenance = widget._run_provenance(
+        {
+            'mode': 'pairwise',
+            'metrics': ('pcc',),
+            'threshold_method': 'costes',
+            'region_layer': None,
+            'slice_axis': None,
+        }
+    )
+    # Costes is the combo's default even when Manders is off; recording
+    # it would imply a threshold was applied.
+    assert provenance['threshold_method'] == ''
+    assert provenance['region_layer'] == ''
+    assert provenance['slice_axis'] == ''
+
+
 def test_row_selection_highlights_regions(widget, qtbot, rng):
     _add_pair(widget, rng.random((20, 20)).astype(np.float32))
     shapes = widget._viewer.add_shapes(
@@ -334,6 +380,94 @@ def test_add_scrambled_example_layer(widget, rng):
 
 
 # -- object-based tab -------------------------------------------------
+
+
+def test_object_csv_export(widget, qtbot, tmp_path):
+    from napari_colocalization._widget import (
+        _object_rows_for_csv,
+        _write_csv,
+    )
+
+    img = np.zeros((20, 20), dtype=np.float32)
+    img[2:6, 2:6] = 1.0
+    img[12:16, 12:16] = 1.0
+    viewer = widget._viewer
+    widget._obj_image_a_combo.value = viewer.add_image(img, name='a')
+    widget._obj_image_b_combo.value = viewer.add_image(img.copy(), name='b')
+    # Nothing to export until a run has produced rows.
+    assert not widget._obj_export_button.isEnabled()
+    widget._on_object_run_clicked()
+    qtbot.waitUntil(lambda: widget._object_table.rowCount() > 0, timeout=10000)
+    assert widget._obj_export_button.isEnabled()
+
+    out = tmp_path / 'objects.csv'
+    rows, columns = _object_rows_for_csv(widget._object_results)
+    _write_csv(str(out), rows, columns, widget._object_provenance)
+    with open(out, newline='') as fh:
+        written = list(csv.DictReader(fh))
+    assert len(written) == 4  # 2 objects x 2 channels
+    # The centroid tuple is split per axis rather than written as a
+    # single "(y, x)" string that downstream tools can't parse.
+    assert 'centroid' not in written[0]
+    assert float(written[0]['centroid_0']) == pytest.approx(3.5)
+    assert float(written[0]['centroid_1']) == pytest.approx(3.5)
+    assert written[0]['coincident'] == 'True'
+    assert written[0]['threshold_method'] == 'otsu'
+    assert written[0]['objects_from'] == 'threshold'
+    assert written[0]['plugin_version']
+
+
+def test_object_provenance_blanks_threshold_for_labels_source(widget):
+    provenance = widget._object_provenance_for(
+        {'source': 'labels', 'region_layer': None}
+    )
+    # With Labels layers the segmentation happened upstream, so naming a
+    # threshold method here would be a fiction.
+    assert provenance['objects_from'] == 'labels'
+    assert provenance['threshold_method'] == ''
+    assert provenance['min_object_size'] == ''
+
+
+@pytest.mark.parametrize(
+    ('method', 'columns', 'n_rows'),
+    [
+        ('costes', ('iteration', 'null_pcc'), 20),
+        ('ccf', ('shift_px', 'pearson_r'), 11),
+        ('ica', ('a', 'b', 'product'), 32 * 32),
+    ],
+)
+def test_diagnostic_value_export(
+    widget, qtbot, rng, tmp_path, method, columns, n_rows
+):
+    from napari_colocalization._widget import _write_csv
+
+    a = rng.random((32, 32)).astype(np.float32)
+    viewer = widget._viewer
+    widget._diag_image_a_combo.value = viewer.add_image(a, name='a')
+    widget._diag_image_b_combo.value = viewer.add_image(a.copy(), name='b')
+    _select(widget._diag_method_combo, method)
+    widget._costes_niter.setValue(20)
+    widget._ccf_max_shift.setValue(5)  # -> 11 shifts
+    # The figure is exportable but the numbers behind it were not.
+    assert not widget._diag_export_values_button.isEnabled()
+    widget._on_diag_run_clicked()
+    qtbot.waitUntil(
+        lambda: widget._diag_summary_label.text() != '', timeout=15000
+    )
+    assert widget._diag_export_values_button.isEnabled()
+
+    out = tmp_path / f'{method}.csv'
+    rows, cols, extra = widget._diag_rows_for_csv(*widget._diag_result)
+    assert cols == columns
+    written = _write_csv(
+        str(out), rows, cols, {**widget._diag_provenance, **extra}
+    )
+    assert written == n_rows
+    with open(out, newline='') as fh:
+        first = next(iter(csv.DictReader(fh)))
+    assert first['diagnostic'] == method
+    assert first['channel_a'] == 'a'
+    assert all(column in first for column in columns)
 
 
 def test_object_source_toggle(widget):
