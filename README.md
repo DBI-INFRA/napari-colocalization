@@ -1,5 +1,4 @@
 <p align="center">
-  <!-- TODO: replace with final logo -->
   <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalization/main/docs/img/logo.png" alt="napari-colocalization logo" width="160"/>
 </p>
 
