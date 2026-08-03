@@ -186,13 +186,13 @@ nearest-neighbour links (Vectors)**.
 
 **Run object analysis** fills the **Object results** table - one row per
 object (`channel`, `object`, `n_pixels`, `centroid`, `coincident`,
-`overlap`, `nn_distance_px`) - with a per-channel summary below.
-*Coincident* means the object's centroid falls inside an object of the
-other channel; *overlap* means its pixels touch one.
+`overlap`, `nn_distance_px`). *Coincident* means the object's centroid
+falls inside an object of the other channel; *overlap* means its pixels
+touch one.
 
 `nn_distance_px` is the distance from the object's centroid to the nearest
-centroid in the *other* channel, and the summary line reports the median per
-channel. It is the graded companion to the two yes/no measures: an object
+centroid in the *other* channel. It is the graded companion to the two
+yes/no measures: an object
 that misses by 2 px and one that misses by 200 px both read as "no", but
 they are not the same result. The distance is in **pixels**, matching
 `n_pixels` and the centroid columns beside it — the plugin does not apply a

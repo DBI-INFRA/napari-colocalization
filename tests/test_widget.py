@@ -542,7 +542,6 @@ def test_object_table_shows_nn_distance(widget, qtbot):
     qtbot.waitUntil(lambda: widget._object_table.rowCount() > 0, timeout=10000)
     # Rendered as a short number, not a raw repr.
     assert _cell(widget._object_table, 0, 'nn_distance_px') == '14.14'
-    assert 'median NN' in widget._obj_summary_label.text()
 
 
 def test_object_source_toggle(widget):
@@ -565,7 +564,7 @@ def test_object_run_from_threshold_with_overlays(widget, qtbot):
     widget._on_object_run_clicked()
     qtbot.waitUntil(lambda: widget._object_table.rowCount() > 0, timeout=10000)
     assert widget._object_table.rowCount() == 4  # 2 objects x 2 channels
-    assert 'coincident' in widget._obj_summary_label.text()
+    assert _cell(widget._object_table, 0, 'coincident') == 'yes'
     assert any(isinstance(layer, Points) for layer in viewer.layers)
     assert any(isinstance(layer, Vectors) for layer in viewer.layers)
 

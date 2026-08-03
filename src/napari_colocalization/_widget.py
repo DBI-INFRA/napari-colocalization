@@ -361,6 +361,22 @@ class ColocalizationWidget(QWidget):
         return tab
 
     @staticmethod
+    def _make_grid_group(title, *items, columns=2):
+        """Wrap *items* in a titled box, flowing across ``columns``.
+
+        A single row of long labels overflows a docked panel, and the
+        config scroll area has no horizontal scrollbar - so the overflow
+        is unreachable, not merely tight. Flowing keeps every label
+        readable at dock width without the height of one per row.
+        """
+        group = QGroupBox(title)
+        layout = QGridLayout()
+        for i, item in enumerate(items):
+            layout.addWidget(item, i // columns, i % columns)
+        group.setLayout(layout)
+        return group
+
+    @staticmethod
     def _make_group(title, *items, vertical=True):
         """Wrap *items* (widgets or sub-layouts) in a titled box."""
         group = QGroupBox(title)
@@ -419,9 +435,10 @@ class ColocalizationWidget(QWidget):
         self._mode_all = QRadioButton('All-to-all (one layer + channel axis)')
         self._mode_pairwise.setChecked(True)
         self._mode_pairwise.toggled.connect(self._on_mode_changed)
-        return self._make_group(
-            'Mode', self._mode_pairwise, self._mode_all, vertical=False
-        )
+        # Stacked, not side by side: "All-to-all (one layer + channel
+        # axis)" is too long to share a row at dock width and was being
+        # truncated mid-label.
+        return self._make_group('Mode', self._mode_pairwise, self._mode_all)
 
     def _build_pairwise_group(self):
         self._image_a_combo = create_widget(
@@ -496,14 +513,13 @@ class ColocalizationWidget(QWidget):
         ):
             cb.setChecked(checked)
             cb.toggled.connect(self._on_metrics_changed)
-        return self._make_group(
+        return self._make_grid_group(
             'Colocalization metrics',
             self._cb_pcc,
             self._cb_srcc,
             self._cb_icq,
             self._cb_overlap,
             self._cb_mcc,
-            vertical=False,
         )
 
     def _build_threshold_group(self):
@@ -1916,13 +1932,13 @@ class ColocalizationWidget(QWidget):
         return row
 
     def _build_obj_results_group(self):
+        # Table only - the per-object rows carry the result, and a
+        # two-channel summary line underneath wrapped badly in a narrow
+        # dock without adding anything the table doesn't show.
         self._object_table = self._make_table(OBJECT_COLUMNS)
-        self._obj_summary_label = QLabel('')
-        self._obj_summary_label.setWordWrap(True)
         group = QGroupBox('Object results')
         layout = QVBoxLayout()
         layout.addWidget(self._object_table, stretch=1)
-        layout.addWidget(self._obj_summary_label)
         group.setLayout(layout)
         return group
 
@@ -2034,12 +2050,13 @@ class ColocalizationWidget(QWidget):
         else:
             labels_a = params['labels_a']
             labels_b = params['labels_b']
-        rows, summary = object_table(
+        # object_table's summary dict is still there for API callers;
+        # the widget shows the per-object rows only.
+        rows, _summary = object_table(
             labels_a, labels_b, params['name_a'], params['name_b']
         )
         return (
             rows,
-            summary,
             labels_a,
             labels_b,
             params['name_a'],
@@ -2049,15 +2066,10 @@ class ColocalizationWidget(QWidget):
         )
 
     def _on_object_results_ready(self, payload):
-        rows, summary, labels_a, labels_b, name_a, name_b, color_a, color_b = (
-            payload
-        )
+        rows, labels_a, labels_b, name_a, name_b, color_a, color_b = payload
         self._object_results = rows
         self._populate_object_table(rows)
         self._obj_export_button.setEnabled(bool(rows))
-        self._obj_summary_label.setText(
-            self._object_summary_text(summary, name_a, name_b)
-        )
         if not (
             self._obj_points_check.isChecked()
             or self._obj_links_check.isChecked()
@@ -2149,18 +2161,3 @@ class ColocalizationWidget(QWidget):
         self._fill_table(
             self._object_table, rows, OBJECT_COLUMNS, _format_object_cell
         )
-
-    @staticmethod
-    def _object_summary_text(summary, name_a, name_b):
-        def _channel(name, suffix):
-            median = summary[f'median_nn_distance_{suffix}']
-            text = (
-                f'{name}: {summary[f"n_objects_{suffix}"]} objects '
-                f'({summary[f"coincident_{suffix}"]} coincident, '
-                f'{summary[f"overlap_{suffix}"]} overlapping'
-            )
-            if np.isfinite(median):
-                text += f', median NN {median:.4g} px'
-            return text + ')'
-
-        return f'{_channel(name_a, "a")}    {_channel(name_b, "b")}'
