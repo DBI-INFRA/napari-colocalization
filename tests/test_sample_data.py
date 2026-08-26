@@ -58,6 +58,7 @@ def test_sample_data_3d_pcc_is_in_partially_colocalised_band():
     pcc, _ = pearson(a, b)
     assert 0.4 < pcc < 0.95
 
+
 def test_make_sample_data_coloc_channels_are_colocalised():
     layers = make_sample_data_coloc()
     assert len(layers) == 2
