@@ -63,13 +63,18 @@ export, and the row dicts:
 
 ```python
 ('region', 'slice', 'channel_a', 'channel_b', 'n_pixels',
- 'pcc', 'pcc_pvalue', 'srcc', 'srcc_pvalue',
- 'icq',
+ 'pcc', 'srcc', 'icq',
  'overlap', 'k1', 'k2',
  'tm1', 'tm2', 'threshold_a', 'threshold_b')
 ```
 
 (`slice` is the plane index for per-Z-slice runs, and ``NaN`` otherwise.)
+
+`pearson` and `spearman` return a `(coefficient, p_value)` pair, but the
+p-value is not part of the result rows: it assumes independent samples,
+which image pixels are not
+(see [metrics.md](metrics.md#why-there-are-no-per-pixel-p-values)). Use
+`costes_randomization` for significance.
 
 ::: napari_colocalization._analysis
     options:

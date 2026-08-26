@@ -118,7 +118,10 @@ The **Diagnostics** tab runs single-pair diagnostic plots that go beyond a
 single number per region: the **Costes randomization** significance test (the
 observed PCC against a block-scrambled null, with a p-value and z-score), the
 **Van Steensel** cross-correlation function, and **Li's intensity correlation
-analysis**.
+analysis**. The randomization test is where significance comes from: the
+results table reports coefficients only, since per-pixel correlation p-values
+are not valid on spatially autocorrelated image data
+([details](docs/metrics.md#why-there-are-no-per-pixel-p-values)).
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/DBI-INFRA/napari-colocalization/main/docs/img/widget_diagnostics.png" alt="Diagnostics tab - Costes randomization" width="780"/>

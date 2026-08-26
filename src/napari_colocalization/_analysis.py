@@ -46,9 +46,7 @@ COLUMNS = (
     'channel_b',
     'n_pixels',
     'pcc',
-    'pcc_pvalue',
     'srcc',
-    'srcc_pvalue',
     'icq',
     'overlap',
     'k1',
@@ -69,9 +67,7 @@ def _empty_row(region, channel_a, channel_b, n_pixels):
         'channel_b': channel_b,
         'n_pixels': n_pixels,
         'pcc': nan,
-        'pcc_pvalue': nan,
         'srcc': nan,
-        'srcc_pvalue': nan,
         'icq': nan,
         'overlap': nan,
         'k1': nan,
@@ -309,14 +305,14 @@ def analyse_pairwise(
     for region in _iter_region_inputs(a, b, label_mask):
         region_id, a_r, b_r, region_mask, n_pixels = region
         row = _empty_row(region_id, channel_a, channel_b, n_pixels)
+        # The p-values `pearson`/`spearman` return are discarded: they
+        # assume independent samples, which spatially autocorrelated
+        # pixels are not. The Costes randomization test in _diagnostics
+        # is the significance test for these images.
         if 'pcc' in metrics:
-            pcc, pval = pearson(a_r, b_r, mask=region_mask)
-            row['pcc'] = pcc
-            row['pcc_pvalue'] = pval
+            row['pcc'] = pearson(a_r, b_r, mask=region_mask)[0]
         if 'srcc' in metrics:
-            rho, pval = spearman(a_r, b_r, mask=region_mask)
-            row['srcc'] = rho
-            row['srcc_pvalue'] = pval
+            row['srcc'] = spearman(a_r, b_r, mask=region_mask)[0]
         if 'icq' in metrics:
             row['icq'] = li_icq(a_r, b_r, mask=region_mask)
         if 'overlap' in metrics:

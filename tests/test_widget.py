@@ -72,17 +72,19 @@ def _cell(table, row, column):
 # -- construction & UI toggles ----------------------------------------
 
 
-def test_default_metric_is_spearman_only(widget):
-    assert widget._cb_srcc.isChecked()
+def test_default_metrics_are_pearson_and_manders(widget):
+    assert widget._cb_pcc.isChecked()
+    assert widget._cb_mcc.isChecked()
     assert not any(
         cb.isChecked()
         for cb in (
-            widget._cb_pcc,
+            widget._cb_srcc,
             widget._cb_icq,
             widget._cb_overlap,
-            widget._cb_mcc,
         )
     )
+    # Manders on means its threshold group is visible from the start.
+    assert not widget._threshold_group.isHidden()
 
 
 def test_mode_toggle_swaps_pairwise_and_all_to_all(widget):
@@ -96,6 +98,7 @@ def test_mode_toggle_swaps_pairwise_and_all_to_all(widget):
 def test_threshold_controls_visibility(widget):
     # The threshold group only appears with Manders; the manual T_a/T_b
     # row only appears for the Manual method.
+    widget._cb_mcc.setChecked(False)
     assert widget._threshold_group.isHidden()
     widget._cb_mcc.setChecked(True)
     assert not widget._threshold_group.isHidden()
@@ -147,6 +150,25 @@ def test_pairwise_run_reports_metric_values(widget, qtbot, rng):
     assert float(_cell(widget._table, 0, 'overlap')) == pytest.approx(1.0)
     # results panel is revealed once there are rows
     assert not widget._results_group.isHidden()
+
+
+def test_significance_row_links_to_diagnostics(widget, qtbot, rng):
+    layer_a, layer_b = _add_pair(
+        widget, rng.random((16, 16)).astype(np.float32)
+    )
+    labels = widget._viewer.add_labels(
+        np.ones((16, 16), np.int32), name='regions'
+    )
+    _select_region(widget, labels)
+    widget._cb_mcc.setChecked(False)  # skip Costes, keep the run quick
+    _run(widget, qtbot)
+    assert not widget._significance_row.isHidden()
+
+    widget._open_diagnostics_button.click()
+    assert widget._tabs.currentWidget() is widget._diagnostics_tab
+    assert widget._diag_image_a_combo.value is layer_a
+    assert widget._diag_image_b_combo.value is layer_b
+    assert widget._diag_region_combo.currentData() is labels
 
 
 def test_all_to_all_run_covers_every_pair(widget, qtbot, rng):

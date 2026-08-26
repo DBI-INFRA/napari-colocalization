@@ -97,16 +97,14 @@ def test_pairwise_region_values_match_full_image_masks(rng):
     for row in rows:
         mask = label_mask == row['region']
         assert row['n_pixels'] == int(mask.sum())
-        pcc, pcc_p = pearson(a, b, mask=mask)
-        srcc, srcc_p = spearman(a, b, mask=mask)
+        pcc, _ = pearson(a, b, mask=mask)
+        srcc, _ = spearman(a, b, mask=mask)
         r, k1, k2 = overlap(a, b, mask=mask)
         t_a, t_b = costes_threshold(a, b, mask=mask)
         m1, m2 = manders(a, b, t_a, t_b, mask=mask)
         expected = {
             'pcc': pcc,
-            'pcc_pvalue': pcc_p,
             'srcc': srcc,
-            'srcc_pvalue': srcc_p,
             'icq': li_icq(a, b, mask=mask),
             'overlap': r,
             'k1': k1,

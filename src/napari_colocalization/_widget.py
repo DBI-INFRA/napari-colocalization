@@ -163,6 +163,7 @@ class ColocalizationWidget(QWidget):
         self._region_layer = None
         self._region_source = 'none'
         self._threshold_method = 'costes'
+        self._run_mode = None
         # Full-resolution arrays / mask of the last run, kept so the
         # "Add coloc mask" output layer can be built from a selected row.
         self._channel_arrays = {}
@@ -180,8 +181,9 @@ class ColocalizationWidget(QWidget):
         # the other. Inputs are not shared - diagnostics are always
         # pairwise, so each tab carries the channel selectors it needs.
         self._tabs = QTabWidget()
+        self._diagnostics_tab = self._build_diagnostics_tab()
         self._tabs.addTab(self._build_intensity_tab(), 'Pixel-based')
-        self._tabs.addTab(self._build_diagnostics_tab(), 'Diagnostics')
+        self._tabs.addTab(self._diagnostics_tab, 'Diagnostics')
         self._tabs.addTab(self._build_object_tab(), 'Object-based')
 
         outer = QVBoxLayout(self)
@@ -367,12 +369,14 @@ class ColocalizationWidget(QWidget):
             'k1/k2 - threshold-free co-occurrence measures.'
         )
         self._cb_mcc = QCheckBox('Manders')
+        # Defaults: one metric from each family - PCC for correlation,
+        # Manders for co-occurrence.
         for cb, checked in (
-            (self._cb_pcc, False),
-            (self._cb_srcc, True),
+            (self._cb_pcc, True),
+            (self._cb_srcc, False),
             (self._cb_icq, False),
             (self._cb_overlap, False),
-            (self._cb_mcc, False),
+            (self._cb_mcc, True),
         ):
             cb.setChecked(checked)
             cb.toggled.connect(self._on_metrics_changed)
@@ -453,6 +457,7 @@ class ColocalizationWidget(QWidget):
         self._summary_label.setWordWrap(True)
         self._summary_label.setStyleSheet('color: goldenrod;')
         self._summary_label.setVisible(False)
+        self._significance_row = self._build_significance_row()
         # Lock the cytofluorogram to [0, channel max] so the scatter is
         # comparable across regions/slices/images (JACoP B plot bounds).
         self._fixed_axes_check = QCheckBox('Fixed plot axes (0–max)')
@@ -467,9 +472,54 @@ class ColocalizationWidget(QWidget):
         layout.addWidget(self._splitter)
         layout.addWidget(self._fixed_axes_check)
         layout.addWidget(self._summary_label)
+        layout.addWidget(self._significance_row)
         self._results_group.setLayout(layout)
         self._results_group.setVisible(False)
         return self._results_group
+
+    def _build_significance_row(self):
+        """Footer pointing from the coefficients to the actual test.
+
+        A large correlation coefficient is not evidence that the
+        channels colocalize; the Costes randomization test on the
+        Diagnostics tab is what answers that.
+        """
+        self._significance_label = QLabel(
+            'Correlation strength is not significance - validate with '
+            'the Costes randomization test.'
+        )
+        self._significance_label.setWordWrap(True)
+        self._open_diagnostics_button = QPushButton('Open Diagnostics')
+        self._open_diagnostics_button.setToolTip(
+            'Switch to the Diagnostics tab, carrying over the channels '
+            'and region of the last pairwise run.'
+        )
+        self._open_diagnostics_button.clicked.connect(
+            self._on_open_diagnostics_clicked
+        )
+        row = QWidget()
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self._significance_label, stretch=1)
+        layout.addWidget(self._open_diagnostics_button)
+        return row
+
+    def _on_open_diagnostics_clicked(self):
+        # Diagnostics are always pairwise, so only a pairwise run has
+        # selections to carry over; an all-to-all run just switches tab.
+        if self._run_mode == 'pairwise':
+            self._diag_image_a_combo.value = self._image_a_combo.value
+            self._diag_image_b_combo.value = self._image_b_combo.value
+            self._mirror_region(self._region_combo, self._diag_region_combo)
+        self._tabs.setCurrentIndex(self._tabs.indexOf(self._diagnostics_tab))
+
+    @staticmethod
+    def _mirror_region(source_combo, target_combo):
+        layer = source_combo.currentData()
+        for i in range(target_combo.count()):
+            if target_combo.itemData(i) is layer:
+                target_combo.setCurrentIndex(i)
+                return
 
     def _build_export_row(self):
         self._export_button = QPushButton('Export CSV…')
@@ -770,6 +820,7 @@ class ColocalizationWidget(QWidget):
         self._region_layer = params.get('region_layer')
         self._region_source = params.get('region_source', 'none')
         self._threshold_method = params.get('threshold_method', 'costes')
+        self._run_mode = params['mode']
         self._run_in_background(
             self._run_worker(params),
             self._run_button,
@@ -1235,6 +1286,14 @@ class ColocalizationWidget(QWidget):
         self._costes_block = QSpinBox()
         self._costes_block.setRange(1, 512)
         self._costes_block.setValue(8)
+        self._costes_block.setToolTip(
+            'Side length of the blocks channel B is scrambled in. Set it '
+            'to about the point-spread-function width of the acquisition '
+            '(the smallest resolvable feature, in pixels): larger blocks '
+            'keep the local texture intact while destroying '
+            'co-occurrence, smaller ones break up the texture too and '
+            'inflate significance.'
+        )
         self._diag_costes_group = self._make_group(
             'Costes parameters',
             self._hbox(QLabel('Iterations'), self._costes_niter),

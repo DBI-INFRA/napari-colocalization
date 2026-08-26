@@ -76,7 +76,9 @@ Five checkboxes: **Pearson**, **Spearman**, **Li ICQ**, **Overlap (r, k1, k2)**
 and **Manders**. The first three measure intensity *correlation*; Overlap
 and Manders measure *co-occurrence*
 (see [metrics.md](metrics.md#co-occurrence-versus-correlation)).
-Only **Spearman** is on by default (the most outlier-robust).
+**Pearson** and **Manders** are on by default - one metric from each
+family, and the two most commonly reported. Checking Manders also reveals
+the threshold group below.
 Pick any subset; unrequested metrics are blank in the table. See
 [metrics.md](metrics.md) for what each one means.
 
@@ -98,12 +100,19 @@ In all-to-all mode the chosen method applies to every channel pair.
 the button disables while running). The **Results** group then appears.
 
 The **table** has one row per *(channel pair, region[, slice])*: `region`,
-`slice`, `channel_a`, `channel_b`, `n_pixels`, the metric columns (`pcc` +
-`pcc_pvalue`, `srcc` + `srcc_pvalue`, `icq`, `overlap`/`k1`/`k2`, `tm1`/`tm2`)
-and `threshold_a`/`threshold_b`. Click a header to sort; multi-select with
+`slice`, `channel_a`, `channel_b`, `n_pixels`, the metric columns (`pcc`,
+`srcc`, `icq`, `overlap`/`k1`/`k2`, `tm1`/`tm2`) and
+`threshold_a`/`threshold_b`. Click a header to sort; multi-select with
 **Ctrl/Shift-click**. If a region's metric can't be computed (too few pixels,
 a constant or empty channel) its cell is left blank and a note below the table
 summarises how many rows were affected and why.
+
+The table reports coefficients only - no per-pixel p-values, which are
+meaningless on spatially autocorrelated pixels
+(see [metrics.md](metrics.md#why-there-are-no-per-pixel-p-values)). A note
+under the results says so and an **Open Diagnostics** button switches to the
+Diagnostics tab, carrying the pairwise channel and region selections across
+so the Costes randomization test is ready to run.
 
 The **cytofluorogram** below is a 2D **hexbin** density plot of the two
 channels' intensities for the selected row, with the axes labelled by the
@@ -128,7 +137,13 @@ For a single channel pair (its own **Image A**/**Image B** and optional
 - **Costes randomization** - the significance test: channel B is block-
   scrambled many times to build a null PCC distribution, plotted as a
   histogram with the observed PCC, a p-value and a z-score. Parameters:
-  **Iterations** and **Block size**. 2D or 3D.
+  **Iterations** and **Block size**. 2D or 3D. Set **Block size** to roughly
+  the point-spread-function width in pixels (the smallest resolvable
+  feature): blocks that size destroy the co-occurrence between the channels
+  while leaving the pixel-level texture intact. Blocks much smaller than the
+  PSF break up that texture too and make almost anything look significant;
+  blocks much larger carry real structure along and hide genuine
+  colocalization.
 - **Van Steensel CCF** - Pearson's r as channel B is shifted across
   **Max shift** pixels; a peak at 0 indicates colocalization.
 - **Li ICA** - the intensity-correlation-analysis scatter (intensity vs
