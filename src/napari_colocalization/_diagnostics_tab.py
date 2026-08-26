@@ -9,12 +9,13 @@ layer the Costes null is built from.
 import numpy as np
 from magicgui.widgets import create_widget
 from napari.qt.threading import thread_worker
-from napari.utils.notifications import show_warning
+from napari.utils.notifications import show_info, show_warning
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QComboBox,
+    QFileDialog,
+    QGridLayout,
     QGroupBox,
-    QHBoxLayout,
     QLabel,
     QPushButton,
     QScrollArea,
@@ -34,8 +35,10 @@ from ._diagnostics import (
 )
 from ._plot import DiagnosticCanvas
 from ._widget_shared import (
+    _base_provenance,
     _export_canvas_figure,
     _hbox,
+    _layer_name,
     _make_group,
     _new_region_combo,
     _nudge_distinct,
@@ -46,6 +49,7 @@ from ._widget_shared import (
     _RunControl,
     _select_region_layer,
     _set_combo_choices,
+    write_csv_rows,
 )
 
 
@@ -75,6 +79,8 @@ class DiagnosticsTab(QWidget):
         tab_layout.addWidget(scroll)
 
         self._on_diag_method_changed()
+        self._diag_result = None
+        self._diag_provenance = {}
 
     # -- layout builders -------------------------------------------------
 
@@ -157,6 +163,14 @@ class DiagnosticsTab(QWidget):
         )
         self._diag_export_button = QPushButton('Export figure…')
         self._diag_export_button.clicked.connect(self._on_diag_export_clicked)
+        self._diag_export_values_button = QPushButton('Export values…')
+        self._diag_export_values_button.setEnabled(False)
+        self._diag_export_values_button.setToolTip(
+            'Save the raw values behind the plot as CSV.'
+        )
+        self._diag_export_values_button.clicked.connect(
+            self._on_diag_export_values_clicked
+        )
         # Scrambled-example output is a Costes-randomization concept.
         self._diag_scramble_button = QPushButton('Add scrambled example')
         self._diag_scramble_button.setToolTip(
@@ -166,10 +180,15 @@ class DiagnosticsTab(QWidget):
         self._diag_scramble_button.clicked.connect(
             self._on_diag_scramble_clicked
         )
-        buttons = QHBoxLayout()
-        buttons.addWidget(self._diag_run_button)
-        buttons.addWidget(self._diag_export_button)
-        buttons.addWidget(self._diag_scramble_button)
+        # A grid, not one row: four buttons side by side overflow a
+        # docked panel, and this tab's scroll area has no horizontal
+        # bar, so the overflow would be unreachable rather than merely
+        # tight. Grouped by what they do - run, export, add to viewer.
+        buttons = QGridLayout()
+        buttons.addWidget(self._diag_run_button, 0, 0, 1, 2)
+        buttons.addWidget(self._diag_export_button, 1, 0)
+        buttons.addWidget(self._diag_export_values_button, 1, 1)
+        buttons.addWidget(self._diag_scramble_button, 2, 0, 1, 2)
         row = QWidget()
         layout = QVBoxLayout(row)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -275,12 +294,14 @@ class DiagnosticsTab(QWidget):
             'n_iter': int(self._costes_niter.value()),
             'block_size': block_size,
             'max_shift': max_shift,
+            'region_layer': self._diag_region_combo.currentData(),
         }
 
     def _on_diag_run_clicked(self):
         params = self._gather_diag_params()
         if params is None:
             return
+        self._diag_provenance = self._diag_provenance_for(params)
         self._diag_run_control.start(
             self._diag_worker(params),
             self._on_diag_results_ready,
@@ -335,6 +356,8 @@ class DiagnosticsTab(QWidget):
 
     def _on_diag_results_ready(self, payload):
         method, result, name_a, name_b = payload
+        self._diag_result = (method, result)
+        self._diag_export_values_button.setEnabled(True)
         title = f'{name_a} vs {name_b}'
         if method == 'costes':
             self._diagnostic_canvas.plot_costes(
@@ -389,6 +412,84 @@ class DiagnosticsTab(QWidget):
             show_warning(str(exc))
             return
         self._viewer.add_image(scrambled, name=f'{layer_b.name} (scrambled)')
+
+    @staticmethod
+    def _diag_provenance_for(params):
+        """How the diagnostic was configured, for the exported CSV."""
+        method = params['method']
+        return {
+            **_base_provenance(),
+            'diagnostic': method,
+            'channel_a': params['channel_a'],
+            'channel_b': params['channel_b'],
+            'region_layer': _layer_name(params.get('region_layer')),
+            # Each diagnostic has its own knobs; blank where not used.
+            'n_iter': params['n_iter'] if method == 'costes' else '',
+            'block_size': params['block_size'] if method == 'costes' else '',
+            'max_shift': params['max_shift'] if method == 'ccf' else '',
+        }
+
+    @staticmethod
+    def _diag_rows_for_csv(method, result):
+        """``(rows, columns, extra_provenance)`` for one diagnostic.
+
+        The per-run scalars (p-value, ICQ, ...) ride along as
+        provenance columns so the summary line and the raw values stay
+        in one file.
+        """
+        if method == 'costes':
+            rows = (
+                {'iteration': i, 'null_pcc': float(value)}
+                for i, value in enumerate(result['null'])
+            )
+            return (
+                rows,
+                ('iteration', 'null_pcc'),
+                {
+                    'observed_pcc': result['observed'],
+                    'p_value': result['p_value'],
+                    'z_score': result['z_score'],
+                },
+            )
+        if method == 'ccf':
+            rows = (
+                {'shift_px': int(shift), 'pearson_r': float(value)}
+                for shift, value in zip(
+                    result['shifts'], result['ccf'], strict=True
+                )
+            )
+            return rows, ('shift_px', 'pearson_r'), {}
+        # Li ICA: one row per pixel, so keep it lazy.
+        rows = (
+            {'a': float(x), 'b': float(y), 'product': float(p)}
+            for x, y, p in zip(
+                result['a'], result['b'], result['products'], strict=True
+            )
+        )
+        return rows, ('a', 'b', 'product'), {'icq': result['icq']}
+
+    def _on_diag_export_values_clicked(self):
+        if self._diag_result is None:
+            show_warning('Run a diagnostic first.')
+            return
+        method, result = self._diag_result
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            'Save diagnostic values CSV',
+            f'{method}.csv',
+            'CSV (*.csv)',
+        )
+        if not path:
+            return
+        rows, columns, extra = self._diag_rows_for_csv(method, result)
+        try:
+            written = write_csv_rows(
+                path, rows, columns, {**self._diag_provenance, **extra}
+            )
+        except OSError as exc:
+            show_warning(f'Could not write {path}: {exc}')
+            return
+        show_info(f'Wrote {written} row(s) to {path}')
 
     def _on_diag_export_clicked(self):
         _export_canvas_figure(self, self._diagnostic_canvas, 'diagnostic.png')

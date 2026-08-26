@@ -90,6 +90,41 @@ def test_manders_zero_intensity_is_nan():
     assert np.isnan(m1) and np.isnan(m2)
 
 
+def test_manders_coefficients_are_decided_independently():
+    # tM1 divides by sum(A), so an empty B makes it 0.0 - a measured
+    # "none of A co-occurs with B" - while tM2 (dividing by sum(B)) is
+    # genuinely undefined. Blanking both would hide the first result.
+    ones = np.ones((10, 10))
+    zeros = np.zeros((10, 10))
+    m1, m2 = manders(ones, zeros, threshold_a=0.5, threshold_b=0.5)
+    assert m1 == pytest.approx(0.0)
+    assert np.isnan(m2)
+    m1, m2 = manders(zeros, ones, threshold_a=0.5, threshold_b=0.5)
+    assert np.isnan(m1)
+    assert m2 == pytest.approx(0.0)
+
+
+def test_manders_undefined_threshold_blanks_only_its_own_coefficient():
+    # threshold_b gates tM1 and threshold_a gates tM2, so an undefined
+    # threshold on one channel leaves the other coefficient computable.
+    a = np.ones((10, 10))
+    b = np.zeros((10, 10))
+    b[:5] = 1.0
+    m1, m2 = manders(a, b, threshold_a=float('nan'), threshold_b=0.5)
+    assert m1 == pytest.approx(0.5)
+    assert np.isnan(m2)
+
+
+def test_manders_negative_input_is_nan_not_raise():
+    # skimage's manders_coloc_coeff raises on negative pixels, which
+    # aborted the whole run for one background-subtracted channel.
+    a = np.full((10, 10), -1.0)
+    b = np.ones((10, 10))
+    m1, m2 = manders(a, b, threshold_a=0.5, threshold_b=0.5)
+    assert np.isnan(m1)  # summing a signed channel is meaningless...
+    assert m2 == pytest.approx(0.0)  # ...but gating on it is fine
+
+
 # -- Overlap r / k1 / k2 ----------------------------------------------
 
 
@@ -152,10 +187,44 @@ def test_costes_threshold_steep_slope_stays_in_range(rng):
     assert b.min() <= t_b <= b.max()
 
 
-def test_costes_threshold_anticorrelated_returns_max(rng):
+def test_costes_threshold_anticorrelated_is_nan(rng):
+    # A negative slope means there is no threshold to find. Returning
+    # max(a)/max(b) here (as Coloc 2 does) would make manders() report
+    # exactly 0.0, which reads as a measured "no co-occurrence" rather
+    # than "no threshold could be fitted" - so we return nan instead.
     a = rng.random((64, 64))
-    b = -a + 0.01 * rng.random((64, 64))  # negative slope -> no threshold
-    assert costes_threshold(a, b) == pytest.approx((a.max(), b.max()))
+    b = -a + 0.01 * rng.random((64, 64))
+    assert all(np.isnan(t) for t in costes_threshold(a, b))
+    assert all(np.isnan(m) for m in manders(a, b, *costes_threshold(a, b)))
+
+
+def test_costes_threshold_constant_channel_is_nan():
+    constant = np.ones((32, 32))
+    varied = np.arange(32 * 32, dtype=float).reshape(32, 32)
+    assert all(np.isnan(t) for t in costes_threshold(constant, varied))
+
+
+def test_overlap_is_dtype_independent():
+    # skimage's manders_overlap_coeff squares in the input dtype, so an
+    # integer image overflows and r escapes [0, 1]. We accumulate in
+    # float64 instead: uint8/uint16 must agree with float64.
+    rng = np.random.default_rng(0)
+    a8 = rng.integers(0, 256, (64, 64)).astype(np.uint8)
+    b8 = (a8 // 2 + 20).astype(np.uint8)
+    expected = overlap(a8.astype(np.float64), b8.astype(np.float64))
+    assert overlap(a8, b8) == pytest.approx(expected)
+    assert overlap(a8.astype(np.uint16), b8.astype(np.uint16)) == (
+        pytest.approx(expected)
+    )
+    assert 0.0 <= overlap(a8, b8)[0] <= 1.0
+
+
+def test_overlap_negative_input_is_nan(rng):
+    # Background subtraction can push intensities below zero; r is only
+    # defined for one-signed data. nan, not a raise (which would abort
+    # the whole run) and not an out-of-range number.
+    a = rng.random((32, 32)) - 0.5
+    assert all(np.isnan(v) for v in overlap(a, a.copy()))
 
 
 def test_costes_regression_is_orthogonal_not_ols(rng):
@@ -198,13 +267,3 @@ def test_mismatched_shapes_raise(func):
         func(np.ones((4, 9)), np.ones((6, 6)))
     with pytest.raises(ValueError, match='mask shape mismatch'):
         func(np.ones((6, 6)), np.ones((6, 6)), mask=np.ones((6, 5), bool))
-
-
-def test_manders_family_rejects_negative_intensities():
-    # e.g. a background-subtracted image
-    a = np.array([[1.0, -0.5], [2.0, 3.0]])
-    b = np.abs(a)
-    with pytest.raises(ValueError, match='non-negative'):
-        manders(a, b, threshold_a=0.5, threshold_b=0.5)
-    with pytest.raises(ValueError, match='non-negative'):
-        overlap(b, a)

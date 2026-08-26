@@ -3,6 +3,7 @@ import pytest
 
 from napari_colocalization._objects import (
     label_objects,
+    nearest_neighbour_distances,
     nearest_neighbour_vectors,
     object_centroids,
     object_table,
@@ -75,3 +76,46 @@ def test_nearest_neighbour_vectors():
     assert np.allclose(vectors[0, 1, :], [0.0, 1.0])  # point to nearest B
     # no objects in one channel -> no links
     assert nearest_neighbour_vectors(np.empty((0, 2)), b).shape[0] == 0
+
+
+def test_nearest_neighbour_distances():
+    a = np.array([[0.0, 0.0], [10.0, 10.0]])
+    b = np.array([[0.0, 1.0], [10.0, 9.0]])
+    assert nearest_neighbour_distances(a, b) == pytest.approx([1.0, 1.0])
+    # 3-4-5 triangle, to pin that this is a euclidean distance in the
+    # full centroid space rather than a per-axis one
+    assert nearest_neighbour_distances(
+        np.array([[0.0, 0.0]]), np.array([[3.0, 4.0]])
+    ) == pytest.approx([5.0])
+    # nothing to measure to -> nan per object, not an empty array
+    lonely = nearest_neighbour_distances(a, np.empty((0, 2)))
+    assert lonely.shape == (2,) and np.all(np.isnan(lonely))
+    assert nearest_neighbour_distances(np.empty((0, 2)), b).shape == (0,)
+
+
+def test_object_table_reports_nn_distance():
+    # Disjoint blobs at (3.5, 3.5) and (13.5, 13.5): neither coincides
+    # with the other, but the distance says how far apart they are -
+    # the graded reading the booleans can't give.
+    a = np.zeros((20, 20), int)
+    a[2:6, 2:6] = 1
+    b = np.zeros((20, 20), int)
+    b[12:16, 12:16] = 1
+    rows, summary = object_table(a, b, 'a', 'b')
+    expected = np.hypot(10.0, 10.0)
+    assert all(
+        row['nn_distance_px'] == pytest.approx(expected) for row in rows
+    )
+    assert summary['median_nn_distance_a'] == pytest.approx(expected)
+    assert summary['median_nn_distance_b'] == pytest.approx(expected)
+
+
+def test_object_table_nn_distance_nan_without_a_partner():
+    a = np.zeros((20, 20), int)
+    a[2:6, 2:6] = 1
+    empty = np.zeros((20, 20), int)
+    rows, summary = object_table(a, empty, 'a', 'b')
+    assert len(rows) == 1
+    assert np.isnan(rows[0]['nn_distance_px'])
+    assert np.isnan(summary['median_nn_distance_a'])
+    assert np.isnan(summary['median_nn_distance_b'])

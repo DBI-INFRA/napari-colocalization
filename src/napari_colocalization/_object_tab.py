@@ -11,11 +11,12 @@ import contextlib
 import numpy as np
 from magicgui.widgets import create_widget
 from napari.qt.threading import thread_worker
-from napari.utils.notifications import show_warning
+from napari.utils.notifications import show_info, show_warning
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QFileDialog,
     QGroupBox,
     QLabel,
     QPushButton,
@@ -34,19 +35,23 @@ from ._objects import (
 )
 from ._widget_shared import (
     OBJECT_COLUMN_TOOLTIPS,
+    _base_provenance,
     _fill_table,
     _format_object_cell,
     _hbox,
     _layer_color,
+    _layer_name,
     _make_group,
     _make_table,
     _new_region_combo,
     _nudge_distinct,
+    _object_rows_for_csv,
     _refresh_region_combo,
     _reject_multiscale,
     _resolve_region,
     _RunControl,
     _set_combo_choices,
+    write_csv_rows,
 )
 
 
@@ -83,6 +88,8 @@ class ObjectTab(QWidget):
         tab_layout.setContentsMargins(0, 0, 0, 0)
         tab_layout.addWidget(scroll)
 
+        self._object_rows = []
+        self._object_provenance = {}
         self._on_obj_source_changed()
 
     # -- layout builders -------------------------------------------------
@@ -169,15 +176,18 @@ class ObjectTab(QWidget):
         return row
 
     def _build_results_group(self):
+        # The per-object rows carry the counts a summary would repeat,
+        # and the table sorts and exports; the label only duplicated it.
         self._object_table = _make_table(
             OBJECT_COLUMNS, OBJECT_COLUMN_TOOLTIPS
         )
-        self._obj_summary_label = QLabel('')
-        self._obj_summary_label.setWordWrap(True)
+        self._obj_export_button = QPushButton('Export CSV…')
+        self._obj_export_button.setEnabled(False)
+        self._obj_export_button.clicked.connect(self._on_object_export_clicked)
         group = QGroupBox('Object results')
         layout = QVBoxLayout()
         layout.addWidget(self._object_table, stretch=1)
-        layout.addWidget(self._obj_summary_label)
+        layout.addWidget(self._obj_export_button)
         group.setLayout(layout)
         return group
 
@@ -260,10 +270,42 @@ class ObjectTab(QWidget):
             'color_b': 'magenta',
         }
 
+    @staticmethod
+    def _object_provenance_for(params):
+        """How the object run was configured, for the exported CSV."""
+        from_threshold = params['source'] == 'threshold'
+        return {
+            **_base_provenance(),
+            'objects_from': params['source'],
+            # Only the threshold source segments anything; with Labels
+            # layers the segmentation happened upstream.
+            'threshold_method': params['method'] if from_threshold else '',
+            'min_object_size': params['min_size'] if from_threshold else '',
+            'region_layer': _layer_name(params.get('region_layer')),
+        }
+
+    def _on_object_export_clicked(self):
+        if not self._object_rows:
+            show_warning('No object results to export.')
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, 'Save object results CSV', 'objects.csv', 'CSV (*.csv)'
+        )
+        if not path:
+            return
+        rows, columns = _object_rows_for_csv(self._object_rows)
+        try:
+            write_csv_rows(path, rows, columns, self._object_provenance)
+        except OSError as exc:
+            show_warning(f'Could not write {path}: {exc}')
+            return
+        show_info(f'Wrote {path}')
+
     def _on_object_run_clicked(self):
         params = self._gather_object_params()
         if params is None:
             return
+        self._object_provenance = self._object_provenance_for(params)
         self._obj_run_control.start(
             self._object_worker(params),
             self._on_object_results_ready,
@@ -298,12 +340,13 @@ class ObjectTab(QWidget):
             labels_a = np.asarray(params['labels_a'])
             labels_b = np.asarray(params['labels_b'])
         yield
-        rows, summary = object_table(
+        # object_table's summary dict is still there for API callers;
+        # the tab shows the per-object rows only.
+        rows, _summary = object_table(
             labels_a, labels_b, params['name_a'], params['name_b']
         )
         return (
             rows,
-            summary,
             labels_a,
             labels_b,
             params['name_a'],
@@ -313,16 +356,13 @@ class ObjectTab(QWidget):
         )
 
     def _on_object_results_ready(self, payload):
-        rows, summary, labels_a, labels_b, name_a, name_b, color_a, color_b = (
-            payload
-        )
+        rows, labels_a, labels_b, name_a, name_b, color_a, color_b = payload
         # Deferred until the run completes so a cancelled run leaves
         # the previous overlays in the viewer.
         self._clear_object_overlays()
+        self._object_rows = rows
+        self._obj_export_button.setEnabled(bool(rows))
         self._populate_object_table(rows)
-        self._obj_summary_label.setText(
-            self._object_summary_text(summary, name_a, name_b)
-        )
         if not (
             self._obj_points_check.isChecked()
             or self._obj_links_check.isChecked()
@@ -400,15 +440,4 @@ class ObjectTab(QWidget):
     def _populate_object_table(self, rows):
         _fill_table(
             self._object_table, rows, OBJECT_COLUMNS, _format_object_cell
-        )
-
-    @staticmethod
-    def _object_summary_text(summary, name_a, name_b):
-        return (
-            f'{name_a}: {summary["n_objects_a"]} objects '
-            f'({summary["coincident_a"]} coincident, '
-            f'{summary["overlap_a"]} overlapping)    '
-            f'{name_b}: {summary["n_objects_b"]} objects '
-            f'({summary["coincident_b"]} coincident, '
-            f'{summary["overlap_b"]} overlapping)'
         )

@@ -6,8 +6,6 @@ result table with its cytofluorogram, CSV/figure export and the
 colocalized-pixel mask layer.
 """
 
-import csv
-
 import numpy as np
 from magicgui.widgets import create_widget
 from napari.qt.threading import thread_worker
@@ -42,11 +40,16 @@ from ._plot import ScatterCanvas
 from ._widget_shared import (
     PIXEL_COLUMN_TOOLTIPS,
     _axis_view,
+    _base_provenance,
+    _decimals_for_span,
     _display_region,
     _export_canvas_figure,
     _fill_table,
     _format_cell,
     _hbox,
+    _layer_name,
+    _layer_value_range,
+    _make_grid_group,
     _make_group,
     _make_table,
     _new_region_combo,
@@ -60,6 +63,7 @@ from ._widget_shared import (
     _set_combo_choices,
     _shape_without_axis,
     _slice_index,
+    write_csv_rows,
 )
 
 
@@ -74,6 +78,7 @@ class PixelTab(QWidget):
         # this tab never reaches into the Diagnostics tab.
         self._on_open_diagnostics = on_open_diagnostics
         self._results = []
+        self._metrics = ()
         self._plot_context = []
         self._region_layer = None
         self._region_source = 'none'
@@ -140,9 +145,10 @@ class PixelTab(QWidget):
         self._mode_all = QRadioButton('All-to-all (one layer + channel axis)')
         self._mode_pairwise.setChecked(True)
         self._mode_pairwise.toggled.connect(self._on_mode_changed)
-        return _make_group(
-            'Mode', self._mode_pairwise, self._mode_all, vertical=False
-        )
+        # Stacked, not side by side: 'All-to-all (one layer + channel
+        # axis)' is too long to share a row at dock width and was being
+        # truncated mid-label.
+        return _make_group('Mode', self._mode_pairwise, self._mode_all)
 
     def _build_pairwise_group(self):
         self._image_a_combo = create_widget(
@@ -161,6 +167,8 @@ class PixelTab(QWidget):
         self._slice_axis_spin = QSpinBox()
         self._slice_axis_spin.setMinimum(0)
         self._slice_axis_spin.setMaximum(3)
+        for combo in (self._image_a_combo, self._image_b_combo):
+            combo.changed.connect(self._on_channel_changed)
         self._pairwise_group = _make_group(
             'Channels (pairwise)',
             self._image_a_combo.native,
@@ -215,14 +223,18 @@ class PixelTab(QWidget):
         ):
             cb.setChecked(checked)
             cb.toggled.connect(self._on_metrics_changed)
-        return _make_group(
+        # Five checkboxes on one row need ~467 px, more than a docked
+        # panel gets, and the config scroll area has no horizontal
+        # scrollbar - so the overflow would be unreachable rather than
+        # merely tight. Two columns need ~242 px, at the cost of some
+        # height in a pane that already scrolls.
+        return _make_grid_group(
             'Colocalization metrics',
             self._cb_pcc,
             self._cb_srcc,
             self._cb_icq,
             self._cb_overlap,
             self._cb_mcc,
-            vertical=False,
         )
 
     def _build_threshold_group(self):
@@ -385,6 +397,46 @@ class PixelTab(QWidget):
         pairwise = self._mode_pairwise.isChecked()
         self._pairwise_group.setVisible(pairwise)
         self._all_group.setVisible(not pairwise)
+        self._sync_threshold_spins()
+
+    def _on_channel_changed(self, _layer=None):
+        self._sync_threshold_spins()
+
+    def _threshold_spin_sources(self):
+        """``((layer, spin), ...)`` the manual thresholds apply to.
+
+        In all-to-all mode one pair of thresholds is used for *every*
+        channel pair, so both spinboxes take the whole stack's range.
+        """
+        if self._mode_pairwise.isChecked():
+            return (
+                (self._image_a_combo.value, self._th_a_spin),
+                (self._image_b_combo.value, self._th_b_spin),
+            )
+        stack = self._stack_combo.value
+        return ((stack, self._th_a_spin), (stack, self._th_b_spin))
+
+    def _sync_threshold_spins(self):
+        """Match the manual T_a/T_b spinboxes to the selected channels.
+
+        Without this the boxes step by 0.01 over +/-1e9 with no hint of
+        the channel's units, so reaching a threshold of 17000 on a
+        16-bit image means holding the arrow key. Re-seeding on every
+        layer change also discards a value left over from a channel
+        with a completely different range, where it meant nothing.
+        """
+        for layer, spin in self._threshold_spin_sources():
+            if layer is None:
+                continue
+            low, high = _layer_value_range(layer)
+            span = high - low
+            spin.setDecimals(_decimals_for_span(span))
+            spin.setRange(low, high)
+            spin.setSingleStep(span / 100.0)
+            spin.setValue(low + span / 2.0)
+            spin.setToolTip(
+                f'{layer.name}: {low:g} to {high:g} (step {span / 100.0:g})'
+            )
 
     def _on_metrics_changed(self):
         self._threshold_group.setVisible(self._cb_mcc.isChecked())
@@ -395,6 +447,7 @@ class PixelTab(QWidget):
         )
 
     def _on_stack_changed(self, layer):
+        self._sync_threshold_spins()
         if layer is None:
             self._channel_axis_spin.setMaximum(0)
             return
@@ -622,6 +675,7 @@ class PixelTab(QWidget):
             'region_source': params.get('region_source', 'none'),
             'threshold_method': params.get('threshold_method', 'costes'),
             'mode': params['mode'],
+            'metrics': params['metrics'],
             'region_warnings': region_warnings,
             'slice_axis': params.get('slice_axis'),
         }
@@ -636,6 +690,7 @@ class PixelTab(QWidget):
         self._region_source = payload['region_source']
         self._threshold_method = payload['threshold_method']
         self._run_mode = payload['mode']
+        self._metrics = payload['metrics']
         self._channel_arrays = payload['channel_arrays']
         self._label_mask = payload['label_mask']
         self._slice_axis = payload['slice_axis']
@@ -920,7 +975,7 @@ class PixelTab(QWidget):
         if not path:
             return
         try:
-            self.write_csv(path, self._results)
+            self.write_csv(path, self._results, self._provenance)
         except OSError as exc:
             show_warning(f'Could not write {path}: {exc}')
             return
@@ -985,10 +1040,43 @@ class PixelTab(QWidget):
             name=f'coloc {row["channel_a"]} & {row["channel_b"]}',
         )
 
-    def write_csv(self, path, rows):
+    @staticmethod
+    def _run_provenance(params):
+        """How this analysis was configured, for the exported CSV.
+
+        The metric columns alone don't say which threshold method
+        produced ``threshold_a``/``threshold_b``, which region layer
+        was used, or which version computed them - all of which a
+        reader needs to reproduce or trust the numbers.
+        """
+        metrics = params['metrics']
+        slice_axis = params.get('slice_axis')
+        return {
+            **_base_provenance(),
+            'mode': params['mode'],
+            'metrics': ' '.join(metrics),
+            # Only meaningful when Manders was requested; blank
+            # otherwise, so nobody reads it as having been applied.
+            'threshold_method': (
+                params['threshold_method'] if 'mcc' in metrics else ''
+            ),
+            'region_layer': _layer_name(params.get('region_layer')),
+            'slice_axis': '' if slice_axis is None else slice_axis,
+        }
+
+    @property
+    def _provenance(self):
+        """Provenance for the run currently shown in the table."""
+        return self._run_provenance(
+            {
+                'mode': self._run_mode,
+                'metrics': self._metrics,
+                'threshold_method': self._threshold_method,
+                'region_layer': self._region_layer,
+                'slice_axis': self._slice_axis,
+            }
+        )
+
+    def write_csv(self, path, rows, provenance=None):
         """Write ``rows`` to ``path`` with the table's column order."""
-        with open(path, 'w', newline='') as fh:
-            writer = csv.DictWriter(fh, fieldnames=list(COLUMNS))
-            writer.writeheader()
-            for row in self._display_rows(rows):
-                writer.writerow({k: row.get(k) for k in COLUMNS})
+        write_csv_rows(path, self._display_rows(rows), COLUMNS, provenance)

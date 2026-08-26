@@ -7,6 +7,9 @@ lets the tab modules stay independent of one another - none of them
 imports another tab.
 """
 
+import csv
+from datetime import datetime
+
 import numpy as np
 from napari.utils.notifications import show_info, show_warning
 from qtpy.QtCore import Qt
@@ -17,6 +20,7 @@ from qtpy.QtWidgets import (
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
+    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLayout,
@@ -28,6 +32,12 @@ from qtpy.QtWidgets import (
 )
 
 from ._masking import labels_to_label_mask, shapes_to_label_mask
+from ._objects import OBJECT_COLUMNS
+
+try:
+    from ._version import version as _PLUGIN_VERSION
+except ImportError:  # running from a source tree without a build
+    _PLUGIN_VERSION = 'unknown'
 
 # Qt.UserRole already carries the ctx-index mapping of the intensity
 # table, so numeric sort keys need a role of their own.
@@ -109,6 +119,11 @@ OBJECT_COLUMN_TOOLTIPS = {
         "Whether any of the object's pixels touch an object of the "
         'other channel.'
     ),
+    'nn_distance_px': (
+        "Distance in pixels from this object's centroid to the nearest "
+        'centroid in the other channel. Blank when that channel has no '
+        'objects. Not scaled to physical units.'
+    ),
 }
 
 
@@ -171,6 +186,103 @@ def _reject_multiscale(*layers):
     return False
 
 
+def _base_provenance():
+    """Provenance fields every export shares."""
+    return {
+        'plugin_version': _PLUGIN_VERSION,
+        'analysed_at': datetime.now()
+        .astimezone()
+        .isoformat(timespec='seconds'),
+    }
+
+
+def _layer_name(layer):
+    return '' if layer is None else layer.name
+
+
+def write_csv_rows(path, rows, columns, provenance=None):
+    """Write ``rows`` as CSV, with ``provenance`` repeated on every row.
+
+    Provenance travels as extra *columns* rather than a ``#``-commented
+    header so the file still opens unchanged in Excel and in
+    ``pandas.read_csv`` without a ``comment=`` flag. The repetition
+    costs a few bytes per row and buys a file that says how it was
+    produced - the numbers alone cannot be reproduced from the table.
+
+    ``rows`` may be a generator - the Li ICA export is one row per
+    pixel, so nothing materialises the whole table. Returns the number
+    of data rows written.
+    """
+    provenance = dict(provenance or {})
+    fieldnames = list(columns) + list(provenance)
+    written = 0
+    with open(path, 'w', newline='') as fh:
+        writer = csv.DictWriter(fh, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(
+                {**{key: row.get(key) for key in columns}, **provenance}
+            )
+            written += 1
+    return written
+
+
+def _object_rows_for_csv(rows):
+    """Split each object row's centroid tuple into per-axis columns.
+
+    A ``"(12.0, 34.5)"`` cell is awkward to use downstream, so the
+    centroid becomes ``centroid_0``/``centroid_1``[/``centroid_2``] in
+    the position the single column occupied.
+    """
+    ndim = max((len(row['centroid']) for row in rows), default=0)
+    axis_columns = tuple(f'centroid_{i}' for i in range(ndim))
+    columns = []
+    for column in OBJECT_COLUMNS:
+        if column == 'centroid':
+            columns.extend(axis_columns)
+        else:
+            columns.append(column)
+    flat = []
+    for row in rows:
+        out = {key: value for key, value in row.items() if key != 'centroid'}
+        out.update(dict(zip(axis_columns, row['centroid'], strict=False)))
+        flat.append(out)
+    return flat, tuple(columns)
+
+
+def _layer_value_range(layer):
+    """``(low, high)`` intensity range of an image layer.
+
+    Prefers napari's own ``contrast_limits_range``, which it has
+    already computed, over scanning the array again - the array may be
+    a large or lazily-loaded stack.
+    """
+    for attr in ('contrast_limits_range', 'contrast_limits'):
+        limits = getattr(layer, attr, None)
+        if limits is not None and len(limits) == 2:
+            low, high = float(limits[0]), float(limits[1])
+            if np.isfinite(low) and np.isfinite(high) and high > low:
+                return low, high
+    data = np.asarray(layer.data)
+    if data.size == 0:
+        return 0.0, 1.0
+    low, high = float(np.nanmin(data)), float(np.nanmax(data))
+    return (low, high) if high > low else (low, low + 1.0)
+
+
+def _decimals_for_span(span):
+    """Digits worth showing for a range of this width.
+
+    A 16-bit channel spans ~65535, where six decimals is noise; a
+    normalised 0-1 channel needs them.
+    """
+    if span >= 1000:
+        return 0
+    if span >= 10:
+        return 2
+    return 6
+
+
 def _format_cell(value):
     if isinstance(value, float):
         if np.isnan(value):
@@ -184,6 +296,9 @@ def _format_object_cell(value):
         return 'yes' if value else 'no'
     if isinstance(value, tuple):
         return '(' + ', '.join(f'{v:g}' for v in value) + ')'
+    # bool is checked first: it is a subclass of int, not of float.
+    if isinstance(value, float):
+        return '' if np.isnan(value) else f'{value:.4g}'
     return str(value)
 
 
@@ -284,6 +399,22 @@ def _make_group(title, *items, vertical=True):
             layout.addLayout(item)
         else:
             layout.addWidget(item)
+    group.setLayout(layout)
+    return group
+
+
+def _make_grid_group(title, *items, columns=2):
+    """Wrap ``items`` in a titled box, flowing across ``columns``.
+
+    A single row of long labels overflows a docked panel, and the
+    config scroll area has no horizontal scrollbar - so the overflow is
+    unreachable, not merely tight. Flowing keeps every label readable
+    at dock width without the height of one per row.
+    """
+    group = QGroupBox(title)
+    layout = QGridLayout()
+    for i, item in enumerate(items):
+        layout.addWidget(item, i // columns, i % columns)
     group.setLayout(layout)
     return group
 

@@ -43,8 +43,6 @@ project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
 - Shape and mask mismatches raise `ValueError` across the metric,
   threshold and analysis functions instead of silently correlating
   unrelated pixels.
-- `manders` and `overlap` reject negative intensities with an explicit
-  message.
 - `analyse_pairwise` validates `threshold_method` unconditionally, so a
   typo is caught even when Manders is not requested.
 - The dock widget is split into one module per tab over a shared
@@ -62,12 +60,6 @@ project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- **The overlap coefficient `r` is computed in float64.** On uint8 and
-  uint16 images - the usual microscopy dtypes - the delegated
-  scikit-image computation formed the intensity products in the input
-  dtype, wrapped around, and could report `r` above 1. The split
-  coefficients k1/k2 were never affected; `r` now equals
-  `sqrt(k1 * k2)` as it should.
 - Lazy (dask/zarr-backed) layers load on the analysis thread instead
   of inside the Run click handler, so the viewer stays responsive
   while the data is read.
@@ -97,6 +89,65 @@ project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
   rather than copies; an all-to-all run no longer duplicates every
   channel.
 
+## 0.2.0
+
+### Fixed
+
+- **Manders overlap coefficient `r` overflowed on integer images.** It
+  was computed via `skimage.measure.manders_overlap_coeff`, which
+  squares and multiplies in the *input* dtype, so 8- and 16-bit images
+  wrapped around. A uint8 pair returned `r = 1.945`, outside the
+  documented `[0, 1]` range, while `k1`/`k2` beside it were correct.
+  All three are now accumulated in float64 and agree across dtypes.
+  **Any `overlap` value computed by `0.1.x` on an integer image was
+  wrong.**
+- **A failed Costes auto-threshold was reported as `tM1 = tM2 = 0.00`.**
+  When no threshold could be fitted (a non-positive regression slope, a
+  constant channel, fewer than two pixels), the thresholds fell back to
+  `(max(a), max(b))`, which made every pixel fall below threshold and
+  produced a hard zero with no warning. Such rows are now blank (`NaN`)
+  and say why.
+- **`tM1` and `tM2` were blanked together.** They have different
+  denominators, so a region where B was empty had a well-defined
+  `tM1 = 0` that was being hidden. Each coefficient is now decided on
+  its own inputs. A blank cell always means "not measurable", never
+  "measured as zero".
+- **A background-subtracted channel aborted the whole run.** Negative
+  pixels made scikit-image's Manders functions raise, which killed
+  every region and every other metric with it, including PCC, SRCC and
+  ICQ, all well defined on signed data. The co-occurrence metrics now
+  report blank for signed input and the run completes.
+
+### Added
+
+- Object-based tab: **Export CSV...**.
+- Diagnostics tab: **Export values...**.
+- Diagnostics tab: progress bar and a working **Cancel**.
+- `nn_distance_px` on the object table and its CSV.
+- The manual T_a/T_b spinboxes are seeded from the selected layer's own
+  intensity range, with a step and decimal count to match. They
+  previously stepped by 0.01 over +/-1e9 with no hint of the channel's
+  units, so reaching a threshold of 17000 on a 16-bit image meant
+  holding the arrow key down.
+
+### Changed
+
+- The mode radios stack instead of sharing a row: "All-to-all (one
+  layer + channel axis)" was being truncated mid-label at dock width.
+- The metric checkboxes flow into two columns. Five on one row needed
+  ~467 px, more than a docked panel gets, and the config scroll area
+  has no horizontal scrollbar - so the overflow was unreachable rather
+  than merely tight.
+
+### Removed
+
+- The object results summary line. It repeated what the per-object rows
+  already show, and joined two per-channel sentences with a run of
+  spaces that a word-wrapping label renders as a large gap. The table
+  gets that height instead; `object_table` still returns its summary
+  dict for API callers.
+
 ---
 
-Releases before 0.3.0 predate this changelog.
+Releases before 0.2.0 predate this changelog; see `git tag -n` for
+their one-line notes.

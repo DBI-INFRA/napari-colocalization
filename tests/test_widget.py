@@ -324,6 +324,53 @@ def test_csv_export(widget, qtbot, rng, tmp_path):
     assert 'pcc' in rows[0]
 
 
+def test_csv_export_records_provenance(widget, qtbot, rng, tmp_path):
+    # The metric columns alone don't say how the run was configured, so
+    # a saved file has to carry that with it.
+    a = rng.random((16, 16)).astype(np.float32)
+    _add_pair(widget, a)
+    shapes = widget._viewer.add_shapes(
+        [np.array([[1.0, 1.0], [1.0, 8.0], [8.0, 8.0], [8.0, 1.0]])],
+        shape_type='polygon',
+        name='my_rois',
+    )
+    _select_region(widget, shapes)
+    widget._pixel_tab._cb_mcc.setChecked(True)
+    _select(widget._pixel_tab._threshold_combo, 'otsu')
+    _run(widget, qtbot)
+
+    tab = widget._pixel_tab
+    out = tmp_path / 'results.csv'
+    tab.write_csv(str(out), tab._results, provenance=tab._provenance)
+    with open(out, newline='') as fh:
+        row = next(iter(csv.DictReader(fh)))
+    assert row['threshold_method'] == 'otsu'
+    assert row['region_layer'] == 'my_rois'
+    assert row['mode'] == 'pairwise'
+    assert 'mcc' in row['metrics']
+    assert row['plugin_version']
+    assert row['analysed_at']
+    # Data columns survive alongside the provenance ones.
+    assert 'pcc' in row
+
+
+def test_provenance_blanks_threshold_when_manders_not_requested(widget):
+    provenance = widget._pixel_tab._run_provenance(
+        {
+            'mode': 'pairwise',
+            'metrics': ('pcc',),
+            'threshold_method': 'costes',
+            'region_layer': None,
+            'slice_axis': None,
+        }
+    )
+    # Costes is the combo's default even when Manders is off; recording
+    # it would imply a threshold was applied.
+    assert provenance['threshold_method'] == ''
+    assert provenance['region_layer'] == ''
+    assert provenance['slice_axis'] == ''
+
+
 def test_row_selection_highlights_regions(widget, qtbot, rng):
     _add_pair(widget, rng.random((20, 20)).astype(np.float32))
     shapes = widget._viewer.add_shapes(
@@ -471,6 +518,134 @@ def test_add_scrambled_example_layer(widget, rng):
 # -- object-based tab -------------------------------------------------
 
 
+def test_object_csv_export(widget, qtbot, tmp_path):
+    from napari_colocalization._widget_shared import (
+        _object_rows_for_csv,
+        write_csv_rows,
+    )
+
+    img = np.zeros((20, 20), dtype=np.float32)
+    img[2:6, 2:6] = 1.0
+    img[12:16, 12:16] = 1.0
+    viewer = widget._viewer
+    tab = widget._object_tab
+    tab._obj_image_a_combo.value = viewer.add_image(img, name='a')
+    tab._obj_image_b_combo.value = viewer.add_image(img.copy(), name='b')
+    # Nothing to export until a run has produced rows.
+    assert not tab._obj_export_button.isEnabled()
+    tab._on_object_run_clicked()
+    qtbot.waitUntil(lambda: tab._object_table.rowCount() > 0, timeout=10000)
+    assert tab._obj_export_button.isEnabled()
+
+    out = tmp_path / 'objects.csv'
+    rows, columns = _object_rows_for_csv(tab._object_rows)
+    write_csv_rows(str(out), rows, columns, tab._object_provenance)
+    with open(out, newline='') as fh:
+        written = list(csv.DictReader(fh))
+    assert len(written) == 4  # 2 objects x 2 channels
+    # The centroid tuple is split per axis rather than written as a
+    # single "(y, x)" string that downstream tools can't parse.
+    assert 'centroid' not in written[0]
+    assert float(written[0]['centroid_0']) == pytest.approx(3.5)
+    assert float(written[0]['centroid_1']) == pytest.approx(3.5)
+    assert written[0]['coincident'] == 'True'
+    assert written[0]['threshold_method'] == 'otsu'
+    assert written[0]['objects_from'] == 'threshold'
+    assert written[0]['plugin_version']
+
+
+def test_object_provenance_blanks_threshold_for_labels_source(widget):
+    provenance = widget._object_tab._object_provenance_for(
+        {'source': 'labels', 'region_layer': None}
+    )
+    # With Labels layers the segmentation happened upstream, so naming a
+    # threshold method here would be a fiction.
+    assert provenance['objects_from'] == 'labels'
+    assert provenance['threshold_method'] == ''
+    assert provenance['min_object_size'] == ''
+
+
+@pytest.mark.parametrize(
+    ('method', 'columns', 'n_rows'),
+    [
+        ('costes', ('iteration', 'null_pcc'), 20),
+        ('ccf', ('shift_px', 'pearson_r'), 11),
+        ('ica', ('a', 'b', 'product'), 32 * 32),
+    ],
+)
+def test_diagnostic_value_export(
+    widget, qtbot, rng, tmp_path, method, columns, n_rows
+):
+    from napari_colocalization._widget_shared import write_csv_rows
+
+    a = rng.random((32, 32)).astype(np.float32)
+    viewer = widget._viewer
+    tab = widget._diagnostics_tab
+    tab._diag_image_a_combo.value = viewer.add_image(a, name='a')
+    tab._diag_image_b_combo.value = viewer.add_image(a.copy(), name='b')
+    _select(tab._diag_method_combo, method)
+    tab._costes_niter.setValue(20)
+    tab._ccf_max_shift.setValue(5)  # -> 11 shifts
+    # The figure is exportable but the numbers behind it were not.
+    assert not tab._diag_export_values_button.isEnabled()
+    tab._on_diag_run_clicked()
+    qtbot.waitUntil(
+        lambda: tab._diag_summary_label.text() != '', timeout=15000
+    )
+    assert tab._diag_export_values_button.isEnabled()
+
+    out = tmp_path / f'{method}.csv'
+    rows, cols, extra = tab._diag_rows_for_csv(*tab._diag_result)
+    assert cols == columns
+    written = write_csv_rows(
+        str(out), rows, cols, {**tab._diag_provenance, **extra}
+    )
+    assert written == n_rows
+    with open(out, newline='') as fh:
+        first = next(iter(csv.DictReader(fh)))
+    assert first['diagnostic'] == method
+    assert first['channel_a'] == 'a'
+    assert all(column in first for column in columns)
+
+
+def test_manual_threshold_spins_track_the_selected_layers(widget):
+    # Seeded from the layer's own range: a 16-bit channel must not be
+    # left stepping by 0.01 over +/-1e9 with no hint of its units.
+    viewer = widget._viewer
+    tab = widget._pixel_tab
+    a = (np.arange(256 * 256, dtype=np.uint16) % 4096).reshape(256, 256)
+    b = np.linspace(0.0, 1.0, 256 * 256, dtype=np.float32).reshape(256, 256)
+    tab._image_a_combo.value = viewer.add_image(a, name='sixteen_bit')
+    tab._image_b_combo.value = viewer.add_image(b, name='normalised')
+    _select(tab._threshold_combo, 'manual')
+
+    assert tab._th_a_spin.maximum() == pytest.approx(4095.0, rel=1e-3)
+    assert tab._th_a_spin.singleStep() > 1.0  # usable on a 16-bit range
+    assert tab._th_a_spin.value() == pytest.approx(2047.5, rel=1e-2)
+    assert 'sixteen_bit' in tab._th_a_spin.toolTip()
+
+    # The 0-1 channel keeps fine resolution rather than inheriting the
+    # coarse step that suits its 16-bit neighbour.
+    assert tab._th_b_spin.maximum() == pytest.approx(1.0)
+    assert tab._th_b_spin.singleStep() < 0.1
+    assert tab._th_b_spin.decimals() >= 6
+
+
+def test_object_table_shows_nn_distance(widget, qtbot):
+    img_a = np.zeros((20, 20), dtype=np.float32)
+    img_a[2:6, 2:6] = 1.0
+    img_b = np.zeros((20, 20), dtype=np.float32)
+    img_b[12:16, 12:16] = 1.0
+    viewer = widget._viewer
+    tab = widget._object_tab
+    tab._obj_image_a_combo.value = viewer.add_image(img_a, name='a')
+    tab._obj_image_b_combo.value = viewer.add_image(img_b, name='b')
+    tab._on_object_run_clicked()
+    qtbot.waitUntil(lambda: tab._object_table.rowCount() > 0, timeout=10000)
+    # Rendered as a short number, not a raw repr.
+    assert _cell(tab._object_table, 0, 'nn_distance_px') == '14.14'
+
+
 def test_object_source_toggle(widget):
     assert (
         not widget._object_tab._obj_threshold_group.isHidden()
@@ -501,7 +676,7 @@ def test_object_run_from_threshold_with_overlays(widget, qtbot):
     assert (
         widget._object_tab._object_table.rowCount() == 4
     )  # 2 objects x 2 channels
-    assert 'coincident' in widget._object_tab._obj_summary_label.text()
+    assert _cell(widget._object_tab._object_table, 0, 'coincident') == 'yes'
     assert any(isinstance(layer, Points) for layer in viewer.layers)
     assert any(isinstance(layer, Vectors) for layer in viewer.layers)
 

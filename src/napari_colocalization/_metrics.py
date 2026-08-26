@@ -2,9 +2,16 @@
 
 No napari / qtpy imports here - every function in this module
 operates on ndarrays so it can be tested headlessly and reused
-from scripts. PCC and Manders delegate to scikit-image; SRCC
-uses scipy.stats; Costes auto-threshold is implemented locally
-because scikit-image does not provide it.
+from scripts. PCC delegates to scikit-image and SRCC to
+scipy.stats; the Manders coefficients, the overlap coefficient
+and the Costes auto-threshold are computed locally, either
+because scikit-image has no equivalent or because its version
+raises where this module returns ``nan`` (see below).
+
+Failure policy: a metric that cannot be computed returns ``nan``
+rather than raising. Callers analyse many regions in one run, and
+one degenerate region - or one background-subtracted channel -
+must not destroy the results for all the others.
 """
 
 import numpy as np
@@ -23,20 +30,6 @@ def _flatten_with_mask(a, b, mask):
     if mask.shape != a.shape:
         raise ValueError(f'mask shape mismatch: {mask.shape} vs {a.shape}')
     return a[mask], b[mask]
-
-
-def _reject_negative(a_flat, b_flat):
-    """Guard the Manders family against negative intensities.
-
-    The coefficients are ratios of intensity sums and lose their
-    ``[0, 1]`` meaning once a channel can cancel itself out; the
-    scikit-image implementations reject such input with an opaque
-    message, so catch it here.
-    """
-    if a_flat.size and (a_flat.min() < 0 or b_flat.min() < 0):
-        raise ValueError(
-            'Manders coefficients require non-negative intensities'
-        )
 
 
 def _degenerate(a_flat, b_flat):
@@ -69,12 +62,6 @@ def pearson(a, b, mask=None):
     p_value : float
         Two-tailed p-value for the null hypothesis that the
         coefficient is zero. ``nan`` if ``pcc`` is ``nan``.
-
-    Raises
-    ------
-    ValueError
-        If ``a`` and ``b`` differ in shape, or ``mask`` does not
-        match their shape.
 
     Examples
     --------
@@ -117,12 +104,6 @@ def spearman(a, b, mask=None):
         samples, or zero variance in either channel).
     p_value : float
         Two-tailed p-value for the rank correlation, or ``nan``.
-
-    Raises
-    ------
-    ValueError
-        If ``a`` and ``b`` differ in shape, or ``mask`` does not
-        match their shape.
 
     Examples
     --------
@@ -171,12 +152,6 @@ def li_icq(a, b, mask=None):
         fewer than two samples or zero variance in either channel
         (where the means coincide with every value and the sign
         of ``P_i`` is degenerate).
-
-    Raises
-    ------
-    ValueError
-        If ``a`` and ``b`` differ in shape, or ``mask`` does not
-        match their shape.
 
     Notes
     -----
@@ -231,9 +206,16 @@ def manders(a, b, threshold_a, threshold_b, mask=None):
     reports are the *thresholded* coefficients, written ``tM1`` /
     ``tM2`` in the results.
 
-    Wraps `skimage.measure.manders_coloc_coeff`, which
-    expects a binary mask for the second image; we threshold
-    internally and then call it twice.
+    The two coefficients are decided **independently**: each is
+    ``nan`` only when *its own* inputs are unusable, so a region
+    where one channel is absent still reports the other's
+    coefficient rather than blanking both.
+
+    Computed from the intensity sums directly rather than via
+    `skimage.measure.manders_coloc_coeff`, which couples the two
+    (it returns ``0`` for an empty channel, where ``nan`` is
+    wanted) and rejects negative pixels by raising - aborting a
+    whole multi-region run over one background-subtracted channel.
 
     Parameters
     ----------
@@ -242,7 +224,10 @@ def manders(a, b, threshold_a, threshold_b, mask=None):
     threshold_a, threshold_b : float
         Per-channel thresholds. Use `costes_threshold` to
         derive them automatically, or pass values you have set
-        manually.
+        manually. A ``nan`` threshold (an auto-threshold has none
+        for a constant channel) blanks only the coefficient that
+        needs it: ``threshold_b`` gates M1, ``threshold_a`` gates
+        M2.
     mask : array_like of bool, optional
         Boolean array selecting the analysed region. ``None``
         analyses every pixel.
@@ -250,16 +235,12 @@ def manders(a, b, threshold_a, threshold_b, mask=None):
     Returns
     -------
     m1, m2 : float
-        Each in ``[0, 1]``, or ``nan`` if the analysed region
-        contains no positive intensity in either channel.
-
-    Raises
-    ------
-    ValueError
-        If ``a`` and ``b`` differ in shape, if ``mask`` does not
-        match their shape, or if either channel holds negative
-        intensities (e.g. after background subtraction), for which
-        M1/M2 are not defined.
+        Each in ``[0, 1]``. ``m1`` is ``nan`` when the region is
+        empty, when ``threshold_b`` is not finite, or when channel
+        A carries no signal (``sum <= 0``) or any negative value -
+        the "fraction of A's intensity" reading breaks down if A's
+        own values can cancel. ``m2`` is ``nan`` under the mirrored
+        conditions on ``threshold_a`` and channel B.
 
     Examples
     --------
@@ -271,21 +252,30 @@ def manders(a, b, threshold_a, threshold_b, mask=None):
     >>> round(m1, 2), round(m2, 2)
     (0.5, 1.0)
     """
-    a = np.asarray(a)
-    b = np.asarray(b)
+    nan = float('nan')
     a_flat, b_flat = _flatten_with_mask(a, b, mask)
-    _reject_negative(a_flat, b_flat)
-    if not (np.isfinite(threshold_a) and np.isfinite(threshold_b)):
-        # An auto-threshold can be NaN for a constant/empty channel;
-        # M1/M2 are then undefined rather than spuriously 0.
-        return float('nan'), float('nan')
-    a_above = a > threshold_a
-    b_above = b > threshold_b
-    if a_flat.size == 0 or a_flat.sum() == 0 or b_flat.sum() == 0:
-        return float('nan'), float('nan')
-    m1 = measure.manders_coloc_coeff(a, b_above, mask=mask)
-    m2 = measure.manders_coloc_coeff(b, a_above, mask=mask)
-    return float(m1), float(m2)
+    if a_flat.size == 0:
+        return nan, nan
+    a_flat = a_flat.astype(np.float64, copy=False)
+    b_flat = b_flat.astype(np.float64, copy=False)
+    # Each coefficient stands on its own channel: M1 *sums* A's
+    # intensity and only *gates* on B (via threshold_b), so it needs a
+    # usable A and a finite threshold_b - nothing more. Deciding the
+    # two separately keeps "B is absent, so none of A co-occurs"
+    # (M1 = 0) distinguishable from "M1 could not be computed".
+    sum_a = float(a_flat.sum())
+    sum_b = float(b_flat.sum())
+    m1 = (
+        float(a_flat[b_flat > threshold_b].sum() / sum_a)
+        if np.isfinite(threshold_b) and sum_a > 0 and a_flat.min() >= 0
+        else nan
+    )
+    m2 = (
+        float(b_flat[a_flat > threshold_a].sum() / sum_b)
+        if np.isfinite(threshold_a) and sum_b > 0 and b_flat.min() >= 0
+        else nan
+    )
+    return m1, m2
 
 
 def overlap(a, b, mask=None):
@@ -307,13 +297,15 @@ def overlap(a, b, mask=None):
     channel and are sensitive to such differences - their
     asymmetry is informative.
 
-    All three coefficients are computed here from float64
-    intensity sums, so integer inputs cannot overflow.
-    (`skimage.measure.manders_overlap_coeff` is deliberately not
-    used: it forms the products in the input dtype, which wraps
-    around for uint8/uint16 images. `manders_coloc_coeff` computes
-    the threshold-gated M1/M2 used by `manders`, a different
-    quantity.)
+    All three are computed locally from the same intensity sums.
+    `skimage.measure.manders_overlap_coeff` would supply ``r``,
+    but it squares and multiplies in the *input* dtype, so an
+    integer image (uint8/uint16 - what a microscopy TIFF loads
+    as) overflows and yields a value outside ``[0, 1]``; k1/k2
+    have no scikit-image equivalent anyway
+    (`skimage.measure.manders_coloc_coeff` computes the
+    threshold-gated M1/M2 used by `manders`, a different
+    quantity).
 
     Parameters
     ----------
@@ -329,15 +321,9 @@ def overlap(a, b, mask=None):
         The overlap coefficient and the two split coefficients.
         Any coefficient whose denominator is zero (an all-zero
         channel within the region) is returned as ``nan``; all
-        three are ``nan`` for an empty region.
-
-    Raises
-    ------
-    ValueError
-        If ``a`` and ``b`` differ in shape, if ``mask`` does not
-        match their shape, or if either channel holds negative
-        intensities (e.g. after background subtraction), for which
-        the coefficients are not defined.
+        three are ``nan`` for an empty region, or when either
+        channel contains negative values (these coefficients are
+        defined only for non-negative intensities).
 
     References
     ----------
@@ -360,23 +346,27 @@ def overlap(a, b, mask=None):
     a_flat, b_flat = _flatten_with_mask(a, b, mask)
     a_flat = a_flat.astype(np.float64, copy=False)
     b_flat = b_flat.astype(np.float64, copy=False)
-    _reject_negative(a_flat, b_flat)
     if a_flat.size == 0:
         return float('nan'), float('nan'), float('nan')
+    # r is only defined for non-negative intensities (it is the
+    # un-centred Pearson coefficient, and the [0, 1] range depends on
+    # both channels being one-signed). Background-subtracted data can
+    # go negative, so report nan rather than a number outside the
+    # documented range - and rather than raising, which would abort a
+    # whole multi-region run over one signed channel.
+    if a_flat.min() < 0 or b_flat.min() < 0:
+        return float('nan'), float('nan'), float('nan')
+    # The sums drive all three coefficients. They are accumulated in
+    # float64 (cast above) because squaring in the input dtype
+    # overflows for the integer images microscopy TIFFs load as.
     sum_aa = float(np.sum(a_flat * a_flat))
     sum_bb = float(np.sum(b_flat * b_flat))
     sum_ab = float(np.sum(a_flat * b_flat))
-    # All three coefficients are derived from the same float64
-    # intensity sums. r is not delegated to
-    # skimage.measure.manders_overlap_coeff: that computes the
-    # products in the input dtype, which wraps around for the
-    # uint8/uint16 arrays microscopy data normally arrives in and
-    # can return r > 1. The sum guards keep the "never raise,
-    # return nan" contract for a zero-signal channel.
-    if sum_aa > 0 and sum_bb > 0:
-        r = sum_ab / float(np.sqrt(sum_aa * sum_bb))
-    else:
-        r = float('nan')
+    r = (
+        float(sum_ab / np.sqrt(sum_aa * sum_bb))
+        if sum_aa > 0 and sum_bb > 0
+        else float('nan')
+    )
     k1 = sum_ab / sum_aa if sum_aa > 0 else float('nan')
     k2 = sum_ab / sum_bb if sum_bb > 0 else float('nan')
     return r, k1, k2
@@ -412,12 +402,6 @@ def costes_regression(a, b, mask=None):
         Regression coefficients, or ``(nan, nan)`` when the region
         has fewer than two samples, zero variance in either
         channel, or zero covariance (no line to fit).
-
-    Raises
-    ------
-    ValueError
-        If ``a`` and ``b`` differ in shape, or ``mask`` does not
-        match their shape.
 
     References
     ----------
@@ -475,8 +459,8 @@ def costes_threshold(a, b, mask=None, max_iter=100):
        ``T_a = (T_b - c)/m``).
     3. At each candidate, compute the Pearson correlation of the
        below-threshold pixels (``a < T_a`` **or** ``b < T_b``).
-       Bisect downward while that correlation is positive and
-       upward when it is non-positive (or undefined), converging on
+       Bisect downward while that correlation is zero or positive,
+       and upward when it is negative or undefined, converging on
        the threshold where the background pixels stop correlating.
 
     Parameters
@@ -487,24 +471,24 @@ def costes_threshold(a, b, mask=None, max_iter=100):
         Restrict the regression and search to this region.
     max_iter : int, default 100
         Maximum bisection iterations (Coloc 2 default); the search
-        also stops once the step falls below the tolerance - one
-        intensity level when both inputs have an integer dtype, and
-        ``1e-4`` of the data span for float-valued (e.g. 0..1
-        normalised) images.
+        also stops once the step falls below one intensity unit.
 
     Returns
     -------
     threshold_a, threshold_b : float
         Per-channel thresholds for `manders`, clamped to the
-        data range. Falls back to ``(max(a), max(b))`` when the
-        regression slope is non-positive or undefined (no
+        data range, or ``(nan, nan)`` when no threshold can be
+        determined: fewer than two pixels, a constant channel, or
+        a regression slope that is non-positive or undefined (no
         co-occurrence to threshold for).
 
-    Raises
-    ------
-    ValueError
-        If ``a`` and ``b`` differ in shape, or ``mask`` does not
-        match their shape.
+        Coloc 2 instead falls back to ``(max(a), max(b))`` here and
+        emits a warning. We deliberately diverge: that fallback
+        makes `manders` return exactly ``0.0``, which reads as the
+        measured result "none of channel A co-occurs with B" rather
+        than "no threshold could be fitted". ``nan`` keeps the two
+        distinguishable - the caller reports a blank cell and the
+        reason instead of a number that was never measured.
 
     References
     ----------
@@ -512,27 +496,23 @@ def costes_threshold(a, b, mask=None, max_iter=100):
     measurement of protein-protein colocalization in live cells.*
     Biophys. J. 86(6), 3993-4003.
     """
-    integer_input = np.issubdtype(
-        np.asarray(a).dtype, np.integer
-    ) and np.issubdtype(np.asarray(b).dtype, np.integer)
     a_flat, b_flat = _flatten_with_mask(a, b, mask)
     a_flat = a_flat.astype(np.float64, copy=False)
     b_flat = b_flat.astype(np.float64, copy=False)
 
+    nan = float('nan')
     if a_flat.size < 2:
-        a_max = float(a_flat.max()) if a_flat.size else 0.0
-        b_max = float(b_flat.max()) if b_flat.size else 0.0
-        return a_max, b_max
+        return nan, nan
 
     if a_flat.std() == 0 or b_flat.std() == 0:
-        return float(a_flat.max()), float(b_flat.max())
+        return nan, nan
 
     slope, intercept = costes_regression(a_flat, b_flat)
     a_max, a_min = float(a_flat.max()), float(a_flat.min())
     b_max, b_min = float(b_flat.max()), float(b_flat.min())
 
     if not np.isfinite(slope) or slope <= 0:
-        return a_max, b_max
+        return nan, nan
 
     # Step the channel that resolves the line best (Coloc 2: ch1 when
     # |m| < 1, else ch2), mapping the stepped value onto the other
@@ -552,12 +532,12 @@ def costes_threshold(a, b, mask=None, max_iter=100):
 
         threshold, upper, span = 0.5 * (b_max + b_min), b_max, b_max - b_min
 
-    # Bisection: positive below-r -> threshold too high, step down;
-    # non-positive or undefined -> step up. Step halves each round.
-    # Integer images stop at one intensity level, as Coloc 2 does;
-    # float-valued (e.g. 0..1 normalised) images have no such natural
-    # unit, so the tolerance is taken relative to the data span.
-    tol = 1.0 if integer_input else span * 1e-4
+    # Bisection: zero-or-positive below-r -> threshold too high, step
+    # down; negative or undefined -> step up. Step halves each round.
+    # Coloc 2 stops at a step of one integer intensity level; we use a
+    # tolerance relative to the data span so it also works on
+    # float-valued (e.g. 0..1 normalised) images.
+    tol = span * 1e-4
     thr_diff = abs(upper - threshold)
     t_a, t_b = map_thresholds(threshold)
     for _ in range(max_iter):

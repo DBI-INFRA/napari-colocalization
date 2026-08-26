@@ -14,9 +14,6 @@ def rng():
     return np.random.default_rng(seed=7)
 
 
-# -- Van Steensel CCF -------------------------------------------------
-
-
 def test_ccf_peaks_at_alignment(rng):
     a = rng.random((32, 64))
     shifts, ccf = van_steensel_ccf(a, a.copy(), max_shift=10)

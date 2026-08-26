@@ -91,7 +91,13 @@ Visible only when **Manders** is checked - a **Method** dropdown:
   regression + bisection, matched to Fiji Coloc 2).
 - **Otsu / Li / Triangle / Yen / Mean / IsoData** - a per-channel
   histogram threshold (`skimage.filters`), giving the thresholded tM1/tM2.
-- **Manual** - reveals **T_a** / **T_b** spinboxes for explicit values.
+- **Manual** - reveals **T_a** / **T_b** spinboxes for explicit values. Each
+  box is seeded from its channel's own intensity range: the bounds match the
+  layer, the step is a hundredth of that range, and the tooltip spells the
+  range out — so a 16-bit channel steps in hundreds rather than in 0.01, and a
+  normalised 0–1 channel keeps full precision. Changing the selected layer
+  re-seeds the box, since a threshold from a channel with a different range
+  no longer means anything.
 
 In all-to-all mode the chosen method applies to every channel pair.
 
@@ -133,7 +139,8 @@ outline, or `show_selected_label` for a single Labels row).
 Three actions sit below: **Export CSV…** (the table), **Export figure…** (the
 cytofluorogram, at a chosen size/DPI and format), and **Add coloc mask
 layer** (a Labels layer of the pixels above both Manders thresholds for the
-selected row).
+selected row). See [Exported CSVs](#exported-csvs) for what the file records
+beyond the table itself.
 
 ## Diagnostics tab
 
@@ -160,9 +167,23 @@ For a single channel pair (its own **Image A**/**Image B** and optional
   <figcaption>Costes randomization on the Diagnostics tab.</figcaption>
 </figure>
 
-**Run diagnostic** renders the plot and a one-line summary. **Export
-figure…** saves it. For Costes randomization, **Add scrambled example** adds
-one block-scrambled copy of Image B to the viewer as an Image layer.
+**Run diagnostic** renders the plot and a one-line summary. Costes
+randomization and the CCF report progress on a bar while they run, and
+**Cancel** stops them at the next iteration — worth knowing before setting
+**Iterations** high, since the null is built one scramble at a time and
+100 000 of them takes minutes. A cancelled run leaves the previous result
+cleared and the controls ready for another go.
+
+**Export figure…** saves the picture; **Export values…** saves the numbers behind it
+as CSV — the null distribution (`iteration`, `null_pcc`) for Costes, the
+curve (`shift_px`, `pearson_r`) for the CCF, or the per-pixel points (`a`,
+`b`, `product`) for Li ICA. The run's scalars (observed PCC, p, z, or ICQ)
+ride along as extra columns. Both buttons stay disabled until a diagnostic
+has been run. For Costes randomization, **Add scrambled example** adds one
+block-scrambled copy of Image B to the viewer as an Image layer.
+
+Note that the Li ICA export is one row *per pixel*, so it can be a large
+file for a big stack; the confirmation message reports the row count.
 
 ## Object-based tab
 
@@ -186,9 +207,47 @@ nearest-neighbour links (Vectors)**.
 
 **Run object analysis** fills the **Object results** table - one row per
 object (`channel`, `object`, `n_pixels`, `centroid`, `coincident`,
-`overlap`; hover a column header for a one-line explanation) - with a
-per-channel summary below. *Coincident* means the
-object's centroid falls inside an object of the other channel; *overlap*
-means its pixels touch one. If overlays are enabled, object centroids are
-added as Points layers (coloured by each channel's colormap) and the
-nearest-neighbour links as a Vectors layer; re-running replaces them.
+`overlap`, `nn_distance_px`; hover a column header for a one-line
+explanation). *Coincident* means the object's centroid falls inside an
+object of the other channel; *overlap* means its pixels touch one.
+
+`nn_distance_px` is the distance from the object's centroid to the
+nearest centroid in the *other* channel. It is the graded companion to
+the two yes/no measures: an object that misses by 2 px and one that
+misses by 200 px both read as "no", but they are not the same result.
+The distance is in **pixels**, matching `n_pixels` and the centroid
+columns beside it - the plugin does not apply a layer's physical
+`scale` anywhere, so convert yourself if you need microns. It is blank
+when the other channel has no objects to measure to.
+
+If overlays are enabled, object centroids are added as Points layers
+(coloured by each channel's colormap) and the nearest-neighbour links
+as a Vectors layer; re-running replaces them.
+
+**Export CSV…** (below the table, disabled until there are results)
+saves the per-object table. The `centroid` tuple is split into one column per
+axis — `centroid_0`, `centroid_1` and, for a 3D image, `centroid_2` — so the
+coordinates are usable downstream without string-parsing.
+
+## Exported CSVs
+
+All three tabs write plain CSV that opens unchanged in Excel or
+`pandas.read_csv` (no `comment=` flag needed). Alongside the data columns,
+each file repeats a few **provenance** columns on every row, recording how the
+run was configured:
+
+| Column | Meaning |
+|---|---|
+| `plugin_version` | the plugin version that computed the numbers |
+| `analysed_at` | local timestamp of the run |
+| `region_layer` | the Shapes/Labels layer used, or blank for whole-image |
+| `mode`, `metrics`, `threshold_method`, `slice_axis` | Pixel-based run settings |
+| `objects_from`, `threshold_method`, `min_object_size` | Object-based run settings |
+| `diagnostic`, `channel_a`/`channel_b`, `n_iter`, `block_size`, `max_shift` | Diagnostics run settings |
+
+Fields that don't apply are left blank rather than filled with a default — a
+`threshold_method` of `costes` is only recorded if Manders was actually
+requested, so an empty cell means "no threshold was applied", not "unknown".
+The point is that a saved file says how it was produced: the metric columns
+alone can't tell a reader whether `threshold_a` came from Costes, Otsu, or a
+number typed by hand.
