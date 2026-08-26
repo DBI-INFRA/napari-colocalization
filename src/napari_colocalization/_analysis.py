@@ -17,7 +17,7 @@ the caller can summarise how many regions were skipped and why.
 import numpy as np
 from skimage import filters
 
-from ._masking import iter_regions
+from ._masking import iter_region_crops
 from ._metrics import (
     _flatten_with_mask,
     costes_threshold,
@@ -165,6 +165,28 @@ def _skip_reason(a, b, region_mask, channel_a, channel_b):
     return '; '.join(parts) if parts else 'metric undefined for this region'
 
 
+def _iter_region_inputs(a, b, label_mask):
+    """Yield ``(label_id, a_crop, b_crop, mask_crop, n_pixels)``.
+
+    Each region is cropped to its bounding box so the per-region
+    cost scales with the region rather than with the image. The
+    metrics only ever read ``a[mask]`` / ``b[mask]``, so cropping
+    selects the same pixels in the same order. ``label_mask=None``
+    means the whole image, passed through uncropped and unmasked.
+    """
+    if label_mask is None:
+        yield 0, a, b, None, int(a.size)
+        return
+    for label, bbox, region_mask in iter_region_crops(label_mask):
+        yield (
+            label,
+            a[bbox],
+            b[bbox],
+            region_mask,
+            int(region_mask.sum()),
+        )
+
+
 def analyse_pairwise(
     a,
     b,
@@ -284,43 +306,40 @@ def analyse_pairwise(
         return rows
 
     rows = []
-    for region_id, region_mask in iter_regions(label_mask):
-        if region_mask is None:
-            n_pixels = int(a.size)
-        else:
-            n_pixels = int(region_mask.sum())
+    for region in _iter_region_inputs(a, b, label_mask):
+        region_id, a_r, b_r, region_mask, n_pixels = region
         row = _empty_row(region_id, channel_a, channel_b, n_pixels)
         if 'pcc' in metrics:
-            pcc, pval = pearson(a, b, mask=region_mask)
+            pcc, pval = pearson(a_r, b_r, mask=region_mask)
             row['pcc'] = pcc
             row['pcc_pvalue'] = pval
         if 'srcc' in metrics:
-            rho, pval = spearman(a, b, mask=region_mask)
+            rho, pval = spearman(a_r, b_r, mask=region_mask)
             row['srcc'] = rho
             row['srcc_pvalue'] = pval
         if 'icq' in metrics:
-            row['icq'] = li_icq(a, b, mask=region_mask)
+            row['icq'] = li_icq(a_r, b_r, mask=region_mask)
         if 'overlap' in metrics:
-            r, k1, k2 = overlap(a, b, mask=region_mask)
+            r, k1, k2 = overlap(a_r, b_r, mask=region_mask)
             row['overlap'] = r
             row['k1'] = k1
             row['k2'] = k2
         if 'mcc' in metrics:
             t_a, t_b = _resolve_thresholds(
-                a,
-                b,
+                a_r,
+                b_r,
                 region_mask,
                 threshold_method,
                 threshold_a,
                 threshold_b,
             )
-            m1, m2 = manders(a, b, t_a, t_b, mask=region_mask)
+            m1, m2 = manders(a_r, b_r, t_a, t_b, mask=region_mask)
             row['tm1'] = m1
             row['tm2'] = m2
             row['threshold_a'] = t_a
             row['threshold_b'] = t_b
         if region_warnings is not None and _row_has_uncomputed(row, metrics):
-            reason = _skip_reason(a, b, region_mask, channel_a, channel_b)
+            reason = _skip_reason(a_r, b_r, region_mask, channel_a, channel_b)
             region_warnings.append(
                 f'region {region_id} ({channel_a} vs {channel_b}): {reason}'
             )

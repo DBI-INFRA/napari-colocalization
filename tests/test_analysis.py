@@ -6,6 +6,14 @@ from napari_colocalization._analysis import (
     analyse_all_to_all,
     analyse_pairwise,
 )
+from napari_colocalization._metrics import (
+    costes_threshold,
+    li_icq,
+    manders,
+    overlap,
+    pearson,
+    spearman,
+)
 
 
 @pytest.fixture
@@ -62,6 +70,67 @@ def test_pairwise_one_row_per_labelled_region():
     assert {r['region'] for r in rows} == {1, 2}
     assert all(r['n_pixels'] == 50 for r in rows)
     assert all(r['tm1'] == pytest.approx(1.0) for r in rows)
+
+
+def _same(value, expected):
+    """Equal within tolerance, treating NaN as matching only NaN."""
+    if np.isnan(expected):
+        return np.isnan(value)
+    return value == pytest.approx(expected, rel=1e-12, abs=1e-12)
+
+
+def test_pairwise_region_values_match_full_image_masks(rng):
+    # Regions are analysed on a bounding-box crop; the metrics must
+    # match what the equivalent full-size boolean mask gives.
+    a = rng.random((24, 30))
+    b = 0.4 * a + 0.6 * rng.random((24, 30))
+    label_mask = np.zeros((24, 30), dtype=int)
+    label_mask[0:6, 0:5] = 1  # touches two image borders
+    label_mask[9:15, 12:20] = 2
+    label_mask[18:24, 22:30] = 3  # touches the far borders
+
+    rows = analyse_pairwise(
+        a, b, label_mask=label_mask, threshold_method='costes'
+    )
+    assert [row['region'] for row in rows] == [1, 2, 3]
+
+    for row in rows:
+        mask = label_mask == row['region']
+        assert row['n_pixels'] == int(mask.sum())
+        pcc, pcc_p = pearson(a, b, mask=mask)
+        srcc, srcc_p = spearman(a, b, mask=mask)
+        r, k1, k2 = overlap(a, b, mask=mask)
+        t_a, t_b = costes_threshold(a, b, mask=mask)
+        m1, m2 = manders(a, b, t_a, t_b, mask=mask)
+        expected = {
+            'pcc': pcc,
+            'pcc_pvalue': pcc_p,
+            'srcc': srcc,
+            'srcc_pvalue': srcc_p,
+            'icq': li_icq(a, b, mask=mask),
+            'overlap': r,
+            'k1': k1,
+            'k2': k2,
+            'tm1': m1,
+            'tm2': m2,
+            'threshold_a': t_a,
+            'threshold_b': t_b,
+        }
+        for key, want in expected.items():
+            assert _same(row[key], want), key
+
+
+def test_pairwise_handles_non_contiguous_label_values(rng):
+    a = rng.random((12, 12))
+    label_mask = np.zeros((12, 12), dtype=int)
+    label_mask[1:4, 1:4] = 3
+    label_mask[7:11, 6:10] = 7
+    rows = analyse_pairwise(
+        a, a.copy(), label_mask=label_mask, metrics=('pcc',)
+    )
+    assert [row['region'] for row in rows] == [3, 7]
+    assert [row['n_pixels'] for row in rows] == [9, 16]
+    assert all(row['pcc'] == pytest.approx(1.0) for row in rows)
 
 
 def test_pairwise_works_in_3d(rng):
