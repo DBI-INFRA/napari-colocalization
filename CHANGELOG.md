@@ -62,6 +62,21 @@ project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The overlap coefficient `r` is computed in float64.** On uint8 and
+  uint16 images - the usual microscopy dtypes - the delegated
+  scikit-image computation formed the intensity products in the input
+  dtype, wrapped around, and could report `r` above 1. The split
+  coefficients k1/k2 were never affected; `r` now equals
+  `sqrt(k1 * k2)` as it should.
+- Lazy (dask/zarr-backed) layers load on the analysis thread instead
+  of inside the Run click handler, so the viewer stays responsive
+  while the data is read.
+- Images containing NaN pixels (registration or flat-field borders)
+  no longer break the cytofluorogram; non-finite pixels are excluded
+  from the plot.
+- Selecting the same layer for both channels - an autocorrelation
+  control - is no longer overridden when the layer list changes; only
+  the initial auto-assigned collision is nudged apart.
 - Result tables sort numerically instead of lexicographically, so
   `n_pixels` 9999 no longer follows 10000 and `1e-05` no longer sorts
   above `0.5`. NaN sorts below every value.

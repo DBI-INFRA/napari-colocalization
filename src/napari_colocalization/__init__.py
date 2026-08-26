@@ -37,7 +37,20 @@ from ._sample_data import (
     make_sample_data_cbs006rbm,
     make_sample_data_coloc,
 )
-from ._widget import ColocalizationWidget
+
+
+def __getattr__(name):
+    # The widget is the one root export that needs napari and Qt.
+    # Importing it lazily (PEP 562) keeps the compute API usable in
+    # environments without them; npe2 resolves the manifest's
+    # python_name via attribute access, so plugin discovery still
+    # works.
+    if name == 'ColocalizationWidget':
+        from ._widget import ColocalizationWidget
+
+        return ColocalizationWidget
+    raise AttributeError(f'module {__name__!r} has no attribute {name!r}')
+
 
 __all__ = (
     'COLUMNS',

@@ -175,6 +175,13 @@ class ScatterCanvas(_ThemedCanvas):
         else:
             xs = np.asarray(a)[mask]
             ys = np.asarray(b)[mask]
+        # Non-finite pixels (NaN borders from registration or
+        # flat-field correction) would poison the min/max axis fit
+        # below and make hexbin misbehave; plot finite pairs only.
+        finite = np.isfinite(xs) & np.isfinite(ys)
+        if not finite.all():
+            xs = xs[finite]
+            ys = ys[finite]
 
         self._ax.clear()
         self._figure.patch.set_facecolor(self._background)

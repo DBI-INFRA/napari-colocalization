@@ -426,9 +426,11 @@ def _export_canvas_figure(parent, canvas, default_name):
     )
     if not path:
         return
+    # ValueError covers matplotlib rejecting the path itself, e.g. an
+    # extension it has no writer for.
     try:
         canvas.save_figure(path, dlg.width_in(), dlg.height_in(), dlg.dpi())
-    except OSError as exc:
+    except (OSError, ValueError) as exc:
         show_warning(f'Could not write {path}: {exc}')
         return
     show_info(f'Wrote {path}')
@@ -442,15 +444,29 @@ def _set_combo_choices(combo, layers):
     combo.choices = layers
     if previous in layers:
         combo.value = previous
+    else:
+        # magicgui defaulted the value; remember it was not the
+        # user's choice so _nudge_distinct may still move it.
+        combo._auto_value = combo.value
 
 
 def _nudge_distinct(combo_a, combo_b, candidates):
-    """Point B at a layer different from A when they collide."""
-    if len(candidates) >= 2 and combo_a.value is combo_b.value:
-        for layer in candidates:
-            if layer is not combo_a.value:
-                combo_b.value = layer
-                break
+    """Point B at a layer different from A when they collide.
+
+    Only auto-assigned collisions are nudged: once B holds a value
+    the user picked themselves (anything other than the last value
+    this machinery assigned), a collision is deliberate - e.g. A vs A
+    as an autocorrelation control - and is left alone.
+    """
+    if len(candidates) < 2 or combo_a.value is not combo_b.value:
+        return
+    if combo_b.value is not getattr(combo_b, '_auto_value', None):
+        return
+    for layer in candidates:
+        if layer is not combo_a.value:
+            combo_b.value = layer
+            combo_b._auto_value = layer
+            break
 
 
 def _refresh_region_combo(region_combo, candidates):

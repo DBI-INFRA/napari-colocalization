@@ -115,6 +115,19 @@ def test_overlap_mask_and_empty(rng):
     assert all(np.isnan(v) for v in overlap(a, b, mask=empty))
 
 
+def test_overlap_integer_inputs_do_not_wrap(rng):
+    # Delegating r to skimage once wrapped the squared sums in the
+    # input dtype, returning r > 1 for ordinary uint8/uint16 images.
+    a = rng.integers(0, 256, (64, 64), dtype=np.uint8)
+    b = rng.integers(0, 256, (64, 64), dtype=np.uint8)
+    r, k1, k2 = overlap(a, b)
+    assert 0.0 <= r <= 1.0
+    assert r == pytest.approx(np.sqrt(k1 * k2))
+    assert (r, k1, k2) == pytest.approx(
+        overlap(a.astype(np.float64), b.astype(np.float64))
+    )
+
+
 # -- Costes auto-threshold --------------------------------------------
 
 

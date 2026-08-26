@@ -191,6 +191,26 @@ def test_significance_row_links_to_diagnostics(widget, qtbot, rng):
     assert widget._diagnostics_tab._diag_region_combo.currentData() is labels
 
 
+def test_open_diagnostics_survives_deleted_layers(widget, qtbot, rng):
+    # A selection that no longer exists must be skipped, not assigned:
+    # magicgui raises on values outside the current choices.
+    _add_pair(widget, rng.random((16, 16)).astype(np.float32))
+    widget._pixel_tab._cb_mcc.setChecked(False)
+    _run(widget, qtbot)
+    widget._viewer.layers.clear()
+    widget._pixel_tab._open_diagnostics_button.click()
+    assert widget._tabs.currentWidget() is widget._diagnostics_tab
+
+
+def test_deliberate_same_channel_selection_survives_layer_events(widget, rng):
+    layer_a, _ = _add_pair(widget, rng.random((8, 8)).astype(np.float32))
+    # A vs A is a legitimate autocorrelation control; a later layer
+    # event must not nudge B away from it.
+    widget._pixel_tab._image_b_combo.value = layer_a
+    widget._viewer.add_points(name='pts')
+    assert widget._pixel_tab._image_b_combo.value is layer_a
+
+
 def test_all_to_all_run_covers_every_pair(widget, qtbot, rng):
     a = rng.random((32, 32)).astype(np.float32)
     layer = widget._viewer.add_image(np.stack([a, a, a]), name='stack')

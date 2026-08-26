@@ -211,8 +211,10 @@ class ObjectTab(QWidget):
                 return None
             if _reject_multiscale(layer_a, layer_b):
                 return None
-            a = np.asarray(layer_a.data)
-            b = np.asarray(layer_b.data)
+            # Keep the layer data lazy: checks below need only
+            # .shape; the worker materializes off the GUI thread.
+            a = layer_a.data
+            b = layer_b.data
             if a.shape != b.shape:
                 show_warning(f'Shape mismatch: {a.shape} vs {b.shape}.')
                 return None
@@ -240,8 +242,8 @@ class ObjectTab(QWidget):
         if layer_a is None or layer_b is None:
             show_warning('Select both Labels layers.')
             return None
-        labels_a = np.asarray(layer_a.data)
-        labels_b = np.asarray(layer_b.data)
+        labels_a = layer_a.data
+        labels_b = layer_b.data
         if labels_a.shape != labels_b.shape:
             show_warning(
                 f'Shape mismatch: {labels_a.shape} vs {labels_b.shape}.'
@@ -275,24 +277,26 @@ class ObjectTab(QWidget):
         # the worker can honour a cancel request; the steps themselves
         # have no progress to report, so the bar stays a busy
         # indicator.
+        # Lazy (dask/zarr) layer data loads here, on the worker
+        # thread, so the click handler never blocks on it.
         if params['source'] == 'threshold':
             yield
             labels_a = label_objects(
-                params['a'],
+                np.asarray(params['a']),
                 threshold_method=params['method'],
                 mask=params['mask'],
                 min_size=params['min_size'],
             )
             yield
             labels_b = label_objects(
-                params['b'],
+                np.asarray(params['b']),
                 threshold_method=params['method'],
                 mask=params['mask'],
                 min_size=params['min_size'],
             )
         else:
-            labels_a = params['labels_a']
-            labels_b = params['labels_b']
+            labels_a = np.asarray(params['labels_a'])
+            labels_b = np.asarray(params['labels_b'])
         yield
         rows, summary = object_table(
             labels_a, labels_b, params['name_a'], params['name_b']

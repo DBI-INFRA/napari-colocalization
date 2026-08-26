@@ -159,6 +159,9 @@ def test_pairwise_invalid_arguments_raise():
     # a typo is caught even when no thresholded metric is requested
     with pytest.raises(ValueError, match='unknown threshold_method'):
         analyse_pairwise(a, a, metrics=('pcc',), threshold_method='ostu')
+    # an undersized mask once silently analysed the image's corner
+    with pytest.raises(ValueError, match='label_mask shape'):
+        analyse_pairwise(a, a, label_mask=np.ones((5, 5), dtype=int))
 
 
 def test_auto_threshold_method():
@@ -283,6 +286,15 @@ def test_all_to_all_validates_channel_names_length():
     with pytest.raises(ValueError, match='channel_names'):
         analyse_all_to_all(
             np.zeros((3, 4, 4)), channel_axis=0, channel_names=['only_one']
+        )
+
+
+def test_all_to_all_validates_label_mask_shape():
+    with pytest.raises(ValueError, match='label_mask shape'):
+        analyse_all_to_all(
+            np.zeros((3, 4, 4)),
+            channel_axis=0,
+            label_mask=np.ones((8, 8), dtype=int),
         )
 
 

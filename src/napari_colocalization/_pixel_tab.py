@@ -471,8 +471,11 @@ class PixelTab(QWidget):
             return None
         if _reject_multiscale(layer_a, layer_b):
             return None
-        a = np.asarray(layer_a.data)
-        b = np.asarray(layer_b.data)
+        # Keep the layer data lazy here: shape checks need only
+        # .shape, and the worker materializes off the GUI thread so a
+        # dask/zarr-backed layer does not freeze the click handler.
+        a = layer_a.data
+        b = layer_b.data
         if a.shape != b.shape:
             show_warning(f'Shape mismatch: {a.shape} vs {b.shape}.')
             return None
@@ -511,7 +514,8 @@ class PixelTab(QWidget):
             return None
         if _reject_multiscale(layer):
             return None
-        image = np.asarray(layer.data)
+        # Lazy on purpose - see _pairwise_params.
+        image = layer.data
         axis = int(self._channel_axis_spin.value())
         if axis >= image.ndim:
             show_warning(f'Channel axis {axis} >= ndim {image.ndim}.')
@@ -552,10 +556,16 @@ class PixelTab(QWidget):
     @thread_worker
     def _run_worker(params):
         region_warnings = []
+        # Materializing lazy (dask/zarr) layer data happens here, on
+        # the worker thread - gather_params passed layer.data through
+        # untouched so the click handler never blocks on a load. The
+        # busy indicator is already up while np.asarray runs.
         if params['mode'] == 'pairwise':
+            a = np.asarray(params['a'])
+            b = np.asarray(params['b'])
             row_iter = _iter_pairwise_rows(
-                params['a'],
-                params['b'],
+                a,
+                b,
                 label_mask=params['label_mask'],
                 metrics=params['metrics'],
                 threshold_method=params['threshold_method'],
@@ -567,17 +577,18 @@ class PixelTab(QWidget):
                 region_warnings=region_warnings,
             )
             total = _pairwise_row_count(
-                params['a'].shape,
+                a.shape,
                 params['label_mask'],
                 params.get('slice_axis'),
             )
             channel_arrays = {
-                params['channel_a']: params['a'],
-                params['channel_b']: params['b'],
+                params['channel_a']: a,
+                params['channel_b']: b,
             }
         else:
+            image = np.asarray(params['image'])
             row_iter = _iter_all_to_all_rows(
-                params['image'],
+                image,
                 params['channel_axis'],
                 label_mask=params['label_mask'],
                 metrics=params['metrics'],
@@ -588,11 +599,11 @@ class PixelTab(QWidget):
                 region_warnings=region_warnings,
             )
             total = _all_to_all_row_count(
-                params['image'].shape[params['channel_axis']],
+                image.shape[params['channel_axis']],
                 params['label_mask'],
             )
             channel_arrays = {
-                name: _axis_view(params['image'], i, params['channel_axis'])
+                name: _axis_view(image, i, params['channel_axis'])
                 for i, name in enumerate(params['channel_names'])
             }
         yield 0, total

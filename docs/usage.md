@@ -43,8 +43,9 @@ Choose how channels are supplied:
 
 In **pairwise** mode, two layer combos labelled **Image A** and **Image B**,
 auto-populated from the viewer's image layers. With at least two images
-present, A and B default to *different* layers. Both must have the same
-shape.
+present, A and B default to *different* layers; a selection you make
+yourself is kept, including deliberately setting both to the same layer
+as an autocorrelation control. Both must have the same shape.
 
 A **Per Z-slice** checkbox with a **Z axis** spinbox analyses each plane of a
 3D stack separately (one result row per slice, tagged in the `slice` column)

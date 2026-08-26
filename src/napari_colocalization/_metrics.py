@@ -307,13 +307,13 @@ def overlap(a, b, mask=None):
     channel and are sensitive to such differences - their
     asymmetry is informative.
 
-    ``r`` is delegated to
-    `skimage.measure.manders_overlap_coeff`. The split
-    coefficients k1/k2 have no scikit-image equivalent
-    (`skimage.measure.manders_coloc_coeff` computes the
-    threshold-gated M1/M2 used by `manders`, a different
-    quantity), so they are derived from the same intensity sums
-    here.
+    All three coefficients are computed here from float64
+    intensity sums, so integer inputs cannot overflow.
+    (`skimage.measure.manders_overlap_coeff` is deliberately not
+    used: it forms the products in the input dtype, which wraps
+    around for uint8/uint16 images. `manders_coloc_coeff` computes
+    the threshold-gated M1/M2 used by `manders`, a different
+    quantity.)
 
     Parameters
     ----------
@@ -365,18 +365,18 @@ def overlap(a, b, mask=None):
         return float('nan'), float('nan'), float('nan')
     sum_aa = float(np.sum(a_flat * a_flat))
     sum_bb = float(np.sum(b_flat * b_flat))
-    # The overlap coefficient r is delegated to scikit-image. k1/k2
-    # have no scikit-image equivalent (manders_coloc_coeff computes
-    # the threshold-gated M1/M2 - a different quantity), so they are
-    # derived locally from the shared intensity sums. The size/sum
-    # guards keep the "never raise, return nan" contract: an empty
-    # region or a zero-variance channel would otherwise make
-    # manders_overlap_coeff raise or emit a divide warning.
+    sum_ab = float(np.sum(a_flat * b_flat))
+    # All three coefficients are derived from the same float64
+    # intensity sums. r is not delegated to
+    # skimage.measure.manders_overlap_coeff: that computes the
+    # products in the input dtype, which wraps around for the
+    # uint8/uint16 arrays microscopy data normally arrives in and
+    # can return r > 1. The sum guards keep the "never raise,
+    # return nan" contract for a zero-signal channel.
     if sum_aa > 0 and sum_bb > 0:
-        r = float(measure.manders_overlap_coeff(a, b, mask=mask))
+        r = sum_ab / float(np.sqrt(sum_aa * sum_bb))
     else:
         r = float('nan')
-    sum_ab = float(np.sum(a_flat * b_flat))
     k1 = sum_ab / sum_aa if sum_aa > 0 else float('nan')
     k2 = sum_ab / sum_bb if sum_bb > 0 else float('nan')
     return r, k1, k2

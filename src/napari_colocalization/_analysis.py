@@ -376,9 +376,11 @@ def analyse_pairwise(
     Raises
     ------
     ValueError
-        If ``a`` and ``b`` have different shapes, or if
-        ``threshold_method='manual'`` is given without both
-        thresholds, or if ``threshold_method`` is unknown.
+        If ``a`` and ``b`` have different shapes, if ``label_mask``
+        does not match their shape (or, with ``slice_axis``, the
+        per-slice shape), or if ``threshold_method='manual'`` is
+        given without both thresholds, or if ``threshold_method``
+        is unknown.
 
     Examples
     --------
@@ -394,6 +396,23 @@ def analyse_pairwise(
     b = np.asarray(b)
     if a.shape != b.shape:
         raise ValueError(f'shape mismatch: {a.shape} vs {b.shape}')
+    if label_mask is not None:
+        label_mask = np.asarray(label_mask)
+        accepted = [a.shape]
+        if slice_axis is not None:
+            slice_shape = list(a.shape)
+            del slice_shape[slice_axis]
+            accepted.append(tuple(slice_shape))
+        if label_mask.shape not in accepted:
+            raise ValueError(
+                f'label_mask shape {label_mask.shape} does not match '
+                f'the image shape {a.shape}'
+                + (
+                    f' (or the per-slice shape {accepted[1]})'
+                    if slice_axis is not None
+                    else ''
+                )
+            )
     if threshold_method not in ('manual', 'costes', *_AUTO_THRESHOLDS):
         raise ValueError(f"unknown threshold_method '{threshold_method}'")
     return list(
@@ -506,7 +525,8 @@ def analyse_all_to_all(
     ------
     ValueError
         If ``len(channel_names)`` does not match the channel
-        count, or if ``threshold_method`` is unknown.
+        count, if ``label_mask`` does not match the image's
+        spatial shape, or if ``threshold_method`` is unknown.
     """
     image = np.asarray(image)
     n_channels = image.shape[channel_axis]
@@ -518,6 +538,15 @@ def analyse_all_to_all(
             f'match image.shape[{channel_axis}]={n_channels}'
         )
 
+    if label_mask is not None:
+        label_mask = np.asarray(label_mask)
+        spatial_shape = list(image.shape)
+        del spatial_shape[channel_axis]
+        if label_mask.shape != tuple(spatial_shape):
+            raise ValueError(
+                f'label_mask shape {label_mask.shape} does not match '
+                f'the spatial shape {tuple(spatial_shape)} of the image'
+            )
     if threshold_method not in ('manual', 'costes', *_AUTO_THRESHOLDS):
         raise ValueError(f"unknown threshold_method '{threshold_method}'")
     return list(

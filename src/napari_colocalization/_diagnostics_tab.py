@@ -207,9 +207,18 @@ class DiagnosticsTab(QWidget):
         self._diagnostic_canvas.set_theme(background, foreground)
 
     def set_inputs(self, layer_a, layer_b, region_layer):
-        """Carry another tab's channel/region selection over."""
-        self._diag_image_a_combo.value = layer_a
-        self._diag_image_b_combo.value = layer_b
+        """Carry another tab's channel/region selection over.
+
+        A selection that is no longer offered here (e.g. the layer
+        was deleted since the run) is skipped rather than assigned -
+        magicgui rejects values outside the current choices.
+        """
+        for combo, layer in (
+            (self._diag_image_a_combo, layer_a),
+            (self._diag_image_b_combo, layer_b),
+        ):
+            if layer is not None and layer in combo.choices:
+                combo.value = layer
         _select_region_layer(self._diag_region_combo, region_layer)
 
     # -- run -----------------------------------------------------------
@@ -222,8 +231,10 @@ class DiagnosticsTab(QWidget):
             return None
         if _reject_multiscale(layer_a, layer_b):
             return None
-        a = np.asarray(layer_a.data)
-        b = np.asarray(layer_b.data)
+        # Keep the layer data lazy: every check below reads only
+        # .shape, and the worker materializes off the GUI thread.
+        a = layer_a.data
+        b = layer_b.data
         if a.shape != b.shape:
             show_warning(f'Shape mismatch: {a.shape} vs {b.shape}.')
             return None
@@ -280,7 +291,10 @@ class DiagnosticsTab(QWidget):
     @thread_worker
     def _diag_worker(params):
         method = params['method']
-        a, b, mask = params['a'], params['b'], params['mask']
+        # Lazy (dask/zarr) data loads here, on the worker thread.
+        a = np.asarray(params['a'])
+        b = np.asarray(params['b'])
+        mask = params['mask']
         if method == 'costes':
             n_iter = params['n_iter']
             block_size = params['block_size']
