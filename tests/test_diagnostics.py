@@ -29,12 +29,27 @@ def test_ccf_peaks_at_alignment(rng):
     assert shifts[int(np.nanargmax(ccf))] == -5
 
 
+def test_ccf_does_not_wrap_around(rng):
+    a = 0.01 * rng.random((32, 64))
+    b = 0.01 * rng.random((32, 64))
+    a[:, :4] += 1.0  # bright feature on A's left edge
+    b[:, -4:] += 1.0  # ... and on B's right edge
+    shifts, ccf = van_steensel_ccf(a, b, max_shift=6)
+    # wrapping would carry B's right edge onto A's left edge at shift
+    # +4 and report near-perfect correlation between unrelated pixels
+    assert abs(ccf[int(np.where(shifts == 4)[0][0])]) < 0.2
+    assert np.nanmax(np.abs(ccf)) < 0.2
+
+
 def test_ccf_invalid_args_raise():
     a = np.zeros((10, 10))
     with pytest.raises(ValueError, match='shape mismatch'):
         van_steensel_ccf(a, np.zeros((10, 11)))
     with pytest.raises(ValueError, match='max_shift'):
         van_steensel_ccf(a, a, max_shift=0)
+    # no overlap would remain at the extreme shifts
+    with pytest.raises(ValueError, match='max_shift'):
+        van_steensel_ccf(a, a, max_shift=10)
 
 
 # -- Li ICA -----------------------------------------------------------

@@ -87,6 +87,9 @@ def test_pairwise_invalid_arguments_raise():
         analyse_pairwise(a, a, metrics=('mcc',), threshold_method='manual')
     with pytest.raises(ValueError, match='unknown threshold_method'):
         analyse_pairwise(a, a, metrics=('mcc',), threshold_method='bogus')
+    # a typo is caught even when no thresholded metric is requested
+    with pytest.raises(ValueError, match='unknown threshold_method'):
+        analyse_pairwise(a, a, metrics=('pcc',), threshold_method='ostu')
 
 
 def test_auto_threshold_method():

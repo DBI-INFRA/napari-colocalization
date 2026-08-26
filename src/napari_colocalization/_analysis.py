@@ -198,7 +198,8 @@ def analyse_pairwise(
         adds the threshold-free overlap coefficient and the split
         coefficients k1/k2.
     threshold_method : str, default 'costes'
-        Only used when ``'mcc'`` is in ``metrics``. ``'costes'``
+        Validated always, but only used when ``'mcc'`` is in
+        ``metrics``. ``'costes'``
         runs `costes_threshold` per region;
         ``'manual'`` uses the values supplied below; or a per-channel
         auto-threshold name - one of ``'otsu'``, ``'li'``,
@@ -251,6 +252,8 @@ def analyse_pairwise(
     b = np.asarray(b)
     if a.shape != b.shape:
         raise ValueError(f'shape mismatch: {a.shape} vs {b.shape}')
+    if threshold_method not in ('manual', 'costes', *_AUTO_THRESHOLDS):
+        raise ValueError(f"unknown threshold_method '{threshold_method}'")
     metrics = tuple(metrics)
 
     if slice_axis is not None:

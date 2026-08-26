@@ -15,10 +15,28 @@ from skimage import measure
 def _flatten_with_mask(a, b, mask):
     a = np.asarray(a)
     b = np.asarray(b)
+    if a.shape != b.shape:
+        raise ValueError(f'shape mismatch: {a.shape} vs {b.shape}')
     if mask is None:
         return a.ravel(), b.ravel()
     mask = np.asarray(mask, dtype=bool)
+    if mask.shape != a.shape:
+        raise ValueError(f'mask shape mismatch: {mask.shape} vs {a.shape}')
     return a[mask], b[mask]
+
+
+def _reject_negative(a_flat, b_flat):
+    """Guard the Manders family against negative intensities.
+
+    The coefficients are ratios of intensity sums and lose their
+    ``[0, 1]`` meaning once a channel can cancel itself out; the
+    scikit-image implementations reject such input with an opaque
+    message, so catch it here.
+    """
+    if a_flat.size and (a_flat.min() < 0 or b_flat.min() < 0):
+        raise ValueError(
+            'Manders coefficients require non-negative intensities'
+        )
 
 
 def _degenerate(a_flat, b_flat):
@@ -51,6 +69,12 @@ def pearson(a, b, mask=None):
     p_value : float
         Two-tailed p-value for the null hypothesis that the
         coefficient is zero. ``nan`` if ``pcc`` is ``nan``.
+
+    Raises
+    ------
+    ValueError
+        If ``a`` and ``b`` differ in shape, or ``mask`` does not
+        match their shape.
 
     Examples
     --------
@@ -93,6 +117,12 @@ def spearman(a, b, mask=None):
         samples, or zero variance in either channel).
     p_value : float
         Two-tailed p-value for the rank correlation, or ``nan``.
+
+    Raises
+    ------
+    ValueError
+        If ``a`` and ``b`` differ in shape, or ``mask`` does not
+        match their shape.
 
     Examples
     --------
@@ -141,6 +171,12 @@ def li_icq(a, b, mask=None):
         fewer than two samples or zero variance in either channel
         (where the means coincide with every value and the sign
         of ``P_i`` is degenerate).
+
+    Raises
+    ------
+    ValueError
+        If ``a`` and ``b`` differ in shape, or ``mask`` does not
+        match their shape.
 
     Notes
     -----
@@ -217,6 +253,14 @@ def manders(a, b, threshold_a, threshold_b, mask=None):
         Each in ``[0, 1]``, or ``nan`` if the analysed region
         contains no positive intensity in either channel.
 
+    Raises
+    ------
+    ValueError
+        If ``a`` and ``b`` differ in shape, if ``mask`` does not
+        match their shape, or if either channel holds negative
+        intensities (e.g. after background subtraction), for which
+        M1/M2 are not defined.
+
     Examples
     --------
     >>> import numpy as np
@@ -229,13 +273,14 @@ def manders(a, b, threshold_a, threshold_b, mask=None):
     """
     a = np.asarray(a)
     b = np.asarray(b)
+    a_flat, b_flat = _flatten_with_mask(a, b, mask)
+    _reject_negative(a_flat, b_flat)
     if not (np.isfinite(threshold_a) and np.isfinite(threshold_b)):
         # An auto-threshold can be NaN for a constant/empty channel;
         # M1/M2 are then undefined rather than spuriously 0.
         return float('nan'), float('nan')
     a_above = a > threshold_a
     b_above = b > threshold_b
-    a_flat, b_flat = _flatten_with_mask(a, b, mask)
     if a_flat.size == 0 or a_flat.sum() == 0 or b_flat.sum() == 0:
         return float('nan'), float('nan')
     m1 = measure.manders_coloc_coeff(a, b_above, mask=mask)
@@ -286,6 +331,14 @@ def overlap(a, b, mask=None):
         channel within the region) is returned as ``nan``; all
         three are ``nan`` for an empty region.
 
+    Raises
+    ------
+    ValueError
+        If ``a`` and ``b`` differ in shape, if ``mask`` does not
+        match their shape, or if either channel holds negative
+        intensities (e.g. after background subtraction), for which
+        the coefficients are not defined.
+
     References
     ----------
     Manders, E.M.M. et al. (1992). *Dynamics of three-dimensional
@@ -307,6 +360,7 @@ def overlap(a, b, mask=None):
     a_flat, b_flat = _flatten_with_mask(a, b, mask)
     a_flat = a_flat.astype(np.float64, copy=False)
     b_flat = b_flat.astype(np.float64, copy=False)
+    _reject_negative(a_flat, b_flat)
     if a_flat.size == 0:
         return float('nan'), float('nan'), float('nan')
     sum_aa = float(np.sum(a_flat * a_flat))
@@ -358,6 +412,12 @@ def costes_regression(a, b, mask=None):
         Regression coefficients, or ``(nan, nan)`` when the region
         has fewer than two samples, zero variance in either
         channel, or zero covariance (no line to fit).
+
+    Raises
+    ------
+    ValueError
+        If ``a`` and ``b`` differ in shape, or ``mask`` does not
+        match their shape.
 
     References
     ----------
@@ -427,7 +487,10 @@ def costes_threshold(a, b, mask=None, max_iter=100):
         Restrict the regression and search to this region.
     max_iter : int, default 100
         Maximum bisection iterations (Coloc 2 default); the search
-        also stops once the step falls below one intensity unit.
+        also stops once the step falls below the tolerance - one
+        intensity level when both inputs have an integer dtype, and
+        ``1e-4`` of the data span for float-valued (e.g. 0..1
+        normalised) images.
 
     Returns
     -------
@@ -437,12 +500,21 @@ def costes_threshold(a, b, mask=None, max_iter=100):
         regression slope is non-positive or undefined (no
         co-occurrence to threshold for).
 
+    Raises
+    ------
+    ValueError
+        If ``a`` and ``b`` differ in shape, or ``mask`` does not
+        match their shape.
+
     References
     ----------
     Costes, S.V. et al. (2004). *Automatic and quantitative
     measurement of protein-protein colocalization in live cells.*
     Biophys. J. 86(6), 3993-4003.
     """
+    integer_input = np.issubdtype(
+        np.asarray(a).dtype, np.integer
+    ) and np.issubdtype(np.asarray(b).dtype, np.integer)
     a_flat, b_flat = _flatten_with_mask(a, b, mask)
     a_flat = a_flat.astype(np.float64, copy=False)
     b_flat = b_flat.astype(np.float64, copy=False)
@@ -482,10 +554,10 @@ def costes_threshold(a, b, mask=None, max_iter=100):
 
     # Bisection: positive below-r -> threshold too high, step down;
     # non-positive or undefined -> step up. Step halves each round.
-    # Coloc 2 stops at a step of one integer intensity level; we use a
-    # tolerance relative to the data span so it also works on
-    # float-valued (e.g. 0..1 normalised) images.
-    tol = span * 1e-4
+    # Integer images stop at one intensity level, as Coloc 2 does;
+    # float-valued (e.g. 0..1 normalised) images have no such natural
+    # unit, so the tolerance is taken relative to the data span.
+    tol = 1.0 if integer_input else span * 1e-4
     thr_diff = abs(upper - threshold)
     t_a, t_b = map_thresholds(threshold)
     for _ in range(max_iter):

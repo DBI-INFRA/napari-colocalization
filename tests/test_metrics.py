@@ -172,3 +172,26 @@ def test_degenerate_input_is_nan(func):
         func(np.zeros((10, 10)), np.ones((10, 10))), dtype=float
     )
     assert np.all(np.isnan(result))
+
+
+# -- shared input validation ------------------------------------------
+
+
+@pytest.mark.parametrize(
+    'func', [pearson, spearman, li_icq, overlap, costes_regression]
+)
+def test_mismatched_shapes_raise(func):
+    with pytest.raises(ValueError, match='shape mismatch'):
+        func(np.ones((4, 9)), np.ones((6, 6)))
+    with pytest.raises(ValueError, match='mask shape mismatch'):
+        func(np.ones((6, 6)), np.ones((6, 6)), mask=np.ones((6, 5), bool))
+
+
+def test_manders_family_rejects_negative_intensities():
+    # e.g. a background-subtracted image
+    a = np.array([[1.0, -0.5], [2.0, 3.0]])
+    b = np.abs(a)
+    with pytest.raises(ValueError, match='non-negative'):
+        manders(a, b, threshold_a=0.5, threshold_b=0.5)
+    with pytest.raises(ValueError, match='non-negative'):
+        overlap(b, a)

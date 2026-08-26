@@ -19,6 +19,13 @@ import numpy as np
 from ._metrics import _flatten_with_mask, li_icq, pearson
 
 
+def _slice_axis(arr, sl, axis):
+    """``arr`` sliced by ``sl`` along ``axis``, other axes untouched."""
+    index = [slice(None)] * arr.ndim
+    index[axis] = sl
+    return arr[tuple(index)]
+
+
 def van_steensel_ccf(a, b, mask=None, max_shift=20, axis=-1):
     """Van Steensel's cross-correlation function (CCF).
 
@@ -28,16 +35,25 @@ def van_steensel_ccf(a, b, mask=None, max_shift=20, axis=-1):
     colocalised channels give a CCF that peaks at shift 0; mutually
     excluded channels give a trough at 0 with side peaks.
 
+    The shift does not wrap: at offset ``s`` only the region where the
+    two arrays still overlap is correlated, so both are cropped by
+    ``|s|`` along ``axis`` and ``a[x]`` is paired with ``b[x - s]``.
+    Correlating a wrapped edge against the opposite edge would put
+    unrelated signal into the tails of the curve.
+
     Parameters
     ----------
     a, b : array_like
         Same-shape intensity arrays.
     mask : array_like of bool, optional
-        Region of interest passed through to `pearson`.
+        Region of interest, in ``a``'s coordinates; cropped alongside
+        ``a`` and passed through to `pearson`.
     max_shift : int, default 20
-        Largest pixel shift to evaluate in each direction.
+        Largest pixel shift to evaluate in each direction. Must be
+        smaller than the length of ``axis``, so that some overlap
+        remains at every shift.
     axis : int, default -1
-        Axis along which ``b`` is shifted (wraps, ``numpy.roll``).
+        Axis along which ``b`` is shifted, by default the last.
 
     Returns
     -------
@@ -50,7 +66,8 @@ def van_steensel_ccf(a, b, mask=None, max_shift=20, axis=-1):
     Raises
     ------
     ValueError
-        If ``a`` and ``b`` differ in shape or ``max_shift < 1``.
+        If ``a`` and ``b`` differ in shape, ``max_shift < 1``, or
+        ``max_shift`` is not smaller than ``a.shape[axis]``.
     """
     a = np.asarray(a)
     b = np.asarray(b)
@@ -58,11 +75,25 @@ def van_steensel_ccf(a, b, mask=None, max_shift=20, axis=-1):
         raise ValueError(f'shape mismatch: {a.shape} vs {b.shape}')
     if max_shift < 1:
         raise ValueError('max_shift must be >= 1')
+    n = a.shape[axis]
+    if max_shift >= n:
+        raise ValueError(
+            f'max_shift must be smaller than axis {axis} of length {n}'
+        )
+    mask = None if mask is None else np.asarray(mask, dtype=bool)
     shifts = np.arange(-max_shift, max_shift + 1)
     ccf = np.empty(shifts.size, dtype=float)
     for i, shift in enumerate(shifts):
-        shifted = np.roll(b, int(shift), axis=axis)
-        pcc, _ = pearson(a, shifted, mask=mask)
+        s = int(shift)
+        if s >= 0:
+            a_sl, b_sl = slice(s, n), slice(0, n - s)
+        else:
+            a_sl, b_sl = slice(0, n + s), slice(-s, n)
+        pcc, _ = pearson(
+            _slice_axis(a, a_sl, axis),
+            _slice_axis(b, b_sl, axis),
+            mask=None if mask is None else _slice_axis(mask, a_sl, axis),
+        )
         ccf[i] = pcc
     return shifts, ccf
 
