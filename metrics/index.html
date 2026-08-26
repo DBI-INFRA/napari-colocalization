@@ -387,6 +387,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Pearson (PCC)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-there-are-no-per-pixel-p-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why there are no per-pixel p-values
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -614,6 +631,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Pearson (PCC)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-there-are-no-per-pixel-p-values" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why there are no per-pixel p-values
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -825,9 +859,27 @@ differences in absolute brightness between channels.</p>
   the foreground or use SRCC.
 - A single bright outlier pair can dominate the result.</p>
 <p>We delegate the computation to
-<a href="https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.pearson_corr_coeff"><code>skimage.measure.pearson_corr_coeff</code></a>,
-which returns the coefficient and a two-tailed p-value (both surfaced in
-the results table).</p>
+<a href="https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.pearson_corr_coeff"><code>skimage.measure.pearson_corr_coeff</code></a>.
+It also returns a two-tailed p-value, which the plugin discards - see
+<a href="#why-there-are-no-per-pixel-p-values">below</a>.</p>
+<h3 id="why-there-are-no-per-pixel-p-values">Why there are no per-pixel p-values<a class="headerlink" href="#why-there-are-no-per-pixel-p-values" title="Permanent link">&para;</a></h3>
+<p>The results table reports coefficients only. The p-values that
+<code>pearson_corr_coeff</code> and <code>spearmanr</code> compute test the null hypothesis
+"no correlation" under the assumption that the paired samples are
+<strong>independent</strong>. Image pixels are not: they are strongly spatially
+autocorrelated (the point-spread function alone smears every emitter
+over several pixels), and a single field of view supplies hundreds of
+thousands of them. The effective sample size is therefore orders of
+magnitude smaller than N, and the reported p-value is essentially zero
+for any real image - including images with no colocalization at all. A
+value like <code>p &lt; 1e-200</code> invites the conclusion "significant, therefore
+colocalized" when it only says "N is large".</p>
+<p>The test that respects the spatial structure is the <strong>Costes
+randomization test</strong> on the <a href="#costes-randomization-significance-test">Diagnostics</a>
+tab: it builds the null distribution from the image itself by scrambling
+in blocks, which preserves both channels' intensity histograms and the
+local texture, and destroys only the spatial co-occurrence. Report the
+coefficient from the table and its significance from that test.</p>
 <h2 id="spearman-srcc">Spearman (SRCC)<a class="headerlink" href="#spearman-srcc" title="Permanent link">&para;</a></h2>
 <p>The Pearson correlation of the <strong>ranks</strong> of the intensities, rather than
 the intensities themselves.</p>
@@ -841,10 +893,14 @@ bright pixel can't pull the rank away.</p>
   misleading. A region mask helps.</p>
 <p>We use
 <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.spearmanr.html"><code>scipy.stats.spearmanr</code></a>
-on the masked, flattened intensities. Both the rank correlation
-coefficient and the p-value are returned.</p>
-<p>The plugin defaults to <strong>Spearman only</strong> because it gives a sensible
-result on a wider range of microscopy data than PCC alone.</p>
+on the masked, flattened intensities, keeping the rank correlation
+coefficient; its p-value is discarded for the reason
+<a href="#why-there-are-no-per-pixel-p-values">given above</a>.</p>
+<p>The plugin defaults to <strong>Pearson + Manders</strong> - one metric from each
+family, the two that are reported most often in the literature and the
+pair a reader will expect to see. Switch Pearson for Spearman when the
+data is outlier-heavy or the channel relationship is monotonic but not
+linear.</p>
 <h2 id="li-icq">Li ICQ<a class="headerlink" href="#li-icq" title="Permanent link">&para;</a></h2>
 <p>The Intensity Correlation Quotient introduced by Li et al. (2004).
 For each pixel <code>i</code> form the <em>covariance contribution</em>
@@ -1010,8 +1066,23 @@ preserving each channel's intensity histogram and local texture - and
 the PCC is recomputed each time to build a null distribution. The
 observed PCC is plotted against that null, with a right-tailed p-value
 <code>(#{null ≥ observed} + 1) / (n_iter + 1)</code> and a z-score. A genuine
-colocalization sits far to the right of the null. The block size should
-approximate the point-spread-function width. Works on 2D and 3D images.</p>
+colocalization sits far to the right of the null. Works on 2D and 3D
+images. This is the p-value to report for a correlation coefficient -
+the per-pixel one is not
+(<a href="#why-there-are-no-per-pixel-p-values">why</a>).</p>
+<p><strong>Choosing the block size.</strong> The block side length should approximate
+the <strong>point-spread-function width</strong> of the acquisition, in pixels - the
+smallest feature the microscope can resolve. That is the scale at which
+neighbouring pixels are correlated for optical rather than biological
+reasons, so blocks of that size scramble away the co-occurrence while
+leaving the within-block texture intact. Blocks that are too small
+break up the PSF itself: the scrambled images lose the local
+correlation the original has everywhere, the null distribution narrows
+around zero, and almost any image comes out "significant". Blocks that
+are much larger than the PSF carry real structure along when they move,
+so the null distribution widens and genuine colocalization can fall
+inside it. A pixel size of ~100 nm with a ~250 nm PSF puts the block
+around 2-3 px; oversampled acquisitions need proportionally more.</p>
 <h3 id="van-steensel-cross-correlation-function-ccf">Van Steensel cross-correlation function (CCF)<a class="headerlink" href="#van-steensel-cross-correlation-function-ccf" title="Permanent link">&para;</a></h3>
 <p>Shifts channel B relative to A by ±<code>max_shift</code> pixels and plots the PCC
 at each shift. A peak <strong>at</strong> shift 0 indicates colocalization; a central
@@ -1059,8 +1130,12 @@ alongside.</p>
 <td>Manders tM2</td>
 </tr>
 <tr>
-<td>"Just give me a robust default"</td>
-<td>Spearman</td>
+<td>"Just give me a sensible default"</td>
+<td>Pearson + Manders (one per family)</td>
+</tr>
+<tr>
+<td>"Is my coefficient more than chance?"</td>
+<td>Costes randomization (Diagnostics)</td>
 </tr>
 </tbody>
 </table>

@@ -393,10 +393,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#module-layout" class="md-nav__link">
+  <a href="#the-public-api" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Module layout
+        The public API
       
     </span>
   </a>
@@ -669,6 +669,17 @@
     <span class="md-ellipsis">
       
         li_ica
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#napari_colocalization._diagnostics.scramble_example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        scramble_example
       
     </span>
   </a>
@@ -881,10 +892,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#module-layout" class="md-nav__link">
+  <a href="#the-public-api" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Module layout
+        The public API
       
     </span>
   </a>
@@ -1163,6 +1174,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#napari_colocalization._diagnostics.scramble_example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        scramble_example
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1365,21 +1387,72 @@ a script or notebook and use them on plain ndarrays.</p>
 docstrings. The narrative and examples on this page are written by hand;
 the <code>:::</code> blocks are filled in automatically by mkdocstrings at build
 time.</p>
-<h2 id="module-layout">Module layout<a class="headerlink" href="#module-layout" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>napari_colocalization
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── _metrics.py     pearson, spearman, li_icq, manders, overlap,
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│                   costes_threshold, costes_regression
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├── _masking.py     shapes_to_label_mask, labels_to_label_mask, iter_regions
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>├── _analysis.py    analyse_pairwise, analyse_all_to_all, COLUMNS
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>├── _diagnostics.py costes_randomization, van_steensel_ccf, li_ica
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>├── _objects.py     label_objects, object_table, object_centroids,
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│                   nearest_neighbour_vectors
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>├── _sample_data.py make_sample_data, make_sample_data_3d,
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│                   make_sample_data_cbs006rbm, make_sample_data_coloc
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>└── _widget.py      ColocalizationWidget (Qt-only)
+<h2 id="the-public-api">The public API<a class="headerlink" href="#the-public-api" title="Permanent link">&para;</a></h2>
+<p>Everything documented on this page is re-exported from the package
+root - that is the surface to import from:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">napari_colocalization</span><span class="w"> </span><span class="kn">import</span> <span class="n">analyse_pairwise</span><span class="p">,</span> <span class="n">pearson</span><span class="p">,</span> <span class="n">manders</span>
 </code></pre></div>
-<p>The leading underscore is a convention from the napari plugin template;
-the symbols below are stable and intended to be imported.</p>
+<table>
+<thead>
+<tr>
+<th>Group</th>
+<th>Names</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Metrics</td>
+<td><code>pearson</code>, <code>spearman</code>, <code>li_icq</code>, <code>manders</code>, <code>overlap</code>, <code>costes_threshold</code>, <code>costes_regression</code></td>
+</tr>
+<tr>
+<td>Masking</td>
+<td><code>shapes_to_label_mask</code>, <code>labels_to_label_mask</code>, <code>iter_regions</code></td>
+</tr>
+<tr>
+<td>Analysis</td>
+<td><code>analyse_pairwise</code>, <code>analyse_all_to_all</code>, <code>COLUMNS</code></td>
+</tr>
+<tr>
+<td>Diagnostics</td>
+<td><code>costes_randomization</code>, <code>van_steensel_ccf</code>, <code>li_ica</code>, <code>scramble_example</code></td>
+</tr>
+<tr>
+<td>Object-based</td>
+<td><code>label_objects</code>, <code>object_table</code>, <code>object_centroids</code>, <code>nearest_neighbour_vectors</code>, <code>OBJECT_COLUMNS</code></td>
+</tr>
+<tr>
+<td>Sample data</td>
+<td><code>make_sample_data</code>, <code>make_sample_data_3d</code>, <code>make_sample_data_cbs006rbm</code>, <code>make_sample_data_coloc</code></td>
+</tr>
+<tr>
+<td>Widget</td>
+<td><code>ColocalizationWidget</code></td>
+</tr>
+</tbody>
+</table>
+<p>Internally those live in underscore-prefixed modules (a convention
+from the napari plugin template), which is also where the docstrings
+below are read from:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>napari_colocalization
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>├── _metrics.py     pearson, spearman, li_icq, manders, overlap,
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>│                   costes_threshold, costes_regression
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>├── _masking.py     shapes_to_label_mask, labels_to_label_mask, iter_regions
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>├── _analysis.py    analyse_pairwise, analyse_all_to_all, COLUMNS
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>├── _diagnostics.py costes_randomization, van_steensel_ccf, li_ica,
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>│                   scramble_example
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>├── _objects.py     label_objects, object_table, object_centroids,
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>│                   nearest_neighbour_vectors, OBJECT_COLUMNS
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>├── _sample_data.py make_sample_data, make_sample_data_3d,
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>│                   make_sample_data_cbs006rbm, make_sample_data_coloc
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>├── _plot.py        embedded matplotlib canvases (Qt-only)
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>├── _widget.py      ColocalizationWidget - the dock widget (Qt-only)
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>├── _pixel_tab.py       the three analysis tabs and the Qt/layer
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>├── _diagnostics_tab.py helpers they share (Qt-only)
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>├── _object_tab.py
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>└── _widget_shared.py
+</code></pre></div>
+<p>The module layout may be rearranged between releases; the names in
+the table above are the stable ones.</p>
 <h2 id="metrics-napari_colocalization_metrics">Metrics - <code>napari_colocalization._metrics</code><a class="headerlink" href="#metrics-napari_colocalization_metrics" title="Permanent link">&para;</a></h2>
 
 
@@ -2877,13 +2950,17 @@ when <code>label_mask</code> is <code>None</code>.</p>
 </div><h2 id="analysis-napari_colocalization_analysis">Analysis - <code>napari_colocalization._analysis</code><a class="headerlink" href="#analysis-napari_colocalization_analysis" title="Permanent link">&para;</a></h2>
 <p><code>COLUMNS</code> is the canonical column order shared by the table, the CSV
 export, and the row dicts:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">(</span><span class="s1">&#39;region&#39;</span><span class="p">,</span> <span class="s1">&#39;slice&#39;</span><span class="p">,</span> <span class="s1">&#39;channel_a&#39;</span><span class="p">,</span> <span class="s1">&#39;channel_b&#39;</span><span class="p">,</span> <span class="s1">&#39;n_pixels&#39;</span><span class="p">,</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a> <span class="s1">&#39;pcc&#39;</span><span class="p">,</span> <span class="s1">&#39;pcc_pvalue&#39;</span><span class="p">,</span> <span class="s1">&#39;srcc&#39;</span><span class="p">,</span> <span class="s1">&#39;srcc_pvalue&#39;</span><span class="p">,</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a> <span class="s1">&#39;icq&#39;</span><span class="p">,</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a> <span class="s1">&#39;overlap&#39;</span><span class="p">,</span> <span class="s1">&#39;k1&#39;</span><span class="p">,</span> <span class="s1">&#39;k2&#39;</span><span class="p">,</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a> <span class="s1">&#39;tm1&#39;</span><span class="p">,</span> <span class="s1">&#39;tm2&#39;</span><span class="p">,</span> <span class="s1">&#39;threshold_a&#39;</span><span class="p">,</span> <span class="s1">&#39;threshold_b&#39;</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">(</span><span class="s1">'region'</span><span class="p">,</span> <span class="s1">'slice'</span><span class="p">,</span> <span class="s1">'channel_a'</span><span class="p">,</span> <span class="s1">'channel_b'</span><span class="p">,</span> <span class="s1">'n_pixels'</span><span class="p">,</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a> <span class="s1">'pcc'</span><span class="p">,</span> <span class="s1">'srcc'</span><span class="p">,</span> <span class="s1">'icq'</span><span class="p">,</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a> <span class="s1">'overlap'</span><span class="p">,</span> <span class="s1">'k1'</span><span class="p">,</span> <span class="s1">'k2'</span><span class="p">,</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a> <span class="s1">'tm1'</span><span class="p">,</span> <span class="s1">'tm2'</span><span class="p">,</span> <span class="s1">'threshold_a'</span><span class="p">,</span> <span class="s1">'threshold_b'</span><span class="p">)</span>
 </code></pre></div>
 <p>(<code>slice</code> is the plane index for per-Z-slice runs, and <code>NaN</code> otherwise.)</p>
+<p><code>pearson</code> and <code>spearman</code> return a <code>(coefficient, p_value)</code> pair, but the
+p-value is not part of the result rows: it assumes independent samples,
+which image pixels are not
+(see <a href="../metrics/#why-there-are-no-per-pixel-p-values">metrics.md</a>). Use
+<code>costes_randomization</code> for significance.</p>
 
 
 <div class="doc doc-object doc-module">
@@ -2934,7 +3011,7 @@ the caller can summarise how many regions were skipped and why.</p>
 
 
 <a href="#napari_colocalization._analysis.analyse_pairwise" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">analyse_pairwise</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">label_mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="n">ALL_METRICS</span><span class="p">,</span> <span class="n">threshold_method</span><span class="o">=</span><span class="s1">&#39;costes&#39;</span><span class="p">,</span> <span class="n">threshold_a</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">threshold_b</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">channel_a</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="n">channel_b</span><span class="o">=</span><span class="s1">&#39;B&#39;</span><span class="p">,</span> <span class="n">slice_axis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">region_warnings</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">analyse_pairwise</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">label_mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="n">ALL_METRICS</span><span class="p">,</span> <span class="n">threshold_method</span><span class="o">=</span><span class="s1">'costes'</span><span class="p">,</span> <span class="n">threshold_a</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">threshold_b</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">channel_a</span><span class="o">=</span><span class="s1">'A'</span><span class="p">,</span> <span class="n">channel_b</span><span class="o">=</span><span class="s1">'B'</span><span class="p">,</span> <span class="n">slice_axis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">region_warnings</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3035,7 +3112,8 @@ coefficients k1/k2.</p>
             </td>
             <td class="doc-param-details">
               <div class="doc-md-description">
-                <p>Only used when <code>'mcc'</code> is in <code>metrics</code>. <code>'costes'</code>
+                <p>Validated always, but only used when <code>'mcc'</code> is in
+<code>metrics</code>. <code>'costes'</code>
 runs <code>costes_threshold</code> per region;
 <code>'manual'</code> uses the values supplied below; or a per-channel
 auto-threshold name - one of <code>'otsu'</code>, <code>'li'</code>,
@@ -3235,9 +3313,11 @@ the user why. <code>None</code> (default) discards the reasons.</p>
             </td>
             <td class="doc-raises-details">
               <div class="doc-md-description">
-                <p>If <code>a</code> and <code>b</code> have different shapes, or if
-<code>threshold_method='manual'</code> is given without both
-thresholds, or if <code>threshold_method</code> is unknown.</p>
+                <p>If <code>a</code> and <code>b</code> have different shapes, if <code>label_mask</code>
+does not match their shape (or, with <code>slice_axis</code>, the
+per-slice shape), or if <code>threshold_method='manual'</code> is
+given without both thresholds, or if <code>threshold_method</code>
+is unknown.</p>
               </div>
             </td>
           </tr>
@@ -3250,8 +3330,8 @@ thresholds, or if <code>threshold_method</code> is unknown.</p>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">napari_colocalization._analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">analyse_pairwise</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">((</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">));</span> <span class="n">b</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">rows</span> <span class="o">=</span> <span class="n">analyse_pairwise</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;pcc&#39;</span><span class="p">,))</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">rows</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;pcc&#39;</span><span class="p">]</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">rows</span> <span class="o">=</span> <span class="n">analyse_pairwise</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="p">(</span><span class="s1">'pcc'</span><span class="p">,))</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="gp">&gt;&gt;&gt; </span><span class="n">rows</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">'pcc'</span><span class="p">]</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="go">1.0</span>
 </code></pre></div>
 
@@ -3268,7 +3348,7 @@ thresholds, or if <code>threshold_method</code> is unknown.</p>
 
 
 <a href="#napari_colocalization._analysis.analyse_all_to_all" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">analyse_all_to_all</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">channel_axis</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">label_mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="n">ALL_METRICS</span><span class="p">,</span> <span class="n">threshold_method</span><span class="o">=</span><span class="s1">&#39;costes&#39;</span><span class="p">,</span> <span class="n">threshold_a</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">threshold_b</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">channel_names</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">region_warnings</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">analyse_all_to_all</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">channel_axis</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">label_mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metrics</span><span class="o">=</span><span class="n">ALL_METRICS</span><span class="p">,</span> <span class="n">threshold_method</span><span class="o">=</span><span class="s1">'costes'</span><span class="p">,</span> <span class="n">threshold_a</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">threshold_b</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">channel_names</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">region_warnings</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3518,7 +3598,8 @@ reasons across every channel pair.</p>
             <td class="doc-raises-details">
               <div class="doc-md-description">
                 <p>If <code>len(channel_names)</code> does not match the channel
-count.</p>
+count, if <code>label_mask</code> does not match the image's
+spatial shape, or if <code>threshold_method</code> is unknown.</p>
               </div>
             </td>
           </tr>
@@ -3785,11 +3866,6 @@ of the observed value against the null.</p>
     </table>
 
 
-<details class="see-also" open>
-  <summary>See Also</summary>
-  <p>costes_randomization_steps : generator form, for progress and cancel.</p>
-</details>
-
     </div>
 
 </div>
@@ -3813,6 +3889,11 @@ of the observed value against the null.</p>
 coefficient at each shift (Van Steensel et al. 1996). Genuinely
 colocalised channels give a CCF that peaks at shift 0; mutually
 excluded channels give a trough at 0 with side peaks.</p>
+<p>The shift does not wrap: at offset <code>s</code> only the region where the
+two arrays still overlap is correlated, so both are cropped by
+<code>|s|</code> along <code>axis</code> and <code>a[x]</code> is paired with <code>b[x - s]</code>.
+Correlating a wrapped edge against the opposite edge would put
+unrelated signal into the tails of the curve.</p>
 
 
 <table>
@@ -3861,7 +3942,8 @@ excluded channels give a trough at 0 with side peaks.</p>
             </td>
             <td class="doc-param-details">
               <div class="doc-md-description">
-                <p>Region of interest passed through to <code>pearson</code>.</p>
+                <p>Region of interest, in <code>a</code>'s coordinates; cropped alongside
+<code>a</code> and passed through to <code>pearson</code>.</p>
               </div>
               <p>
                   <span class="doc-param-annotation">
@@ -3881,7 +3963,9 @@ excluded channels give a trough at 0 with side peaks.</p>
             </td>
             <td class="doc-param-details">
               <div class="doc-md-description">
-                <p>Largest pixel shift to evaluate in each direction.</p>
+                <p>Largest pixel shift to evaluate in each direction. Must be
+smaller than the length of <code>axis</code>, so that some overlap
+remains at every shift.</p>
               </div>
               <p>
                   <span class="doc-param-annotation">
@@ -3901,7 +3985,7 @@ excluded channels give a trough at 0 with side peaks.</p>
             </td>
             <td class="doc-param-details">
               <div class="doc-md-description">
-                <p>Axis along which <code>b</code> is shifted (wraps, <code>numpy.roll</code>).</p>
+                <p>Axis along which <code>b</code> is shifted, by default the last.</p>
               </div>
               <p>
                   <span class="doc-param-annotation">
@@ -3980,18 +4064,14 @@ pair is degenerate.</p>
             </td>
             <td class="doc-raises-details">
               <div class="doc-md-description">
-                <p>If <code>a</code> and <code>b</code> differ in shape or <code>max_shift &lt; 1</code>.</p>
+                <p>If <code>a</code> and <code>b</code> differ in shape, <code>max_shift &lt; 1</code>, or
+<code>max_shift</code> is not smaller than <code>a.shape[axis]</code>.</p>
               </div>
             </td>
           </tr>
       </tbody>
     </table>
 
-
-<details class="see-also" open>
-  <summary>See Also</summary>
-  <p>van_steensel_ccf_steps : generator form, for progress and cancel.</p>
-</details>
 
     </div>
 
@@ -4138,6 +4218,146 @@ than two pixels.</p>
 
 </div>
 
+<div class="doc doc-object doc-function">
+
+
+<h3 id="napari_colocalization._diagnostics.scramble_example" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">scramble_example</span>
+
+
+<a href="#napari_colocalization._diagnostics.scramble_example" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">scramble_example</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">block_size</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>One block-scrambled copy of <code>image</code> for display.</p>
+<p>Produces a single realisation of the randomisation used by
+<code>costes_randomization</code>, so the user can see what a
+scrambled channel looks like. The image is cropped to a whole
+number of blocks (any remainder strip is left unchanged).</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>image</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>2D or 3D intensity array to scramble.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="array_like">array_like</span></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>block_size</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Block side length.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="int">int</span></code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>8</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>seed</code>
+            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Seed for reproducibility.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="int">int</span></code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <span class="doc-returns-annotation">
+                    <code><span title="numpy.ndarray">ndarray</span></code>
+                </span>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>Same-shape copy with its block grid permuted.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RAISES</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+              <span class="doc-raises-annotation">
+                  <code><span title="ValueError">ValueError</span></code>
+              </span>
+            </td>
+            <td class="doc-raises-details">
+              <div class="doc-md-description">
+                <p>If <code>block_size</code> is larger than the image in any dimension.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
 
 
   </div>
@@ -4204,7 +4424,7 @@ components).</p>
 
 
 <a href="#napari_colocalization._objects.label_objects" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">label_objects</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">threshold_method</span><span class="o">=</span><span class="s1">&#39;otsu&#39;</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">min_size</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">label_objects</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">threshold_method</span><span class="o">=</span><span class="s1">'otsu'</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">min_size</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4338,7 +4558,7 @@ zeros when the channel has no defined threshold (constant).</p>
 
 
 <a href="#napari_colocalization._objects.object_table" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">object_table</span><span class="p">(</span><span class="n">labels_a</span><span class="p">,</span> <span class="n">labels_b</span><span class="p">,</span> <span class="n">name_a</span><span class="o">=</span><span class="s1">&#39;A&#39;</span><span class="p">,</span> <span class="n">name_b</span><span class="o">=</span><span class="s1">&#39;B&#39;</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">object_table</span><span class="p">(</span><span class="n">labels_a</span><span class="p">,</span> <span class="n">labels_b</span><span class="p">,</span> <span class="n">name_a</span><span class="o">=</span><span class="s1">'A'</span><span class="p">,</span> <span class="n">name_b</span><span class="o">=</span><span class="s1">'B'</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -4698,25 +4918,25 @@ into its red and green channels. The two dyes strongly colocalise
     </div>
 
 </div><h2 id="putting-it-together-scripted-analysis">Putting it together: scripted analysis<a class="headerlink" href="#putting-it-together-scripted-analysis" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">napari_colocalization._analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">analyse_pairwise</span><span class="p">,</span> <span class="n">COLUMNS</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;channel_a.npy&#39;</span><span class="p">)</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;channel_b.npy&#39;</span><span class="p">)</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">&#39;cell_labels.npy&#39;</span><span class="p">)</span>   <span class="c1"># 0 = bg, 1..N = cells</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">rows</span> <span class="o">=</span> <span class="n">analyse_pairwise</span><span class="p">(</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="n">label_mask</span><span class="o">=</span><span class="n">mask</span><span class="p">,</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>    <span class="n">metrics</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;pcc&#39;</span><span class="p">,</span> <span class="s1">&#39;srcc&#39;</span><span class="p">,</span> <span class="s1">&#39;mcc&#39;</span><span class="p">),</span>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    <span class="n">threshold_method</span><span class="o">=</span><span class="s1">&#39;costes&#39;</span><span class="p">,</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>    <span class="n">channel_a</span><span class="o">=</span><span class="s1">&#39;dna&#39;</span><span class="p">,</span> <span class="n">channel_b</span><span class="o">=</span><span class="s1">&#39;tubulin&#39;</span><span class="p">,</span>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="p">)</span>
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>
-<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">COLUMNS</span><span class="p">)</span>
-<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s1">&#39;colocalization_per_cell.csv&#39;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">describe</span><span class="p">())</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">napari_colocalization</span><span class="w"> </span><span class="kn">import</span> <span class="n">analyse_pairwise</span><span class="p">,</span> <span class="n">COLUMNS</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">'channel_a.npy'</span><span class="p">)</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">'channel_b.npy'</span><span class="p">)</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="s1">'cell_labels.npy'</span><span class="p">)</span>   <span class="c1"># 0 = bg, 1..N = cells</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">rows</span> <span class="o">=</span> <span class="n">analyse_pairwise</span><span class="p">(</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="n">label_mask</span><span class="o">=</span><span class="n">mask</span><span class="p">,</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="n">metrics</span><span class="o">=</span><span class="p">(</span><span class="s1">'pcc'</span><span class="p">,</span> <span class="s1">'srcc'</span><span class="p">,</span> <span class="s1">'mcc'</span><span class="p">),</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="n">threshold_method</span><span class="o">=</span><span class="s1">'costes'</span><span class="p">,</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    <span class="n">channel_a</span><span class="o">=</span><span class="s1">'dna'</span><span class="p">,</span> <span class="n">channel_b</span><span class="o">=</span><span class="s1">'tubulin'</span><span class="p">,</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="p">)</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">COLUMNS</span><span class="p">)</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a><span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s1">'colocalization_per_cell.csv'</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">describe</span><span class="p">())</span>
 </code></pre></div>
 <h2 id="stability">Stability<a class="headerlink" href="#stability" title="Permanent link">&para;</a></h2>
 <ul>

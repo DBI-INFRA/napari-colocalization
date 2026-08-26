@@ -741,8 +741,9 @@ selectors and Run button):</p>
 <h3 id="channels">Channels<a class="headerlink" href="#channels" title="Permanent link">&para;</a></h3>
 <p>In <strong>pairwise</strong> mode, two layer combos labelled <strong>Image A</strong> and <strong>Image B</strong>,
 auto-populated from the viewer's image layers. With at least two images
-present, A and B default to <em>different</em> layers. Both must have the same
-shape.</p>
+present, A and B default to <em>different</em> layers; a selection you make
+yourself is kept, including deliberately setting both to the same layer
+as an autocorrelation control. Both must have the same shape.</p>
 <p>A <strong>Per Z-slice</strong> checkbox with a <strong>Z axis</strong> spinbox analyses each plane of a
 3D stack separately (one result row per slice, tagged in the <code>slice</code> column)
 instead of the whole volume; it requires a 3D image.</p>
@@ -768,7 +769,9 @@ layers are excluded. The region's spatial shape must match the channels'.</p>
 and <strong>Manders</strong>. The first three measure intensity <em>correlation</em>; Overlap
 and Manders measure <em>co-occurrence</em>
 (see <a href="../metrics/#co-occurrence-versus-correlation">metrics.md</a>).
-Only <strong>Spearman</strong> is on by default (the most outlier-robust).
+<strong>Pearson</strong> and <strong>Manders</strong> are on by default - one metric from each
+family, and the two most commonly reported. Checking Manders also reveals
+the threshold group below.
 Pick any subset; unrequested metrics are blank in the table. See
 <a href="../metrics/">metrics.md</a> for what each one means.</p>
 <h3 id="manders-threshold">Manders threshold<a class="headerlink" href="#manders-threshold" title="Permanent link">&para;</a></h3>
@@ -788,15 +791,26 @@ Pick any subset; unrequested metrics are blank in the table. See
 </ul>
 <p>In all-to-all mode the chosen method applies to every channel pair.</p>
 <h3 id="run-and-results">Run and results<a class="headerlink" href="#run-and-results" title="Permanent link">&para;</a></h3>
-<p><strong>Run</strong> computes the metrics on a background thread (the UI stays responsive;
-the button disables while running). The <strong>Results</strong> group then appears.</p>
+<p><strong>Run</strong> computes the metrics on a background thread, so the UI stays
+responsive. While a run is in flight the button turns into <strong>Cancel</strong> and a
+progress bar below it tracks the regions (or, on the Diagnostics tab, the
+randomization iterations or CCF shifts) completed so far; cancelling discards
+the run and leaves the previous results in place. The <strong>Results</strong> group then
+appears.</p>
 <p>The <strong>table</strong> has one row per <em>(channel pair, region[, slice])</em>: <code>region</code>,
-<code>slice</code>, <code>channel_a</code>, <code>channel_b</code>, <code>n_pixels</code>, the metric columns (<code>pcc</code> +
-<code>pcc_pvalue</code>, <code>srcc</code> + <code>srcc_pvalue</code>, <code>icq</code>, <code>overlap</code>/<code>k1</code>/<code>k2</code>, <code>tm1</code>/<code>tm2</code>)
-and <code>threshold_a</code>/<code>threshold_b</code>. Click a header to sort; multi-select with
+<code>slice</code>, <code>channel_a</code>, <code>channel_b</code>, <code>n_pixels</code>, the metric columns (<code>pcc</code>,
+<code>srcc</code>, <code>icq</code>, <code>overlap</code>/<code>k1</code>/<code>k2</code>, <code>tm1</code>/<code>tm2</code>) and
+<code>threshold_a</code>/<code>threshold_b</code>. Hover a column header for a one-line explanation
+of what it holds. Click a header to sort; multi-select with
 <strong>Ctrl/Shift-click</strong>. If a region's metric can't be computed (too few pixels,
 a constant or empty channel) its cell is left blank and a note below the table
 summarises how many rows were affected and why.</p>
+<p>The table reports coefficients only - no per-pixel p-values, which are
+meaningless on spatially autocorrelated pixels
+(see <a href="../metrics/#why-there-are-no-per-pixel-p-values">metrics.md</a>). A note
+under the results says so and an <strong>Open Diagnostics</strong> button switches to the
+Diagnostics tab, carrying the pairwise channel and region selections across
+so the Costes randomization test is ready to run.</p>
 <p>The <strong>cytofluorogram</strong> below is a 2D <strong>hexbin</strong> density plot of the two
 channels' intensities for the selected row, with the axes labelled by the
 channel names. Red lines mark the Manders thresholds and a cyan dashed line
@@ -817,7 +831,13 @@ beyond the table itself.</p>
 <li><strong>Costes randomization</strong> - the significance test: channel B is block-
   scrambled many times to build a null PCC distribution, plotted as a
   histogram with the observed PCC, a p-value and a z-score. Parameters:
-  <strong>Iterations</strong> and <strong>Block size</strong>. 2D or 3D.</li>
+  <strong>Iterations</strong> and <strong>Block size</strong>. 2D or 3D. Set <strong>Block size</strong> to roughly
+  the point-spread-function width in pixels (the smallest resolvable
+  feature): blocks that size destroy the co-occurrence between the channels
+  while leaving the pixel-level texture intact. Blocks much smaller than the
+  PSF break up that texture too and make almost anything look significant;
+  blocks much larger carry real structure along and hide genuine
+  colocalization.</li>
 <li><strong>Van Steensel CCF</strong> - Pearson's r as channel B is shifted across
   <strong>Max shift</strong> pixels; a peak at 0 indicates colocalization.</li>
 <li><strong>Li ICA</strong> - the intensity-correlation-analysis scatter (intensity vs
@@ -863,20 +883,21 @@ nearest-neighbour links (Vectors)</strong>.</p>
 </figure>
 <p><strong>Run object analysis</strong> fills the <strong>Object results</strong> table - one row per
 object (<code>channel</code>, <code>object</code>, <code>n_pixels</code>, <code>centroid</code>, <code>coincident</code>,
-<code>overlap</code>, <code>nn_distance_px</code>). <em>Coincident</em> means the object's centroid
-falls inside an object of the other channel; <em>overlap</em> means its pixels
-touch one.</p>
-<p><code>nn_distance_px</code> is the distance from the object's centroid to the nearest
-centroid in the <em>other</em> channel. It is the graded companion to the two
-yes/no measures: an object
-that misses by 2 px and one that misses by 200 px both read as "no", but
-they are not the same result. The distance is in <strong>pixels</strong>, matching
-<code>n_pixels</code> and the centroid columns beside it — the plugin does not apply a
-layer's physical <code>scale</code> anywhere, so convert yourself if you need microns.
-It is blank when the other channel has no objects to measure to. If overlays are enabled, object centroids are
-added as Points layers (coloured by each channel's colormap) and the
-nearest-neighbour links as a Vectors layer; re-running replaces them.</p>
-<p><strong>Export CSV…</strong> (next to the Run button, disabled until there are results)
+<code>overlap</code>, <code>nn_distance_px</code>; hover a column header for a one-line
+explanation). <em>Coincident</em> means the object's centroid falls inside an
+object of the other channel; <em>overlap</em> means its pixels touch one.</p>
+<p><code>nn_distance_px</code> is the distance from the object's centroid to the
+nearest centroid in the <em>other</em> channel. It is the graded companion to
+the two yes/no measures: an object that misses by 2 px and one that
+misses by 200 px both read as "no", but they are not the same result.
+The distance is in <strong>pixels</strong>, matching <code>n_pixels</code> and the centroid
+columns beside it - the plugin does not apply a layer's physical
+<code>scale</code> anywhere, so convert yourself if you need microns. It is blank
+when the other channel has no objects to measure to.</p>
+<p>If overlays are enabled, object centroids are added as Points layers
+(coloured by each channel's colormap) and the nearest-neighbour links
+as a Vectors layer; re-running replaces them.</p>
+<p><strong>Export CSV…</strong> (below the table, disabled until there are results)
 saves the per-object table. The <code>centroid</code> tuple is split into one column per
 axis — <code>centroid_0</code>, <code>centroid_1</code> and, for a 3D image, <code>centroid_2</code> — so the
 coordinates are usable downstream without string-parsing.</p>

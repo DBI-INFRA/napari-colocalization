@@ -565,11 +565,12 @@ leaving napari.</p>
   Pearson (PCC), Spearman rank (SRCC) and Li's Intensity Correlation
   Quotient (ICQ) — and two of <em>co-occurrence</em> — Manders' overlap coefficient
   with split coefficients (r, k1, k2) and Manders' thresholded coefficients
-  tM1/tM2.</li>
+  tM1/tM2. Pearson and Manders are on by default, one from each family.</li>
 <li><strong>Pairwise or all-to-all</strong> mode, <strong>2D and 3D</strong>, with optional
   <strong>per-Z-slice</strong> analysis (one row per plane).</li>
 <li><strong>Region-restricted analysis</strong> via a Shapes or Labels layer - each non-zero
-  region is reported on its own row.</li>
+  region is reported on its own row, computed on that region's bounding-box
+  crop so masks with many regions stay fast.</li>
 <li><strong>Manders thresholds</strong>: <strong>Costes auto</strong> (orthogonal-regression bisection,
   matched to Fiji Coloc 2), a per-channel <strong>auto-threshold</strong> (Otsu, Li,
   Triangle, Yen, Mean, IsoData), or <strong>Manual</strong>.</li>
@@ -577,15 +578,19 @@ leaving napari.</p>
   cross-correlation function, and Li intensity correlation analysis.</li>
 <li><strong>Object-based tab</strong>: centre-particle coincidence and object overlap, with
   centroid Points and nearest-neighbour Vectors drawn into the viewer.</li>
-<li><strong>Interactive results</strong>: in-widget table, cytofluorogram of the selected
-  row (with optional fixed axes), and viewer highlighting / output layers.</li>
+<li><strong>Interactive results</strong>: in-widget table with numeric sorting and per-column
+  header tooltips, cytofluorogram of the selected row (with optional fixed
+  axes), and viewer highlighting / output layers. Plots follow napari's
+  light/dark theme.</li>
+<li><strong>Cancellable runs</strong>: analysis runs on a background thread with a progress
+  bar; the Run button turns into <strong>Cancel</strong> while a run is in flight.</li>
 <li><strong>CSV export</strong> of the current table, plus <strong>figure export</strong> of the plots.</li>
 </ul>
 <h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>napari-colocalization
 </code></pre></div>
 <p>If napari isn't already installed, install both at once:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;napari-colocalization[all]&quot;</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"napari-colocalization[all]"</span>
 </code></pre></div>
 <h2 id="where-next">Where next?<a class="headerlink" href="#where-next" title="Permanent link">&para;</a></h2>
 <ul>
@@ -594,14 +599,16 @@ leaving napari.</p>
   the Costes auto-threshold works, and the diagnostics.</li>
 <li><strong><a href="api/">Python API</a></strong> - calling the pure-compute layer (<code>pearson</code>,
   <code>spearman</code>, <code>li_icq</code>, <code>manders</code>, <code>overlap</code>, <code>costes_threshold</code>,
-  <code>analyse_pairwise</code>/<code>analyse_all_to_all</code>, plus the <code>_diagnostics</code> and
-  <code>_objects</code> functions) from scripts or notebooks. Reference is
-  auto-generated from the source docstrings.</li>
+  <code>analyse_pairwise</code>/<code>analyse_all_to_all</code>, plus the diagnostic and
+  object-based functions), all importable from <code>napari_colocalization</code>
+  itself. Reference is auto-generated from the source docstrings.</li>
 </ul>
 <h2 id="source-code">Source code<a class="headerlink" href="#source-code" title="Permanent link">&para;</a></h2>
 <p>The plugin lives at
 <a href="https://github.com/DBI-INFRA/napari-colocalization">github.com/DBI-INFRA/napari-colocalization</a>.
-File issues or feature requests on the tracker there.</p>
+File issues or feature requests on the tracker there. Release-by-release
+changes are listed in the
+<a href="https://github.com/DBI-INFRA/napari-colocalization/blob/main/CHANGELOG.md">changelog</a>.</p>
 
 
 
