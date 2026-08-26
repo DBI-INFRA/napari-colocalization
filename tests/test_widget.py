@@ -2,8 +2,10 @@ import csv
 
 import numpy as np
 import pytest
+from qtpy.QtCore import Qt
 
 from napari_colocalization import ColocalizationWidget
+from napari_colocalization._analysis import COLUMNS
 
 
 @pytest.fixture
@@ -67,6 +69,10 @@ def _cell(table, row, column):
         for c in range(table.columnCount())
     ]
     return table.item(row, headers.index(column)).text()
+
+
+def _column(table, column):
+    return [_cell(table, r, column) for r in range(table.rowCount())]
 
 
 # -- construction & UI toggles ----------------------------------------
@@ -192,6 +198,21 @@ def test_region_mask_gives_one_row_per_region(widget, qtbot, rng):
     assert widget._table.rowCount() == 2
 
 
+def test_table_sorts_numerically_not_lexicographically(widget):
+    rows = [
+        {'region': 0, 'n_pixels': 2, 'pcc': 0.5},
+        {'region': 1, 'n_pixels': 10, 'pcc': 1e-05},
+        {'region': 2, 'n_pixels': 9, 'pcc': float('nan')},
+    ]
+    widget._populate_table(rows)
+    table = widget._table
+    table.sortItems(COLUMNS.index('n_pixels'), Qt.AscendingOrder)
+    assert _column(table, 'n_pixels') == ['2', '9', '10']
+    # NaN (blank) sorts below every real value.
+    table.sortItems(COLUMNS.index('pcc'), Qt.AscendingOrder)
+    assert _column(table, 'pcc') == ['', '1e-05', '0.5']
+
+
 def test_per_slice_run_gives_one_row_per_slice(widget, qtbot, rng):
     _add_pair(widget, rng.random((4, 16, 16)).astype(np.float32))
     widget._per_slice_check.setChecked(True)
@@ -204,6 +225,17 @@ def test_per_slice_run_gives_one_row_per_slice(widget, qtbot, rng):
 def test_per_slice_requires_3d(widget, rng):
     _add_pair(widget, rng.random((16, 16)).astype(np.float32))  # 2D
     widget._per_slice_check.setChecked(True)
+    assert widget.gather_params() is None
+
+
+def test_multiscale_image_is_rejected(widget):
+    arr = np.zeros((32, 32), dtype=np.float32)
+    layer = widget._viewer.add_image(
+        [arr, arr[::2, ::2]], multiscale=True, name='ms'
+    )
+    widget._image_a_combo.value = layer
+    widget._image_b_combo.value = layer
+    assert widget._image_a_combo.value is layer
     assert widget.gather_params() is None
 
 
@@ -293,6 +325,32 @@ def test_add_coloc_mask_layer(widget, qtbot, rng):
     ]
     assert len(masks) == 1
     assert int(masks[0].data.sum()) == 16 * 16  # the bright square
+
+
+def test_per_slice_coloc_mask_covers_only_that_plane(widget, qtbot):
+    from napari.layers import Labels
+
+    img = np.zeros((3, 16, 16), dtype=np.float32)
+    img[:, 4:12, 4:12] = 1.0
+    _add_pair(widget, img)
+    widget._per_slice_check.setChecked(True)
+    widget._slice_axis_spin.setValue(0)
+    widget._cb_mcc.setChecked(True)
+    _select(widget._threshold_combo, 'otsu')
+    _run(widget, qtbot)
+
+    slices = _column(widget._table, 'slice')
+    widget._table.selectRow(slices.index('1'))
+    widget._on_add_mask_clicked()
+    mask = next(
+        layer
+        for layer in widget._viewer.layers
+        if isinstance(layer, Labels) and 'coloc' in layer.name
+    )
+    assert mask.data.shape == img.shape
+    assert int(mask.data[1].sum()) == 8 * 8
+    assert int(mask.data[0].sum()) == 0
+    assert int(mask.data[2].sum()) == 0
 
 
 # -- diagnostics tab --------------------------------------------------

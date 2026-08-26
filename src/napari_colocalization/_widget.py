@@ -68,8 +68,36 @@ if TYPE_CHECKING:
     import napari
 
 
+# Qt.UserRole already carries the ctx-index mapping of the intensity
+# table, so numeric sort keys need a role of their own.
+_SORT_ROLE = Qt.UserRole + 1
+
+
 def _shape_without_axis(shape, axis):
     return tuple(s for i, s in enumerate(shape) if i != axis)
+
+
+def _slice_index(row):
+    """A result row's Z index, or ``None`` if it is not per-slice."""
+    value = row.get('slice')
+    if value is None or (isinstance(value, float) and np.isnan(value)):
+        return None
+    return int(value)
+
+
+def _reject_multiscale(*layers):
+    """True (after warning) if any of ``layers`` is multiscale.
+
+    Multiscale data is a pyramid of arrays, not one array, so none of
+    the compute layers can consume it.
+    """
+    if any(getattr(layer, 'multiscale', False) for layer in layers):
+        show_warning(
+            'Multiscale images are not supported; extract a single '
+            'resolution level first.'
+        )
+        return True
+    return False
 
 
 def _format_cell(value):
@@ -104,6 +132,27 @@ def _layer_color(layer):
         return 'white'
     r, g, b = (int(round(float(c) * 255)) for c in rgb)
     return f'#{r:02x}{g:02x}{b:02x}'
+
+
+class _SortableTableItem(QTableWidgetItem):
+    """Table item sorting on a numeric key instead of its text.
+
+    Qt compares the displayed string, which would order n_pixels
+    10000 before 9999 and '1e-05' above '0.5'. Cells without a
+    numeric key (channel names, centroids) keep text comparison;
+    NaN sorts below every real value so blank cells group together.
+    """
+
+    def __lt__(self, other):
+        mine = self.data(_SORT_ROLE)
+        theirs = other.data(_SORT_ROLE)
+        if mine is None or theirs is None:
+            return super().__lt__(other)
+        if np.isnan(mine):
+            return not np.isnan(theirs)
+        if np.isnan(theirs):
+            return False
+        return mine < theirs
 
 
 class FigureExportDialog(QDialog):
@@ -168,6 +217,7 @@ class ColocalizationWidget(QWidget):
         # "Add coloc mask" output layer can be built from a selected row.
         self._channel_arrays = {}
         self._label_mask = None
+        self._slice_axis = None
         # Centroid/link layers added by the last object run, so a new
         # run can clear them first. Centroid point size defaults to a
         # value scaled to the image (``None`` = auto); once the user
@@ -293,7 +343,10 @@ class ColocalizationWidget(QWidget):
         table.setRowCount(len(rows))
         for r, row in enumerate(rows):
             for c, key in enumerate(columns):
-                item = QTableWidgetItem(formatter(row.get(key)))
+                value = row.get(key)
+                item = _SortableTableItem(formatter(value))
+                if isinstance(value, (bool, int, float, np.number, np.bool_)):
+                    item.setData(_SORT_ROLE, float(value))
                 if user_role:
                     item.setData(Qt.UserRole, r)
                 table.setItem(r, c, item)
@@ -563,9 +616,12 @@ class ColocalizationWidget(QWidget):
         if layer is None:
             self._channel_axis_spin.setMaximum(0)
             return
-        ndim = int(np.asarray(layer.data).ndim)
-        self._channel_axis_spin.setMaximum(max(ndim - 1, 0))
-        shape = tuple(np.asarray(layer.data).shape)
+        # Read the geometry off the layer rather than the data: a
+        # lazy array must not be materialized just to change a combo.
+        self._channel_axis_spin.setMaximum(max(int(layer.ndim) - 1, 0))
+        if getattr(layer, 'multiscale', False):
+            return
+        shape = getattr(layer.data, 'shape', None)
         if shape:
             smallest = int(np.argmin(shape))
             if shape[smallest] <= 8:
@@ -744,6 +800,8 @@ class ColocalizationWidget(QWidget):
         if layer_a is None or layer_b is None:
             show_warning('Select both image layers.')
             return None
+        if _reject_multiscale(layer_a, layer_b):
+            return None
         a = np.asarray(layer_a.data)
         b = np.asarray(layer_b.data)
         if a.shape != b.shape:
@@ -779,6 +837,8 @@ class ColocalizationWidget(QWidget):
         layer = self._stack_combo.value
         if layer is None:
             show_warning('Select an image stack.')
+            return None
+        if _reject_multiscale(layer):
             return None
         image = np.asarray(layer.data)
         axis = int(self._channel_axis_spin.value())
@@ -894,6 +954,7 @@ class ColocalizationWidget(QWidget):
         self._results = rows
         self._channel_arrays = channel_arrays
         self._label_mask = label_mask
+        self._slice_axis = slice_axis
         self._populate_table(rows)
         self._plot_context = self._build_plot_context(
             rows, channel_arrays, label_mask, slice_axis
@@ -954,13 +1015,8 @@ class ColocalizationWidget(QWidget):
             # For a per-Z-slice row, scatter/regression should reflect
             # that plane only - take the slice of the channel arrays
             # (and of a full-volume label mask).
-            s = row.get('slice')
-            if (
-                slice_axis is not None
-                and s is not None
-                and not (isinstance(s, float) and np.isnan(s))
-            ):
-                si = int(s)
+            si = _slice_index(row)
+            if slice_axis is not None and si is not None:
                 a = np.take(a, si, axis=slice_axis)
                 b = np.take(b, si, axis=slice_axis)
                 if lm is not None and np.asarray(lm).ndim > a.ndim:
@@ -1037,11 +1093,9 @@ class ColocalizationWidget(QWidget):
         # The channel pair is on the axis labels now; the title only
         # carries the row identity (region, and slice when per-slice).
         title = f'region {row["region"]}'
-        slice_index = row.get('slice')
-        if slice_index is not None and not (
-            isinstance(slice_index, float) and np.isnan(slice_index)
-        ):
-            title += f', slice {int(slice_index)}'
+        slice_index = _slice_index(row)
+        if slice_index is not None:
+            title += f', slice {slice_index}'
         annotation_lines = []
         for key, label in (
             ('pcc', 'Pearson'),
@@ -1163,7 +1217,11 @@ class ColocalizationWidget(QWidget):
         )
         if not path:
             return
-        self.write_csv(path, self._results)
+        try:
+            self.write_csv(path, self._results)
+        except OSError as exc:
+            show_warning(f'Could not write {path}: {exc}')
+            return
         show_info(f'Wrote {path}')
 
     def _on_export_figure_clicked(self):
@@ -1187,7 +1245,13 @@ class ColocalizationWidget(QWidget):
         )
         if not path:
             return
-        canvas.save_figure(path, dlg.width_in(), dlg.height_in(), dlg.dpi())
+        try:
+            canvas.save_figure(
+                path, dlg.width_in(), dlg.height_in(), dlg.dpi()
+            )
+        except OSError as exc:
+            show_warning(f'Could not write {path}: {exc}')
+            return
         show_info(f'Wrote {path}')
 
     def _on_add_mask_clicked(self):
@@ -1209,15 +1273,38 @@ class ColocalizationWidget(QWidget):
         if a is None or b is None:
             show_warning('Channel data is unavailable for this row.')
             return
+        a = np.asarray(a)
+        b = np.asarray(b)
+        label_mask = self._label_mask
+        # A per-slice row's thresholds only describe its own plane, so
+        # the mask is computed there and embedded in a full-size volume
+        # to stay aligned with the image layer.
+        si = _slice_index(row) if self._slice_axis is not None else None
+        plane_a, plane_b = a, b
+        if si is not None:
+            plane_a = np.take(a, si, axis=self._slice_axis)
+            plane_b = np.take(b, si, axis=self._slice_axis)
+            if (
+                label_mask is not None
+                and np.asarray(label_mask).ndim > plane_a.ndim
+            ):
+                label_mask = np.take(label_mask, si, axis=self._slice_axis)
         # Colocalized pixels: above threshold in both channels (the
         # thresholds the row's M1/M2 were computed against), optionally
         # restricted to the row's region.
-        coloc = (np.asarray(a) > t_a) & (np.asarray(b) > t_b)
+        coloc = (plane_a > t_a) & (plane_b > t_b)
         mask_label = row.get('region_label', row['region'])
-        if self._label_mask is not None and mask_label != 0:
-            coloc = coloc & (self._label_mask == mask_label)
+        if label_mask is not None and mask_label != 0:
+            coloc = coloc & (label_mask == mask_label)
+        data = coloc.astype('uint8')
+        if si is not None:
+            volume = np.zeros(a.shape, dtype='uint8')
+            index = [slice(None)] * a.ndim
+            index[self._slice_axis] = si
+            volume[tuple(index)] = data
+            data = volume
         self._viewer.add_labels(
-            coloc.astype('uint8'),
+            data,
             name=f'coloc {row["channel_a"]} & {row["channel_b"]}',
         )
 
@@ -1370,6 +1457,8 @@ class ColocalizationWidget(QWidget):
         if layer_a is None or layer_b is None:
             show_warning('Select both image layers for the diagnostic.')
             return None
+        if _reject_multiscale(layer_a, layer_b):
+            return None
         a = np.asarray(layer_a.data)
         b = np.asarray(layer_b.data)
         if a.shape != b.shape:
@@ -1387,12 +1476,19 @@ class ColocalizationWidget(QWidget):
         mask = None if label_mask is None else (label_mask > 0)
         method = self._diag_method_combo.currentData()
         block_size = int(self._costes_block.value())
+        max_shift = int(self._ccf_max_shift.value())
         # Validate preconditions synchronously: a worker exception would
         # both log a traceback and trigger the warning, surfacing twice.
         if method == 'costes' and any(
             dim // block_size < 1 for dim in a.shape
         ):
             show_warning('Costes block size is larger than the image.')
+            return None
+        if method == 'ccf' and max_shift >= a.shape[-1]:
+            show_warning(
+                f'CCF max shift must be smaller than the shifted axis '
+                f'({a.shape[-1]} px).'
+            )
             return None
         if mask is not None and int(mask.sum()) < 2:
             show_warning('The selected region has fewer than 2 pixels.')
@@ -1406,7 +1502,7 @@ class ColocalizationWidget(QWidget):
             'channel_b': layer_b.name,
             'n_iter': int(self._costes_niter.value()),
             'block_size': block_size,
-            'max_shift': int(self._ccf_max_shift.value()),
+            'max_shift': max_shift,
         }
 
     def _on_diag_run_clicked(self):
@@ -1627,6 +1723,8 @@ class ColocalizationWidget(QWidget):
             layer_b = self._obj_image_b_combo.value
             if layer_a is None or layer_b is None:
                 show_warning('Select both image layers.')
+                return None
+            if _reject_multiscale(layer_a, layer_b):
                 return None
             a = np.asarray(layer_a.data)
             b = np.asarray(layer_b.data)
