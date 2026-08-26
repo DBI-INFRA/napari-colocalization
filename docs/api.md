@@ -11,7 +11,28 @@ docstrings. The narrative and examples on this page are written by hand;
 the `:::` blocks are filled in automatically by mkdocstrings at build
 time.
 
-## Module layout
+## The public API
+
+Everything documented on this page is re-exported from the package
+root - that is the surface to import from:
+
+```python
+from napari_colocalization import analyse_pairwise, pearson, manders
+```
+
+| Group | Names |
+| --- | --- |
+| Metrics | `pearson`, `spearman`, `li_icq`, `manders`, `overlap`, `costes_threshold`, `costes_regression` |
+| Masking | `shapes_to_label_mask`, `labels_to_label_mask`, `iter_regions` |
+| Analysis | `analyse_pairwise`, `analyse_all_to_all`, `COLUMNS` |
+| Diagnostics | `costes_randomization`, `van_steensel_ccf`, `li_ica`, `scramble_example` |
+| Object-based | `label_objects`, `object_table`, `object_centroids`, `nearest_neighbour_vectors`, `OBJECT_COLUMNS` |
+| Sample data | `make_sample_data`, `make_sample_data_3d`, `make_sample_data_cbs006rbm`, `make_sample_data_coloc` |
+| Widget | `ColocalizationWidget` |
+
+Internally those live in underscore-prefixed modules (a convention
+from the napari plugin template), which is also where the docstrings
+below are read from:
 
 ```
 napari_colocalization
@@ -19,16 +40,22 @@ napari_colocalization
 │                   costes_threshold, costes_regression
 ├── _masking.py     shapes_to_label_mask, labels_to_label_mask, iter_regions
 ├── _analysis.py    analyse_pairwise, analyse_all_to_all, COLUMNS
-├── _diagnostics.py costes_randomization, van_steensel_ccf, li_ica
+├── _diagnostics.py costes_randomization, van_steensel_ccf, li_ica,
+│                   scramble_example
 ├── _objects.py     label_objects, object_table, object_centroids,
-│                   nearest_neighbour_vectors
+│                   nearest_neighbour_vectors, OBJECT_COLUMNS
 ├── _sample_data.py make_sample_data, make_sample_data_3d,
 │                   make_sample_data_cbs006rbm, make_sample_data_coloc
-└── _widget.py      ColocalizationWidget (Qt-only)
+├── _plot.py        embedded matplotlib canvases (Qt-only)
+├── _widget.py      ColocalizationWidget - the dock widget (Qt-only)
+├── _pixel_tab.py       the three analysis tabs and the Qt/layer
+├── _diagnostics_tab.py helpers they share (Qt-only)
+├── _object_tab.py
+└── _widget_shared.py
 ```
 
-The leading underscore is a convention from the napari plugin template;
-the symbols below are stable and intended to be imported.
+The module layout may be rearranged between releases; the names in
+the table above are the stable ones.
 
 ## Metrics - `napari_colocalization._metrics`
 
@@ -96,6 +123,7 @@ returning `NaN`.
         - costes_randomization
         - van_steensel_ccf
         - li_ica
+        - scramble_example
       show_root_heading: false
       heading_level: 3
 
@@ -138,7 +166,7 @@ on first use and caches it under `~/.cache/napari-colocalization/`.
 ```python
 import numpy as np
 import pandas as pd
-from napari_colocalization._analysis import analyse_pairwise, COLUMNS
+from napari_colocalization import analyse_pairwise, COLUMNS
 
 a = np.load('channel_a.npy')
 b = np.load('channel_b.npy')
