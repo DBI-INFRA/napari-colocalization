@@ -33,20 +33,26 @@ results table plus an intensity-vs-intensity density plot.
   *correlation* — Pearson (PCC), Spearman rank (SRCC) and Li's Intensity
   Correlation Quotient (ICQ) — and two of *co-occurrence* — Manders'
   overlap coefficient with split coefficients (r, k1, k2) and Manders'
-  thresholded coefficients tM1/tM2.
+  thresholded coefficients tM1/tM2. Pearson and Manders are on by default,
+  one from each family.
 - **Pairwise or all-to-all** mode: analyse two grayscale layers, or every
   channel pair within a single multi-channel layer.
 - **2D and 3D** support natively (no time-series for now).
 - **Region-restricted analysis** via a Shapes or Labels layer - each non-zero
-  region is reported on its own row.
+  region is reported on its own row, computed on that region's bounding-box
+  crop so masks with many regions stay fast.
 - **Manders thresholds**: choose **Costes auto** (orthogonal-regression
   bisection, matched to Fiji Coloc 2), a per-channel **auto-threshold**
   (Otsu, Li, Triangle, Yen, Mean, IsoData → thresholded tM1/tM2), or **Manual**.
 - **Per-Z-slice mode**: analyse each plane of a stack separately (one row
   per slice), à la JACoP B's "consider Z slices separately".
-- **Interactive results**: in-widget table, density plot of the selected row,
-  multi-row selection that highlights all matching shapes/labels in the viewer,
-  and an optional **fixed-axes** cytofluorogram for comparable plots.
+- **Interactive results**: in-widget table with numeric sorting and per-column
+  header tooltips, density plot of the selected row, multi-row selection that
+  highlights all matching shapes/labels in the viewer, and an optional
+  **fixed-axes** cytofluorogram for comparable plots. Plots follow napari's
+  light/dark theme.
+- **Cancellable runs**: analysis runs on a background thread with a progress
+  bar; the Run button turns into **Cancel** while a run is in flight.
 - **Diagnostics tab**: single-pair diagnostic plots - Costes randomization
   significance test (observed PCC vs a scrambled null, with p-value/z-score),
   Van Steensel cross-correlation function (CCF), and Li intensity correlation
@@ -91,10 +97,13 @@ pip install git+https://github.com/DBI-INFRA/napari-colocalization.git
    </p>
 
 3. Open the widget: **Plugins → Colocalization Analysis**. Two image layers
-   `channel_a` and `channel_b` are auto-selected for pairwise mode.
+   `channel_a` and `channel_b` are auto-selected for pairwise mode, with
+   **Pearson** and **Manders** checked and the Manders threshold group
+   (**Costes (auto)**) below them.
 
-4. Click **Run**. The results table populates with a single row (the whole
-   image), and the density plot below shows the intensity pairs with the
+4. Click **Run**. A progress bar tracks the run - the button reads **Cancel**
+   until it finishes. The results table then populates with a single row (the
+   whole image), and the density plot below shows the intensity pairs with the
    metric values overlaid.
 
 <p align="center">
@@ -150,6 +159,7 @@ and Vectors.
   (`pearson`, `spearman`, `li_icq`, `manders`, `overlap`,
   `costes_threshold`, `costes_regression`, `analyse_pairwise`,
   `analyse_all_to_all`) from scripts or notebooks.
+- **[Changelog](CHANGELOG.md)** - what changed in each release.
 
 ## Related projects
 

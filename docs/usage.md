@@ -185,7 +185,8 @@ nearest-neighbour links (Vectors)**.
 
 **Run object analysis** fills the **Object results** table - one row per
 object (`channel`, `object`, `n_pixels`, `centroid`, `coincident`,
-`overlap`) - with a per-channel summary below. *Coincident* means the
+`overlap`; hover a column header for a one-line explanation) - with a
+per-channel summary below. *Coincident* means the
 object's centroid falls inside an object of the other channel; *overlap*
 means its pixels touch one. If overlays are enabled, object centroids are
 added as Points layers (coloured by each channel's colormap) and the

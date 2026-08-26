@@ -32,11 +32,12 @@ leaving napari.
   Pearson (PCC), Spearman rank (SRCC) and Li's Intensity Correlation
   Quotient (ICQ) — and two of *co-occurrence* — Manders' overlap coefficient
   with split coefficients (r, k1, k2) and Manders' thresholded coefficients
-  tM1/tM2.
+  tM1/tM2. Pearson and Manders are on by default, one from each family.
 - **Pairwise or all-to-all** mode, **2D and 3D**, with optional
   **per-Z-slice** analysis (one row per plane).
 - **Region-restricted analysis** via a Shapes or Labels layer - each non-zero
-  region is reported on its own row.
+  region is reported on its own row, computed on that region's bounding-box
+  crop so masks with many regions stay fast.
 - **Manders thresholds**: **Costes auto** (orthogonal-regression bisection,
   matched to Fiji Coloc 2), a per-channel **auto-threshold** (Otsu, Li,
   Triangle, Yen, Mean, IsoData), or **Manual**.
@@ -44,8 +45,12 @@ leaving napari.
   cross-correlation function, and Li intensity correlation analysis.
 - **Object-based tab**: centre-particle coincidence and object overlap, with
   centroid Points and nearest-neighbour Vectors drawn into the viewer.
-- **Interactive results**: in-widget table, cytofluorogram of the selected
-  row (with optional fixed axes), and viewer highlighting / output layers.
+- **Interactive results**: in-widget table with numeric sorting and per-column
+  header tooltips, cytofluorogram of the selected row (with optional fixed
+  axes), and viewer highlighting / output layers. Plots follow napari's
+  light/dark theme.
+- **Cancellable runs**: analysis runs on a background thread with a progress
+  bar; the Run button turns into **Cancel** while a run is in flight.
 - **CSV export** of the current table, plus **figure export** of the plots.
 
 ## Installation
@@ -67,12 +72,14 @@ pip install "napari-colocalization[all]"
   the Costes auto-threshold works, and the diagnostics.
 - **[Python API](api.md)** - calling the pure-compute layer (`pearson`,
   `spearman`, `li_icq`, `manders`, `overlap`, `costes_threshold`,
-  `analyse_pairwise`/`analyse_all_to_all`, plus the `_diagnostics` and
-  `_objects` functions) from scripts or notebooks. Reference is
-  auto-generated from the source docstrings.
+  `analyse_pairwise`/`analyse_all_to_all`, plus the diagnostic and
+  object-based functions), all importable from `napari_colocalization`
+  itself. Reference is auto-generated from the source docstrings.
 
 ## Source code
 
 The plugin lives at
 [github.com/DBI-INFRA/napari-colocalization](https://github.com/DBI-INFRA/napari-colocalization).
-File issues or feature requests on the tracker there.
+File issues or feature requests on the tracker there. Release-by-release
+changes are listed in the
+[changelog](https://github.com/DBI-INFRA/napari-colocalization/blob/main/CHANGELOG.md).
