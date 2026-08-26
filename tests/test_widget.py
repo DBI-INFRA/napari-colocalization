@@ -35,7 +35,7 @@ def _select(combo, data):
 
 
 def _select_region(widget, layer):
-    combo = widget._region_combo
+    combo = widget._pixel_tab._region_combo
     for i in range(combo.count()):
         if combo.itemData(i) is layer:
             combo.setCurrentIndex(i)
@@ -44,7 +44,7 @@ def _select_region(widget, layer):
 
 
 def _region_options(widget):
-    combo = widget._region_combo
+    combo = widget._pixel_tab._region_combo
     return [combo.itemText(i) for i in range(combo.count())]
 
 
@@ -53,14 +53,16 @@ def _add_pair(widget, a, b=None):
     viewer = widget._viewer
     layer_a = viewer.add_image(a, name='a')
     layer_b = viewer.add_image(a.copy() if b is None else b, name='b')
-    widget._image_a_combo.value = layer_a
-    widget._image_b_combo.value = layer_b
+    widget._pixel_tab._image_a_combo.value = layer_a
+    widget._pixel_tab._image_b_combo.value = layer_b
     return layer_a, layer_b
 
 
 def _run(widget, qtbot):
-    widget._on_run_clicked()
-    qtbot.waitUntil(lambda: widget._table.rowCount() > 0, timeout=10000)
+    widget._pixel_tab._on_run_clicked()
+    qtbot.waitUntil(
+        lambda: widget._pixel_tab._table.rowCount() > 0, timeout=10000
+    )
 
 
 def _cell(table, row, column):
@@ -79,40 +81,40 @@ def _column(table, column):
 
 
 def test_default_metrics_are_pearson_and_manders(widget):
-    assert widget._cb_pcc.isChecked()
-    assert widget._cb_mcc.isChecked()
+    assert widget._pixel_tab._cb_pcc.isChecked()
+    assert widget._pixel_tab._cb_mcc.isChecked()
     assert not any(
         cb.isChecked()
         for cb in (
-            widget._cb_srcc,
-            widget._cb_icq,
-            widget._cb_overlap,
+            widget._pixel_tab._cb_srcc,
+            widget._pixel_tab._cb_icq,
+            widget._pixel_tab._cb_overlap,
         )
     )
     # Manders on means its threshold group is visible from the start.
-    assert not widget._threshold_group.isHidden()
+    assert not widget._pixel_tab._threshold_group.isHidden()
 
 
 def test_mode_toggle_swaps_pairwise_and_all_to_all(widget):
-    assert not widget._pairwise_group.isHidden()
-    assert widget._all_group.isHidden()
-    widget._mode_all.setChecked(True)
-    assert widget._pairwise_group.isHidden()
-    assert not widget._all_group.isHidden()
+    assert not widget._pixel_tab._pairwise_group.isHidden()
+    assert widget._pixel_tab._all_group.isHidden()
+    widget._pixel_tab._mode_all.setChecked(True)
+    assert widget._pixel_tab._pairwise_group.isHidden()
+    assert not widget._pixel_tab._all_group.isHidden()
 
 
 def test_threshold_controls_visibility(widget):
     # The threshold group only appears with Manders; the manual T_a/T_b
     # row only appears for the Manual method.
-    widget._cb_mcc.setChecked(False)
-    assert widget._threshold_group.isHidden()
-    widget._cb_mcc.setChecked(True)
-    assert not widget._threshold_group.isHidden()
-    assert widget._manual_row.isHidden()  # default is Costes
-    _select(widget._threshold_combo, 'manual')
-    assert not widget._manual_row.isHidden()
-    _select(widget._threshold_combo, 'otsu')
-    assert widget._manual_row.isHidden()
+    widget._pixel_tab._cb_mcc.setChecked(False)
+    assert widget._pixel_tab._threshold_group.isHidden()
+    widget._pixel_tab._cb_mcc.setChecked(True)
+    assert not widget._pixel_tab._threshold_group.isHidden()
+    assert widget._pixel_tab._manual_row.isHidden()  # default is Costes
+    _select(widget._pixel_tab._threshold_combo, 'manual')
+    assert not widget._pixel_tab._manual_row.isHidden()
+    _select(widget._pixel_tab._threshold_combo, 'otsu')
+    assert widget._pixel_tab._manual_row.isHidden()
 
 
 def test_ab_selectors_default_to_distinct_layers(widget):
@@ -121,9 +123,15 @@ def test_ab_selectors_default_to_distinct_layers(widget):
     viewer.add_image(a, name='a')
     viewer.add_image(a.copy(), name='b')
     for combo_a, combo_b in (
-        (widget._image_a_combo, widget._image_b_combo),
-        (widget._diag_image_a_combo, widget._diag_image_b_combo),
-        (widget._obj_image_a_combo, widget._obj_image_b_combo),
+        (widget._pixel_tab._image_a_combo, widget._pixel_tab._image_b_combo),
+        (
+            widget._diagnostics_tab._diag_image_a_combo,
+            widget._diagnostics_tab._diag_image_b_combo,
+        ),
+        (
+            widget._object_tab._obj_image_a_combo,
+            widget._object_tab._obj_image_b_combo,
+        ),
     ):
         assert combo_a.value is not combo_b.value
 
@@ -148,14 +156,18 @@ def test_region_combo_tracks_shapes_and_labels(widget):
 def test_pairwise_run_reports_metric_values(widget, qtbot, rng):
     # identical channels -> Pearson and overlap are both 1.
     _add_pair(widget, rng.random((32, 32)).astype(np.float32))
-    widget._cb_pcc.setChecked(True)
-    widget._cb_overlap.setChecked(True)
+    widget._pixel_tab._cb_pcc.setChecked(True)
+    widget._pixel_tab._cb_overlap.setChecked(True)
     _run(widget, qtbot)
-    assert widget._table.rowCount() == 1
-    assert float(_cell(widget._table, 0, 'pcc')) == pytest.approx(1.0)
-    assert float(_cell(widget._table, 0, 'overlap')) == pytest.approx(1.0)
+    assert widget._pixel_tab._table.rowCount() == 1
+    assert float(_cell(widget._pixel_tab._table, 0, 'pcc')) == pytest.approx(
+        1.0
+    )
+    assert float(
+        _cell(widget._pixel_tab._table, 0, 'overlap')
+    ) == pytest.approx(1.0)
     # results panel is revealed once there are rows
-    assert not widget._results_group.isHidden()
+    assert not widget._pixel_tab._results_group.isHidden()
 
 
 def test_significance_row_links_to_diagnostics(widget, qtbot, rng):
@@ -166,26 +178,30 @@ def test_significance_row_links_to_diagnostics(widget, qtbot, rng):
         np.ones((16, 16), np.int32), name='regions'
     )
     _select_region(widget, labels)
-    widget._cb_mcc.setChecked(False)  # skip Costes, keep the run quick
+    widget._pixel_tab._cb_mcc.setChecked(
+        False
+    )  # skip Costes, keep the run quick
     _run(widget, qtbot)
-    assert not widget._significance_row.isHidden()
+    assert not widget._pixel_tab._significance_row.isHidden()
 
-    widget._open_diagnostics_button.click()
+    widget._pixel_tab._open_diagnostics_button.click()
     assert widget._tabs.currentWidget() is widget._diagnostics_tab
-    assert widget._diag_image_a_combo.value is layer_a
-    assert widget._diag_image_b_combo.value is layer_b
-    assert widget._diag_region_combo.currentData() is labels
+    assert widget._diagnostics_tab._diag_image_a_combo.value is layer_a
+    assert widget._diagnostics_tab._diag_image_b_combo.value is layer_b
+    assert widget._diagnostics_tab._diag_region_combo.currentData() is labels
 
 
 def test_all_to_all_run_covers_every_pair(widget, qtbot, rng):
     a = rng.random((32, 32)).astype(np.float32)
     layer = widget._viewer.add_image(np.stack([a, a, a]), name='stack')
-    widget._mode_all.setChecked(True)
-    widget._stack_combo.value = layer
-    widget._channel_axis_spin.setValue(0)
-    widget._cb_mcc.setChecked(False)
+    widget._pixel_tab._mode_all.setChecked(True)
+    widget._pixel_tab._stack_combo.value = layer
+    widget._pixel_tab._channel_axis_spin.setValue(0)
+    widget._pixel_tab._cb_mcc.setChecked(False)
     _run(widget, qtbot)
-    assert widget._table.rowCount() == 3  # 3 unordered channel pairs
+    assert (
+        widget._pixel_tab._table.rowCount() == 3
+    )  # 3 unordered channel pairs
 
 
 def test_region_mask_gives_one_row_per_region(widget, qtbot, rng):
@@ -195,7 +211,7 @@ def test_region_mask_gives_one_row_per_region(widget, qtbot, rng):
     layer = widget._viewer.add_labels(label, name='regions')
     _select_region(widget, layer)
     _run(widget, qtbot)
-    assert widget._table.rowCount() == 2
+    assert widget._pixel_tab._table.rowCount() == 2
 
 
 def test_table_sorts_numerically_not_lexicographically(widget):
@@ -204,8 +220,8 @@ def test_table_sorts_numerically_not_lexicographically(widget):
         {'region': 1, 'n_pixels': 10, 'pcc': 1e-05},
         {'region': 2, 'n_pixels': 9, 'pcc': float('nan')},
     ]
-    widget._populate_table(rows)
-    table = widget._table
+    widget._pixel_tab._populate_table(rows)
+    table = widget._pixel_tab._table
     table.sortItems(COLUMNS.index('n_pixels'), Qt.AscendingOrder)
     assert _column(table, 'n_pixels') == ['2', '9', '10']
     # NaN (blank) sorts below every real value.
@@ -215,17 +231,17 @@ def test_table_sorts_numerically_not_lexicographically(widget):
 
 def test_per_slice_run_gives_one_row_per_slice(widget, qtbot, rng):
     _add_pair(widget, rng.random((4, 16, 16)).astype(np.float32))
-    widget._per_slice_check.setChecked(True)
-    widget._slice_axis_spin.setValue(0)
+    widget._pixel_tab._per_slice_check.setChecked(True)
+    widget._pixel_tab._slice_axis_spin.setValue(0)
     _run(widget, qtbot)
-    assert widget._table.rowCount() == 4
-    widget._table.selectRow(2)  # slice-aware scatter must not raise
+    assert widget._pixel_tab._table.rowCount() == 4
+    widget._pixel_tab._table.selectRow(2)  # slice-aware scatter must not raise
 
 
 def test_per_slice_requires_3d(widget, rng):
     _add_pair(widget, rng.random((16, 16)).astype(np.float32))  # 2D
-    widget._per_slice_check.setChecked(True)
-    assert widget.gather_params() is None
+    widget._pixel_tab._per_slice_check.setChecked(True)
+    assert widget._pixel_tab.gather_params() is None
 
 
 def test_multiscale_image_is_rejected(widget):
@@ -233,10 +249,10 @@ def test_multiscale_image_is_rejected(widget):
     layer = widget._viewer.add_image(
         [arr, arr[::2, ::2]], multiscale=True, name='ms'
     )
-    widget._image_a_combo.value = layer
-    widget._image_b_combo.value = layer
-    assert widget._image_a_combo.value is layer
-    assert widget.gather_params() is None
+    widget._pixel_tab._image_a_combo.value = layer
+    widget._pixel_tab._image_b_combo.value = layer
+    assert widget._pixel_tab._image_a_combo.value is layer
+    assert widget._pixel_tab.gather_params() is None
 
 
 def test_auto_threshold_manders(widget, qtbot, rng):
@@ -245,10 +261,12 @@ def test_auto_threshold_manders(widget, qtbot, rng):
     img = np.zeros((32, 32), dtype=np.float32)
     img[8:24, 8:24] = 1.0
     _add_pair(widget, img)
-    widget._cb_mcc.setChecked(True)
-    _select(widget._threshold_combo, 'otsu')
+    widget._pixel_tab._cb_mcc.setChecked(True)
+    _select(widget._pixel_tab._threshold_combo, 'otsu')
     _run(widget, qtbot)
-    assert float(_cell(widget._table, 0, 'tm1')) == pytest.approx(1.0)
+    assert float(_cell(widget._pixel_tab._table, 0, 'tm1')) == pytest.approx(
+        1.0
+    )
 
 
 def test_uncomputable_region_is_summarised(widget, qtbot, rng):
@@ -258,19 +276,19 @@ def test_uncomputable_region_is_summarised(widget, qtbot, rng):
     label = np.zeros((20, 20), np.int32)
     label[:10], label[10:] = 1, 2
     _select_region(widget, widget._viewer.add_labels(label, name='r'))
-    widget._cb_srcc.setChecked(False)
-    widget._cb_pcc.setChecked(True)
+    widget._pixel_tab._cb_srcc.setChecked(False)
+    widget._pixel_tab._cb_pcc.setChecked(True)
     _run(widget, qtbot)
-    assert 'could not be computed' in widget._summary_label.text()
+    assert 'could not be computed' in widget._pixel_tab._summary_label.text()
 
 
 def test_fixed_axes_lock_scatter_bounds(widget, qtbot, rng):
     a = (rng.random((32, 32)) * 5.0).astype(np.float32)
     _add_pair(widget, a)
     _run(widget, qtbot)
-    widget._fixed_axes_check.setChecked(True)
-    widget._table.selectRow(0)
-    xlim = widget._scatter._ax.get_xlim()
+    widget._pixel_tab._fixed_axes_check.setChecked(True)
+    widget._pixel_tab._table.selectRow(0)
+    xlim = widget._pixel_tab._scatter._ax.get_xlim()
     assert xlim[0] == pytest.approx(0.0)
     assert xlim[1] == pytest.approx(float(a.max()))
 
@@ -279,7 +297,7 @@ def test_csv_export(widget, qtbot, rng, tmp_path):
     _add_pair(widget, rng.random((16, 16)).astype(np.float32))
     _run(widget, qtbot)
     out = tmp_path / 'results.csv'
-    widget.write_csv(str(out), widget._results)
+    widget._pixel_tab.write_csv(str(out), widget._pixel_tab._results)
     with open(out, newline='') as fh:
         rows = list(csv.DictReader(fh))
     assert len(rows) == 1
@@ -297,14 +315,16 @@ def test_row_selection_highlights_regions(widget, qtbot, rng):
         name='regions',
     )
     _select_region(widget, shapes)
-    widget._on_run_clicked()
-    qtbot.waitUntil(lambda: widget._table.rowCount() >= 2, timeout=10000)
+    widget._pixel_tab._on_run_clicked()
+    qtbot.waitUntil(
+        lambda: widget._pixel_tab._table.rowCount() >= 2, timeout=10000
+    )
 
-    widget._table.selectRow(0)
+    widget._pixel_tab._table.selectRow(0)
     assert 0 in shapes.selected_data
-    widget._table.selectAll()
+    widget._pixel_tab._table.selectAll()
     assert set(shapes.selected_data) == {0, 1}
-    widget._table.clearSelection()
+    widget._pixel_tab._table.clearSelection()
     assert len(shapes.selected_data) == 0
 
 
@@ -314,10 +334,10 @@ def test_add_coloc_mask_layer(widget, qtbot, rng):
     img = np.zeros((32, 32), dtype=np.float32)
     img[8:24, 8:24] = 1.0
     _add_pair(widget, img)
-    widget._cb_mcc.setChecked(True)
-    _select(widget._threshold_combo, 'otsu')
+    widget._pixel_tab._cb_mcc.setChecked(True)
+    _select(widget._pixel_tab._threshold_combo, 'otsu')
     _run(widget, qtbot)
-    widget._on_add_mask_clicked()
+    widget._pixel_tab._on_add_mask_clicked()
     masks = [
         layer
         for layer in widget._viewer.layers
@@ -333,15 +353,15 @@ def test_per_slice_coloc_mask_covers_only_that_plane(widget, qtbot):
     img = np.zeros((3, 16, 16), dtype=np.float32)
     img[:, 4:12, 4:12] = 1.0
     _add_pair(widget, img)
-    widget._per_slice_check.setChecked(True)
-    widget._slice_axis_spin.setValue(0)
-    widget._cb_mcc.setChecked(True)
-    _select(widget._threshold_combo, 'otsu')
+    widget._pixel_tab._per_slice_check.setChecked(True)
+    widget._pixel_tab._slice_axis_spin.setValue(0)
+    widget._pixel_tab._cb_mcc.setChecked(True)
+    _select(widget._pixel_tab._threshold_combo, 'otsu')
     _run(widget, qtbot)
 
-    slices = _column(widget._table, 'slice')
-    widget._table.selectRow(slices.index('1'))
-    widget._on_add_mask_clicked()
+    slices = _column(widget._pixel_tab._table, 'slice')
+    widget._pixel_tab._table.selectRow(slices.index('1'))
+    widget._pixel_tab._on_add_mask_clicked()
     mask = next(
         layer
         for layer in widget._viewer.layers
@@ -357,12 +377,14 @@ def test_per_slice_coloc_mask_covers_only_that_plane(widget, qtbot):
 
 
 def test_diag_param_groups_follow_method(widget):
-    assert not widget._diag_costes_group.isHidden()  # Costes default
-    _select(widget._diag_method_combo, 'ccf')
-    assert not widget._diag_ccf_group.isHidden()
-    assert widget._diag_costes_group.isHidden()
-    _select(widget._diag_method_combo, 'ica')
-    assert not widget._diag_ica_group.isHidden()
+    assert (
+        not widget._diagnostics_tab._diag_costes_group.isHidden()
+    )  # Costes default
+    _select(widget._diagnostics_tab._diag_method_combo, 'ccf')
+    assert not widget._diagnostics_tab._diag_ccf_group.isHidden()
+    assert widget._diagnostics_tab._diag_costes_group.isHidden()
+    _select(widget._diagnostics_tab._diag_method_combo, 'ica')
+    assert not widget._diagnostics_tab._diag_ica_group.isHidden()
 
 
 @pytest.mark.parametrize(
@@ -376,39 +398,52 @@ def test_diag_param_groups_follow_method(widget):
 def test_diagnostic_run_summarises(widget, qtbot, rng, method, expected):
     a = rng.random((32, 32)).astype(np.float32)
     viewer = widget._viewer
-    widget._diag_image_a_combo.value = viewer.add_image(a, name='a')
-    widget._diag_image_b_combo.value = viewer.add_image(a.copy(), name='b')
-    _select(widget._diag_method_combo, method)
-    widget._costes_niter.setValue(20)  # keep the costes test quick
-    widget._ccf_max_shift.setValue(5)
-    widget._on_diag_run_clicked()
-    qtbot.waitUntil(
-        lambda: widget._diag_summary_label.text() != '', timeout=15000
+    widget._diagnostics_tab._diag_image_a_combo.value = viewer.add_image(
+        a, name='a'
     )
-    assert expected in widget._diag_summary_label.text()
+    widget._diagnostics_tab._diag_image_b_combo.value = viewer.add_image(
+        a.copy(), name='b'
+    )
+    _select(widget._diagnostics_tab._diag_method_combo, method)
+    widget._diagnostics_tab._costes_niter.setValue(
+        20
+    )  # keep the costes test quick
+    widget._diagnostics_tab._ccf_max_shift.setValue(5)
+    widget._diagnostics_tab._on_diag_run_clicked()
+    qtbot.waitUntil(
+        lambda: widget._diagnostics_tab._diag_summary_label.text() != '',
+        timeout=15000,
+    )
+    assert expected in widget._diagnostics_tab._diag_summary_label.text()
 
 
 def test_diag_costes_validation(widget, rng):
     viewer = widget._viewer
     a = rng.random((8, 16, 16)).astype(np.float32)  # 3D
-    widget._diag_image_a_combo.value = viewer.add_image(a, name='a')
-    widget._diag_image_b_combo.value = viewer.add_image(a.copy(), name='b')
-    _select(widget._diag_method_combo, 'costes')
+    widget._diagnostics_tab._diag_image_a_combo.value = viewer.add_image(
+        a, name='a'
+    )
+    widget._diagnostics_tab._diag_image_b_combo.value = viewer.add_image(
+        a.copy(), name='b'
+    )
+    _select(widget._diagnostics_tab._diag_method_combo, 'costes')
     # Costes supports 3D...
-    widget._costes_block.setValue(8)
-    assert widget._gather_diag_params() is not None
+    widget._diagnostics_tab._costes_block.setValue(8)
+    assert widget._diagnostics_tab._gather_diag_params() is not None
     # ...but a block larger than the image is rejected up front.
-    widget._costes_block.setValue(64)
-    assert widget._gather_diag_params() is None
+    widget._diagnostics_tab._costes_block.setValue(64)
+    assert widget._diagnostics_tab._gather_diag_params() is None
 
 
 def test_add_scrambled_example_layer(widget, rng):
     viewer = widget._viewer
     a = rng.random((32, 32)).astype(np.float32)
     viewer.add_image(a, name='a')
-    widget._diag_image_b_combo.value = viewer.add_image(a.copy(), name='b')
+    widget._diagnostics_tab._diag_image_b_combo.value = viewer.add_image(
+        a.copy(), name='b'
+    )
     n_before = len(viewer.layers)
-    widget._on_diag_scramble_clicked()
+    widget._diagnostics_tab._on_diag_scramble_clicked()
     assert len(viewer.layers) == n_before + 1
     assert any('scrambled' in layer.name for layer in viewer.layers)
 
@@ -417,11 +452,13 @@ def test_add_scrambled_example_layer(widget, rng):
 
 
 def test_object_source_toggle(widget):
-    assert not widget._obj_threshold_group.isHidden()  # threshold default
-    assert widget._obj_labels_group.isHidden()
-    _select(widget._obj_source_combo, 'labels')
-    assert widget._obj_threshold_group.isHidden()
-    assert not widget._obj_labels_group.isHidden()
+    assert (
+        not widget._object_tab._obj_threshold_group.isHidden()
+    )  # threshold default
+    assert widget._object_tab._obj_labels_group.isHidden()
+    _select(widget._object_tab._obj_source_combo, 'labels')
+    assert widget._object_tab._obj_threshold_group.isHidden()
+    assert not widget._object_tab._obj_labels_group.isHidden()
 
 
 def test_object_run_from_threshold_with_overlays(widget, qtbot):
@@ -431,12 +468,20 @@ def test_object_run_from_threshold_with_overlays(widget, qtbot):
     img[2:6, 2:6] = 1.0
     img[12:16, 12:16] = 1.0
     viewer = widget._viewer
-    widget._obj_image_a_combo.value = viewer.add_image(img, name='a')
-    widget._obj_image_b_combo.value = viewer.add_image(img.copy(), name='b')
-    widget._on_object_run_clicked()
-    qtbot.waitUntil(lambda: widget._object_table.rowCount() > 0, timeout=10000)
-    assert widget._object_table.rowCount() == 4  # 2 objects x 2 channels
-    assert 'coincident' in widget._obj_summary_label.text()
+    widget._object_tab._obj_image_a_combo.value = viewer.add_image(
+        img, name='a'
+    )
+    widget._object_tab._obj_image_b_combo.value = viewer.add_image(
+        img.copy(), name='b'
+    )
+    widget._object_tab._on_object_run_clicked()
+    qtbot.waitUntil(
+        lambda: widget._object_tab._object_table.rowCount() > 0, timeout=10000
+    )
+    assert (
+        widget._object_tab._object_table.rowCount() == 4
+    )  # 2 objects x 2 channels
+    assert 'coincident' in widget._object_tab._obj_summary_label.text()
     assert any(isinstance(layer, Points) for layer in viewer.layers)
     assert any(isinstance(layer, Vectors) for layer in viewer.layers)
 
@@ -445,16 +490,22 @@ def test_object_run_from_labels_layers(widget, qtbot):
     viewer = widget._viewer
     labels = np.zeros((20, 20), dtype=np.int32)
     labels[2:6, 2:6] = 1
-    _select(widget._obj_source_combo, 'labels')
-    widget._obj_labels_a_combo.value = viewer.add_labels(labels, name='oa')
-    widget._obj_labels_b_combo.value = viewer.add_labels(
+    _select(widget._object_tab._obj_source_combo, 'labels')
+    widget._object_tab._obj_labels_a_combo.value = viewer.add_labels(
+        labels, name='oa'
+    )
+    widget._object_tab._obj_labels_b_combo.value = viewer.add_labels(
         labels.copy(), name='ob'
     )
-    widget._obj_points_check.setChecked(False)
-    widget._obj_links_check.setChecked(False)
-    widget._on_object_run_clicked()
-    qtbot.waitUntil(lambda: widget._object_table.rowCount() > 0, timeout=10000)
-    assert widget._object_table.rowCount() == 2  # 1 object x 2 channels
+    widget._object_tab._obj_points_check.setChecked(False)
+    widget._object_tab._obj_links_check.setChecked(False)
+    widget._object_tab._on_object_run_clicked()
+    qtbot.waitUntil(
+        lambda: widget._object_tab._object_table.rowCount() > 0, timeout=10000
+    )
+    assert (
+        widget._object_tab._object_table.rowCount() == 2
+    )  # 1 object x 2 channels
 
 
 def test_object_rerun_clears_previous_overlays(widget, qtbot):
@@ -462,20 +513,25 @@ def test_object_rerun_clears_previous_overlays(widget, qtbot):
     img[2:6, 2:6] = 1.0
     img[12:16, 12:16] = 1.0
     viewer = widget._viewer
-    widget._obj_image_a_combo.value = viewer.add_image(img, name='a')
-    widget._obj_image_b_combo.value = viewer.add_image(img.copy(), name='b')
-
-    widget._on_object_run_clicked()
-    qtbot.waitUntil(
-        lambda: len(widget._object_overlay_layers) > 0, timeout=10000
+    widget._object_tab._obj_image_a_combo.value = viewer.add_image(
+        img, name='a'
     )
-    first = list(widget._object_overlay_layers)
+    widget._object_tab._obj_image_b_combo.value = viewer.add_image(
+        img.copy(), name='b'
+    )
+
+    widget._object_tab._on_object_run_clicked()
+    qtbot.waitUntil(
+        lambda: len(widget._object_tab._object_overlay_layers) > 0,
+        timeout=10000,
+    )
+    first = list(widget._object_tab._object_overlay_layers)
     n_layers = len(viewer.layers)
 
-    widget._on_object_run_clicked()
+    widget._object_tab._on_object_run_clicked()
     qtbot.waitUntil(
-        lambda: bool(widget._object_overlay_layers)
-        and widget._object_overlay_layers[0] not in first,
+        lambda: bool(widget._object_tab._object_overlay_layers)
+        and widget._object_tab._object_overlay_layers[0] not in first,
         timeout=10000,
     )
     assert all(layer not in viewer.layers for layer in first)

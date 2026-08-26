@@ -1,0 +1,346 @@
+"""Building blocks shared by the plugin's tab widgets.
+
+Cell formatting, the sortable table item, the figure-export dialog,
+and the small Qt/layer-combo helpers that the Pixel-based,
+Diagnostics and Object-based tabs all build on. Keeping them here
+lets the tab modules stay independent of one another - none of them
+imports another tab.
+"""
+
+import numpy as np
+from napari.utils.notifications import show_info, show_warning
+from qtpy.QtCore import Qt
+from qtpy.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QDoubleSpinBox,
+    QFileDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QLayout,
+    QSpinBox,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+)
+
+from ._masking import labels_to_label_mask, shapes_to_label_mask
+
+# Qt.UserRole already carries the ctx-index mapping of the intensity
+# table, so numeric sort keys need a role of their own.
+_SORT_ROLE = Qt.UserRole + 1
+
+
+def _shape_without_axis(shape, axis):
+    return tuple(s for i, s in enumerate(shape) if i != axis)
+
+
+def _slice_index(row):
+    """A result row's Z index, or ``None`` if it is not per-slice."""
+    value = row.get('slice')
+    if value is None or (isinstance(value, float) and np.isnan(value)):
+        return None
+    return int(value)
+
+
+def _axis_view(arr, index, axis):
+    """``arr`` at ``index`` along ``axis``, as a view.
+
+    ``np.take`` would copy the whole plane/channel; every caller only
+    reads the result, so basic indexing is enough.
+    """
+    arr = np.asarray(arr)
+    key = [slice(None)] * arr.ndim
+    key[axis] = index
+    return arr[tuple(key)]
+
+
+def _display_region(region_source, label):
+    """The region label as the user sees it in the viewer.
+
+    napari's Shapes layer numbers shapes from 0 in its hover status,
+    but ``Shapes.to_labels`` rasterises them from 1 - so a shapes run
+    subtracts one for display. Labels regions carry their own label
+    values and are shown as-is. Result rows always store the
+    canonical (rasterised) label; this is the only place the two
+    conventions are reconciled for presentation.
+    """
+    if region_source == 'shapes' and label > 0:
+        return label - 1
+    return label
+
+
+def _reject_multiscale(*layers):
+    """True (after warning) if any of ``layers`` is multiscale.
+
+    Multiscale data is a pyramid of arrays, not one array, so none of
+    the compute layers can consume it.
+    """
+    if any(getattr(layer, 'multiscale', False) for layer in layers):
+        show_warning(
+            'Multiscale images are not supported; extract a single '
+            'resolution level first.'
+        )
+        return True
+    return False
+
+
+def _format_cell(value):
+    if isinstance(value, float):
+        if np.isnan(value):
+            return ''
+        return f'{value:.4g}'
+    return str(value)
+
+
+def _format_object_cell(value):
+    if isinstance(value, bool):
+        return 'yes' if value else 'no'
+    if isinstance(value, tuple):
+        return '(' + ', '.join(f'{v:g}' for v in value) + ')'
+    return str(value)
+
+
+def _layer_color(layer):
+    """An image layer's colormap colour (top of ramp) as a hex string.
+
+    Returned as ``#rrggbb`` (unambiguously a single colour for
+    ``add_points``); falls back to white when there's no usable
+    colormap.
+    """
+    colormap = getattr(layer, 'colormap', None)
+    if colormap is None:
+        return 'white'
+    try:
+        rgb = np.asarray(colormap.map([1.0])).ravel()[:3]
+    except (AttributeError, ValueError, TypeError):
+        return 'white'
+    r, g, b = (int(round(float(c) * 255)) for c in rgb)
+    return f'#{r:02x}{g:02x}{b:02x}'
+
+
+class _SortableTableItem(QTableWidgetItem):
+    """Table item sorting on a numeric key instead of its text.
+
+    Qt compares the displayed string, which would order n_pixels
+    10000 before 9999 and '1e-05' above '0.5'. Cells without a
+    numeric key (channel names, centroids) keep text comparison;
+    NaN sorts below every real value so blank cells group together.
+    """
+
+    def __lt__(self, other):
+        mine = self.data(_SORT_ROLE)
+        theirs = other.data(_SORT_ROLE)
+        if mine is None or theirs is None:
+            return super().__lt__(other)
+        if np.isnan(mine):
+            return not np.isnan(theirs)
+        if np.isnan(theirs):
+            return False
+        return mine < theirs
+
+
+class FigureExportDialog(QDialog):
+    """Modal dialog asking the user for figure size (inches) and DPI."""
+
+    def __init__(self, parent, width_in, height_in, dpi):
+        super().__init__(parent)
+        self.setWindowTitle('Export figure')
+        self._width = QDoubleSpinBox()
+        self._width.setRange(1.0, 50.0)
+        self._width.setDecimals(2)
+        self._width.setSingleStep(0.5)
+        self._width.setSuffix(' in')
+        self._width.setValue(width_in)
+        self._height = QDoubleSpinBox()
+        self._height.setRange(1.0, 50.0)
+        self._height.setDecimals(2)
+        self._height.setSingleStep(0.5)
+        self._height.setSuffix(' in')
+        self._height.setValue(height_in)
+        self._dpi = QSpinBox()
+        self._dpi.setRange(50, 1200)
+        self._dpi.setSingleStep(50)
+        self._dpi.setValue(dpi)
+        form = QFormLayout()
+        form.addRow('Width:', self._width)
+        form.addRow('Height:', self._height)
+        form.addRow('DPI:', self._dpi)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel
+        )
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout = QVBoxLayout()
+        layout.addLayout(form)
+        layout.addWidget(buttons)
+        self.setLayout(layout)
+
+    def width_in(self):
+        return float(self._width.value())
+
+    def height_in(self):
+        return float(self._height.value())
+
+    def dpi(self):
+        return int(self._dpi.value())
+
+
+# -- Qt layout builders -------------------------------------------------
+
+
+def _make_group(title, *items, vertical=True):
+    """Wrap *items* (widgets or sub-layouts) in a titled box."""
+    group = QGroupBox(title)
+    layout = QVBoxLayout() if vertical else QHBoxLayout()
+    for item in items:
+        if isinstance(item, QLayout):
+            layout.addLayout(item)
+        else:
+            layout.addWidget(item)
+    group.setLayout(layout)
+    return group
+
+
+def _hbox(*widgets):
+    layout = QHBoxLayout()
+    for widget in widgets:
+        layout.addWidget(widget)
+    return layout
+
+
+def _make_table(columns):
+    """A read-only, row-selectable, sortable results table."""
+    table = QTableWidget(0, len(columns))
+    table.setHorizontalHeaderLabels(list(columns))
+    table.setSelectionBehavior(QTableWidget.SelectRows)
+    table.setEditTriggers(QTableWidget.NoEditTriggers)
+    table.setSortingEnabled(True)
+    return table
+
+
+def _new_region_combo():
+    combo = QComboBox()
+    combo.addItem('None', None)
+    return combo
+
+
+def _fill_table(table, rows, columns, formatter, *, user_role=False):
+    """Populate ``table`` from ``rows`` using ``formatter`` per cell.
+
+    ``user_role`` stores each item's source row index in
+    ``Qt.UserRole`` (the intensity table needs it to map a selected
+    row back to its plot context, even after sorting).
+    """
+    table.setSortingEnabled(False)
+    table.setRowCount(len(rows))
+    for r, row in enumerate(rows):
+        for c, key in enumerate(columns):
+            value = row.get(key)
+            item = _SortableTableItem(formatter(value))
+            if isinstance(value, (bool, int, float, np.number, np.bool_)):
+                item.setData(_SORT_ROLE, float(value))
+            if user_role:
+                item.setData(Qt.UserRole, r)
+            table.setItem(r, c, item)
+    table.setSortingEnabled(True)
+    table.resizeColumnsToContents()
+
+
+# -- workers / export ---------------------------------------------------
+
+
+def _run_in_background(worker, button, on_ready, on_error):
+    """Disable ``button``, wire the worker's signals, and start it."""
+    button.setEnabled(False)
+    worker.returned.connect(on_ready)
+    worker.errored.connect(on_error)
+    worker.finished.connect(lambda: button.setEnabled(True))
+    worker.start()
+
+
+def _export_canvas_figure(parent, canvas, default_name):
+    """Prompt for size/DPI and path, then save the canvas figure."""
+    figure = canvas._figure
+    width, height = (float(v) for v in figure.get_size_inches())
+    dlg = FigureExportDialog(parent, width, height, int(figure.get_dpi()))
+    if dlg.exec_() != QDialog.Accepted:
+        return
+    path, _ = QFileDialog.getSaveFileName(
+        parent,
+        'Save figure',
+        default_name,
+        'PNG (*.png);;PDF (*.pdf);;SVG (*.svg);;TIFF (*.tif *.tiff)',
+    )
+    if not path:
+        return
+    try:
+        canvas.save_figure(path, dlg.width_in(), dlg.height_in(), dlg.dpi())
+    except OSError as exc:
+        show_warning(f'Could not write {path}: {exc}')
+        return
+    show_info(f'Wrote {path}')
+
+
+# -- layer / region combos ----------------------------------------------
+
+
+def _set_combo_choices(combo, layers):
+    previous = combo.value
+    combo.choices = layers
+    if previous in layers:
+        combo.value = previous
+
+
+def _nudge_distinct(combo_a, combo_b, candidates):
+    """Point B at a layer different from A when they collide."""
+    if len(candidates) >= 2 and combo_a.value is combo_b.value:
+        for layer in candidates:
+            if layer is not combo_a.value:
+                combo_b.value = layer
+                break
+
+
+def _refresh_region_combo(region_combo, candidates):
+    """Rebuild a region combo from ``candidates``, keeping the choice."""
+    previous = region_combo.currentData()
+    region_combo.blockSignals(True)
+    try:
+        region_combo.clear()
+        region_combo.addItem('None', None)
+        for layer in candidates:
+            region_combo.addItem(layer.name, layer)
+        if previous is not None:
+            _select_region_layer(region_combo, previous)
+    finally:
+        region_combo.blockSignals(False)
+
+
+def _select_region_layer(region_combo, layer):
+    """Select the entry holding ``layer``; leave the combo alone if absent."""
+    for i in range(region_combo.count()):
+        if region_combo.itemData(i) is layer:
+            region_combo.setCurrentIndex(i)
+            return
+
+
+def _resolve_region(region_combo, spatial_shape):
+    """The combo's region as a label mask, plus the layer it came from."""
+    from napari.layers import Shapes
+
+    layer = region_combo.currentData()
+    if layer is None:
+        return None, None
+    if isinstance(layer, Shapes):
+        return shapes_to_label_mask(layer, spatial_shape), layer
+    return labels_to_label_mask(layer, spatial_shape), layer
+
+
+def _region_source_for(layer):
+    from napari.layers import Shapes
+
+    if layer is None:
+        return 'none'
+    return 'shapes' if isinstance(layer, Shapes) else 'labels'
