@@ -29,7 +29,7 @@ from napari_colocalization._sample_data import make_sample_data  # noqa: E402
 from napari_colocalization._widget import ColocalizationWidget  # noqa: E402
 
 OUT = ROOT / 'docs' / 'img'
-WIN_W, WIN_H = 1280, 800
+WIN_W, WIN_H = 1280, 960
 
 
 def _spin(qapp, seconds=0.3):
@@ -54,7 +54,10 @@ def _wait_until(qapp, predicate, what, timeout=30.0):
 def _wait_for_results(qapp, widget, timeout=30.0):
     """Poll until the analysis worker delivers results, then settle UI."""
     _wait_until(
-        qapp, lambda: bool(widget._results), 'analysis results', timeout
+        qapp,
+        lambda: bool(widget._pixel_tab._results),
+        'analysis results',
+        timeout,
     )
 
 
@@ -66,7 +69,7 @@ def _image_layers(viewer):
 
 def _select_region_layer(widget, layer):
     """Set the widget's Region combo to ``layer`` (matches by identity)."""
-    combo = widget._region_combo
+    combo = widget._pixel_tab._region_combo
     for i in range(combo.count()):
         if combo.itemData(i) is layer:
             combo.setCurrentIndex(i)
@@ -104,7 +107,7 @@ def shot_usage_widget_initial(qapp, viewer, widget):
 def shot_widget_overview(qapp, viewer, widget):
     _load_sample(viewer)
     _spin(qapp)
-    widget._on_run_clicked()
+    widget._pixel_tab._on_run_clicked()
     _wait_for_results(qapp, widget)
     _grab(viewer, OUT / 'widget_overview.png')
 
@@ -128,7 +131,7 @@ def shot_widget_shapes(qapp, viewer, widget):
     _spin(qapp)
     _select_region_layer(widget, shapes_layer)
     _spin(qapp, 0.1)
-    widget._on_run_clicked()
+    widget._pixel_tab._on_run_clicked()
     _wait_for_results(qapp, widget)
     _grab(viewer, OUT / 'widget_shapes.png')
 
@@ -137,14 +140,15 @@ def shot_diagnostics(qapp, viewer, widget):
     _load_sample(viewer)
     _spin(qapp)
     widget._tabs.setCurrentIndex(1)  # Diagnostics
+    tab = widget._diagnostics_tab
     channel_a, channel_b = _image_layers(viewer)[:2]
-    widget._diag_image_a_combo.value = channel_a
-    widget._diag_image_b_combo.value = channel_b
+    tab._diag_image_a_combo.value = channel_a
+    tab._diag_image_b_combo.value = channel_b
     # Costes randomization is the default diagnostic.
-    widget._on_diag_run_clicked()
+    tab._on_diag_run_clicked()
     _wait_until(
         qapp,
-        lambda: widget._diag_summary_label.text() != '',
+        lambda: tab._diag_summary_label.text() != '',
         'diagnostic result',
     )
     _grab(viewer, OUT / 'widget_diagnostics.png')
@@ -154,14 +158,15 @@ def shot_objects(qapp, viewer, widget):
     _load_sample(viewer)
     _spin(qapp)
     widget._tabs.setCurrentIndex(2)  # Object-based
+    tab = widget._object_tab
     channel_a, channel_b = _image_layers(viewer)[:2]
     # Threshold-images mode is the default object source.
-    widget._obj_image_a_combo.value = channel_a
-    widget._obj_image_b_combo.value = channel_b
-    widget._on_object_run_clicked()
+    tab._obj_image_a_combo.value = channel_a
+    tab._obj_image_b_combo.value = channel_b
+    tab._on_object_run_clicked()
     _wait_until(
         qapp,
-        lambda: widget._object_table.rowCount() > 0,
+        lambda: tab._object_table.rowCount() > 0,
         'object results',
     )
     _grab(viewer, OUT / 'widget_objects.png')
