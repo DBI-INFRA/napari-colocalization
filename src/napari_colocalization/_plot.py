@@ -6,6 +6,10 @@ overlays the Manders thresholds and Costes regression line. Uses
 hexbin to stay responsive on large images. ``DiagnosticCanvas``
 backs the Diagnostics tab, rendering the Costes randomization null
 distribution, the Van Steensel CCF curve, or the Li ICA scatters.
+
+Both default to napari's dark look and take their background /
+foreground colours from ``set_theme`` - the colours are passed in by
+the dock widget, so this module stays free of napari imports.
 """
 
 import numpy as np
@@ -13,16 +17,8 @@ from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from qtpy.QtWidgets import QSizePolicy
 
-
-def _style_axes_dark(ax):
-    """White-on-black styling matching napari's dark theme."""
-    ax.set_facecolor('black')
-    for spine in ax.spines.values():
-        spine.set_color('white')
-    ax.title.set_color('white')
-    ax.xaxis.label.set_color('white')
-    ax.yaxis.label.set_color('white')
-    ax.tick_params(colors='white')
+DEFAULT_BACKGROUND = 'black'
+DEFAULT_FOREGROUND = 'white'
 
 
 def _hexbin_cmap():
@@ -47,41 +43,76 @@ def _save_figure(figure, path, width_in, height_in, dpi):
         figure.set_size_inches(orig_size, forward=False)
 
 
-class ScatterCanvas(FigureCanvasQTAgg):
-    """Two-axis scatter of paired intensities."""
+class _ThemedCanvas(FigureCanvasQTAgg):
+    """Canvas whose figure follows a two-colour theme.
 
-    def __init__(self):
+    ``_background`` paints the figure and axes faces, ``_foreground``
+    everything drawn on top of them (spines, ticks, labels, text).
+    Accent colours (thresholds, regression line, CCF curve) are
+    deliberately theme-independent so they read the same either way.
+    """
+
+    def __init__(self, min_height):
+        self._background = DEFAULT_BACKGROUND
+        self._foreground = DEFAULT_FOREGROUND
         # constrained_layout reflows axis labels and titles on
         # every resize event, so the plot does not get cropped
         # when the dock widget is narrow.
         self._figure = Figure(
-            figsize=(4, 3), constrained_layout=True, facecolor='black'
+            figsize=(4, 3),
+            constrained_layout=True,
+            facecolor=self._background,
         )
         super().__init__(self._figure)
-        self._ax = self._figure.add_subplot(111)
         # Expanding policies let the canvas grow into the layout
         # cell that owns it (stretch=1 in the parent QVBoxLayout).
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.setMinimumHeight(200)
-        self.clear()
+        self.setMinimumHeight(min_height)
 
-    def _apply_dark_style(self):
-        """Apply black background / white axis styling and remove ticks."""
-        self._figure.patch.set_facecolor('black')
-        self._ax.set_facecolor('black')
-        for spine in self._ax.spines.values():
-            spine.set_color('white')
-        self._ax.title.set_color('white')
-        self._ax.xaxis.label.set_color('white')
-        self._ax.yaxis.label.set_color('white')
-        # remove ticks and tick labels
-        # self._ax.set_xticks([])
-        # self._ax.set_yticks([])
-        self._ax.tick_params(colors='white')
+    def _style_axes(self, ax):
+        """Paint one axes in the current theme colours."""
+        ax.set_facecolor(self._background)
+        for spine in ax.spines.values():
+            spine.set_color(self._foreground)
+        ax.title.set_color(self._foreground)
+        ax.xaxis.label.set_color(self._foreground)
+        ax.yaxis.label.set_color(self._foreground)
+        ax.tick_params(colors=self._foreground)
+
+    def _annotation_bbox(self):
+        """Translucent backing box for corner annotations."""
+        return {
+            'facecolor': self._foreground,
+            'alpha': 0.15,
+            'edgecolor': 'none',
+        }
+
+    def set_theme(self, background, foreground):
+        """Restyle the figure for new background/foreground colours."""
+        self._background = background
+        self._foreground = foreground
+        self._figure.patch.set_facecolor(background)
+        for ax in self._figure.axes:
+            self._style_axes(ax)
+        self.draw_idle()
+
+    def save_figure(self, path, width_in, height_in, dpi):
+        """Write the current figure to ``path`` at the given size."""
+        _save_figure(self._figure, path, width_in, height_in, dpi)
+
+
+class ScatterCanvas(_ThemedCanvas):
+    """Two-axis scatter of paired intensities."""
+
+    def __init__(self):
+        super().__init__(min_height=200)
+        self._ax = self._figure.add_subplot(111)
+        self.clear()
 
     def clear(self):
         self._ax.clear()
-        self._apply_dark_style()
+        self._figure.patch.set_facecolor(self._background)
+        self._style_axes(self._ax)
         self._ax.set_xlabel('Channel A intensity')
         self._ax.set_ylabel('Channel B intensity')
         self._ax.text(
@@ -91,7 +122,7 @@ class ScatterCanvas(FigureCanvasQTAgg):
             ha='center',
             va='center',
             transform=self._ax.transAxes,
-            color='white',
+            color=self._foreground,
             alpha=0.7,
         )
         self.draw_idle()
@@ -146,7 +177,8 @@ class ScatterCanvas(FigureCanvasQTAgg):
             ys = np.asarray(b)[mask]
 
         self._ax.clear()
-        self._apply_dark_style()
+        self._figure.patch.set_facecolor(self._background)
+        self._style_axes(self._ax)
         self._ax.set_xlabel(xlabel)
         self._ax.set_ylabel(ylabel)
 
@@ -157,7 +189,7 @@ class ScatterCanvas(FigureCanvasQTAgg):
             # is O(gridsize²) regardless of N. bins='log' applies log
             # color mapping so a few dense background cells don't wash
             # out signal cells. mincnt=1 leaves empty cells transparent
-            # against the black axes facecolor.
+            # against the axes facecolor.
             self._ax.hexbin(
                 xs,
                 ys,
@@ -168,7 +200,7 @@ class ScatterCanvas(FigureCanvasQTAgg):
                 linewidths=0,
             )
 
-        self._ax.set_title(title, color='white')
+        self._ax.set_title(title, color=self._foreground)
 
         if (
             threshold_a is not None
@@ -236,22 +268,14 @@ class ScatterCanvas(FigureCanvasQTAgg):
                 va='top',
                 ha='left',
                 fontsize=8,
-                color='white',
-                bbox={
-                    'facecolor': 'white',
-                    'alpha': 0.15,
-                    'edgecolor': 'none',
-                },
+                color=self._foreground,
+                bbox=self._annotation_bbox(),
             )
 
         self.draw_idle()
 
-    def save_figure(self, path, width_in, height_in, dpi):
-        """Write the current figure to ``path`` at the given size."""
-        _save_figure(self._figure, path, width_in, height_in, dpi)
 
-
-class DiagnosticCanvas(FigureCanvasQTAgg):
+class DiagnosticCanvas(_ThemedCanvas):
     """Canvas for the Diagnostics tab.
 
     One canvas reused for every diagnostic; each ``plot_*`` method
@@ -260,19 +284,26 @@ class DiagnosticCanvas(FigureCanvasQTAgg):
     """
 
     def __init__(self):
-        self._figure = Figure(
-            figsize=(4, 3), constrained_layout=True, facecolor='black'
-        )
-        super().__init__(self._figure)
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.setMinimumHeight(220)
+        super().__init__(min_height=220)
+        # The placeholder message while no diagnostic has been run, so
+        # a theme change can redraw it in the new colours.
+        self._placeholder = None
         self.clear()
 
-    def clear(self, message='Run a diagnostic to populate'):
+    def _reset_figure(self):
         self._figure.clear()
-        self._figure.patch.set_facecolor('black')
+        self._figure.patch.set_facecolor(self._background)
+
+    def set_theme(self, background, foreground):
+        super().set_theme(background, foreground)
+        if self._placeholder is not None:
+            self.clear(self._placeholder)
+
+    def clear(self, message='Run a diagnostic to populate'):
+        self._placeholder = message
+        self._reset_figure()
         ax = self._figure.add_subplot(111)
-        _style_axes_dark(ax)
+        self._style_axes(ax)
         ax.text(
             0.5,
             0.5,
@@ -280,33 +311,33 @@ class DiagnosticCanvas(FigureCanvasQTAgg):
             ha='center',
             va='center',
             transform=ax.transAxes,
-            color='white',
+            color=self._foreground,
             alpha=0.7,
         )
         self.draw_idle()
 
     def plot_ccf(self, shifts, ccf, title=''):
         """Van Steensel CCF: Pearson r as a function of pixel shift."""
-        self._figure.clear()
-        self._figure.patch.set_facecolor('black')
+        self._placeholder = None
+        self._reset_figure()
         ax = self._figure.add_subplot(111)
-        _style_axes_dark(ax)
+        self._style_axes(ax)
         ax.plot(shifts, ccf, color='cyan')
-        ax.axvline(0, color='white', linewidth=0.8, alpha=0.5)
+        ax.axvline(0, color=self._foreground, linewidth=0.8, alpha=0.5)
         if np.any(np.isfinite(ccf)):
             peak = int(np.nanargmax(ccf))
             ax.plot(shifts[peak], ccf[peak], 'o', color='red')
         ax.set_xlabel('Shift (px)')
         ax.set_ylabel('Pearson r')
-        ax.set_title(title, color='white')
+        ax.set_title(title, color=self._foreground)
         self.draw_idle()
 
     def plot_costes(self, observed, null, p_value, z_score, title=''):
         """Costes randomization: null PCC histogram + observed line."""
-        self._figure.clear()
-        self._figure.patch.set_facecolor('black')
+        self._placeholder = None
+        self._reset_figure()
         ax = self._figure.add_subplot(111)
-        _style_axes_dark(ax)
+        self._style_axes(ax)
         finite = np.asarray(null)[np.isfinite(null)]
         if finite.size:
             ax.hist(finite, bins=40, color='gray', alpha=0.8)
@@ -314,7 +345,7 @@ class DiagnosticCanvas(FigureCanvasQTAgg):
             ax.axvline(observed, color='red', linewidth=1.5, label='observed')
         ax.set_xlabel('Pearson r (scrambled)')
         ax.set_ylabel('count')
-        ax.set_title(title, color='white')
+        ax.set_title(title, color=self._foreground)
         annotation = f'observed = {observed:.4g}'
         if np.isfinite(p_value):
             annotation += f'\np = {p_value:.4g}'
@@ -328,19 +359,19 @@ class DiagnosticCanvas(FigureCanvasQTAgg):
             va='top',
             ha='left',
             fontsize=8,
-            color='white',
-            bbox={'facecolor': 'white', 'alpha': 0.15, 'edgecolor': 'none'},
+            color=self._foreground,
+            bbox=self._annotation_bbox(),
         )
         self.draw_idle()
 
     def plot_ica(self, a, b, products, names=('A', 'B'), title=''):
         """Li ICA: two panels of intensity vs covariance product."""
-        self._figure.clear()
-        self._figure.patch.set_facecolor('black')
+        self._placeholder = None
+        self._reset_figure()
         cmap = _hexbin_cmap()
         for i, (channel, name) in enumerate(((a, names[0]), (b, names[1]))):
             ax = self._figure.add_subplot(1, 2, i + 1)
-            _style_axes_dark(ax)
+            self._style_axes(ax)
             if np.asarray(channel).size:
                 ax.hexbin(
                     products,
@@ -351,12 +382,8 @@ class DiagnosticCanvas(FigureCanvasQTAgg):
                     mincnt=1,
                     linewidths=0,
                 )
-            ax.axvline(0, color='white', linewidth=0.8, alpha=0.5)
+            ax.axvline(0, color=self._foreground, linewidth=0.8, alpha=0.5)
             ax.set_xlabel('(A-Ā)(B-B̄)')
             ax.set_ylabel(f'{name} intensity')
-        self._figure.suptitle(title, color='white')
+        self._figure.suptitle(title, color=self._foreground)
         self.draw_idle()
-
-    def save_figure(self, path, width_in, height_in, dpi):
-        """Write the current figure to ``path`` at the given size."""
-        _save_figure(self._figure, path, width_in, height_in, dpi)
