@@ -536,3 +536,71 @@ def test_object_rerun_clears_previous_overlays(widget, qtbot):
     )
     assert all(layer not in viewer.layers for layer in first)
     assert len(viewer.layers) == n_layers  # overlays replaced, not stacked
+
+
+# -- progress, cancellation and header tooltips ------------------------
+
+
+def test_pixel_run_reports_progress_and_resets(widget, qtbot, rng):
+    _add_pair(widget, rng.random((16, 16)).astype(np.float32))
+    label = np.zeros((16, 16), np.int32)
+    label[:8], label[8:] = 1, 2
+    _select_region(widget, widget._viewer.add_labels(label, name='r'))
+    widget._pixel_tab._cb_mcc.setChecked(False)
+    control = widget._pixel_tab._run_control
+    reported = []
+    control.progress.valueChanged.connect(reported.append)
+
+    _run(widget, qtbot)
+    qtbot.waitUntil(lambda: not control.is_running(), timeout=10000)
+
+    assert max(reported) == 2  # one report per region
+    assert control.progress.isHidden()
+    assert widget._pixel_tab._run_button.text() == 'Run'
+
+
+def test_cancelling_a_run_discards_it(widget, qtbot):
+    import time
+
+    from napari.qt.threading import thread_worker
+
+    @thread_worker
+    def _never_ends():
+        while True:
+            time.sleep(0.01)
+            yield 0, 1
+
+    control = widget._pixel_tab._run_control
+    aborted = []
+    worker = _never_ends()
+    worker.aborted.connect(lambda: aborted.append(True))
+    control.start(worker, lambda _payload: None, lambda _exc: None)
+    assert control.is_running()
+    assert widget._pixel_tab._run_button.text() == 'Cancel'
+
+    widget._pixel_tab._run_button.click()  # the button is now Cancel
+    qtbot.waitUntil(lambda: not control.is_running(), timeout=10000)
+
+    assert aborted
+    assert widget._pixel_tab._run_button.text() == 'Run'
+    assert control.progress.isHidden()
+    assert widget._pixel_tab._table.rowCount() == 0  # no partial results
+
+
+def test_column_headers_carry_tooltips(widget):
+    def _tooltips(table):
+        return {
+            table.horizontalHeaderItem(c).text(): table.horizontalHeaderItem(
+                c
+            ).toolTip()
+            for c in range(table.columnCount())
+        }
+
+    pixel = _tooltips(widget._pixel_tab._table)
+    assert all(pixel.values())
+    assert 'Pearson' in pixel['pcc']
+    assert 'threshold' in pixel['tm1']
+
+    objects = _tooltips(widget._object_tab._object_table)
+    assert all(objects.values())
+    assert 'centroid' in objects['coincident']

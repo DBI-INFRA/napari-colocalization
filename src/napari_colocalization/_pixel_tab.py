@@ -30,10 +30,17 @@ from qtpy.QtWidgets import (
     QWidget,
 )
 
-from ._analysis import COLUMNS, analyse_all_to_all, analyse_pairwise
+from ._analysis import (
+    COLUMNS,
+    _all_to_all_row_count,
+    _iter_all_to_all_rows,
+    _iter_pairwise_rows,
+    _pairwise_row_count,
+)
 from ._metrics import costes_regression
 from ._plot import ScatterCanvas
 from ._widget_shared import (
+    PIXEL_COLUMN_TOOLTIPS,
     _axis_view,
     _display_region,
     _export_canvas_figure,
@@ -44,11 +51,12 @@ from ._widget_shared import (
     _make_table,
     _new_region_combo,
     _nudge_distinct,
+    _progress_step,
     _refresh_region_combo,
     _region_source_for,
     _reject_multiscale,
     _resolve_region,
-    _run_in_background,
+    _RunControl,
     _set_combo_choices,
     _shape_without_axis,
     _slice_index,
@@ -259,12 +267,17 @@ class PixelTab(QWidget):
 
     def _build_run_row(self):
         self._run_button = QPushButton('Run')
-        self._run_button.clicked.connect(self._on_run_clicked)
-        return self._run_button
+        self._run_control = _RunControl(self._run_button, self._on_run_clicked)
+        row = QWidget()
+        layout = QVBoxLayout(row)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self._run_button)
+        layout.addWidget(self._run_control.progress)
+        return row
 
     def _build_results_group(self):
         self._results_group = QGroupBox('Results')
-        self._table = _make_table(COLUMNS)
+        self._table = _make_table(COLUMNS, PIXEL_COLUMN_TOOLTIPS)
         # Qt defaults the sort indicator to descending on column 0;
         # ascending matches users' expectation of "region 0, 1, 2".
         self._table.sortByColumn(0, Qt.AscendingOrder)
@@ -529,13 +542,8 @@ class PixelTab(QWidget):
         params = self.gather_params()
         if params is None:
             return
-        self._region_layer = params.get('region_layer')
-        self._region_source = params.get('region_source', 'none')
-        self._threshold_method = params.get('threshold_method', 'costes')
-        self._run_mode = params['mode']
-        _run_in_background(
+        self._run_control.start(
             self._run_worker(params),
-            self._run_button,
             self._on_results_ready,
             self._on_worker_error,
         )
@@ -545,7 +553,7 @@ class PixelTab(QWidget):
     def _run_worker(params):
         region_warnings = []
         if params['mode'] == 'pairwise':
-            rows = analyse_pairwise(
+            row_iter = _iter_pairwise_rows(
                 params['a'],
                 params['b'],
                 label_mask=params['label_mask'],
@@ -558,14 +566,19 @@ class PixelTab(QWidget):
                 slice_axis=params.get('slice_axis'),
                 region_warnings=region_warnings,
             )
+            total = _pairwise_row_count(
+                params['a'].shape,
+                params['label_mask'],
+                params.get('slice_axis'),
+            )
             channel_arrays = {
                 params['channel_a']: params['a'],
                 params['channel_b']: params['b'],
             }
         else:
-            rows = analyse_all_to_all(
+            row_iter = _iter_all_to_all_rows(
                 params['image'],
-                channel_axis=params['channel_axis'],
+                params['channel_axis'],
                 label_mask=params['label_mask'],
                 metrics=params['metrics'],
                 threshold_method=params['threshold_method'],
@@ -574,36 +587,53 @@ class PixelTab(QWidget):
                 channel_names=params['channel_names'],
                 region_warnings=region_warnings,
             )
+            total = _all_to_all_row_count(
+                params['image'].shape[params['channel_axis']],
+                params['label_mask'],
+            )
             channel_arrays = {
                 name: _axis_view(params['image'], i, params['channel_axis'])
                 for i, name in enumerate(params['channel_names'])
             }
-        return (
-            rows,
-            channel_arrays,
-            params['label_mask'],
-            params.get('region_source', 'none'),
-            region_warnings,
-            params.get('slice_axis'),
-        )
+        yield 0, total
+        rows = []
+        step = _progress_step(total)
+        for row in row_iter:
+            rows.append(row)
+            if len(rows) % step == 0:
+                yield len(rows), total
+        yield len(rows), len(rows)
+        return {
+            'rows': rows,
+            'channel_arrays': channel_arrays,
+            'label_mask': params['label_mask'],
+            'region_layer': params.get('region_layer'),
+            'region_source': params.get('region_source', 'none'),
+            'threshold_method': params.get('threshold_method', 'costes'),
+            'mode': params['mode'],
+            'region_warnings': region_warnings,
+            'slice_axis': params.get('slice_axis'),
+        }
 
     def _on_results_ready(self, payload):
-        (
-            rows,
-            channel_arrays,
-            label_mask,
-            region_source,
-            region_warnings,
-            slice_axis,
-        ) = payload
+        # The run's context travels with its results, so a cancelled
+        # run leaves the previous ones - and the region, threshold and
+        # mode they are read against - untouched.
+        rows = payload['rows']
         self._results = rows
-        self._region_source = region_source
-        self._channel_arrays = channel_arrays
-        self._label_mask = label_mask
-        self._slice_axis = slice_axis
+        self._region_layer = payload['region_layer']
+        self._region_source = payload['region_source']
+        self._threshold_method = payload['threshold_method']
+        self._run_mode = payload['mode']
+        self._channel_arrays = payload['channel_arrays']
+        self._label_mask = payload['label_mask']
+        self._slice_axis = payload['slice_axis']
         self._populate_table(rows)
         self._plot_context = self._build_plot_context(
-            rows, channel_arrays, label_mask, slice_axis
+            rows,
+            self._channel_arrays,
+            self._label_mask,
+            self._slice_axis,
         )
         self._results_group.setVisible(bool(rows))
         self._export_row.setVisible(bool(rows))
@@ -613,7 +643,7 @@ class PixelTab(QWidget):
             self._on_row_selected()
         else:
             self._scatter.clear()
-        self._report_region_warnings(region_warnings, len(rows))
+        self._report_region_warnings(payload['region_warnings'], len(rows))
 
     def _report_region_warnings(self, region_warnings, n_rows):
         """Summarise regions whose metrics could not be computed.

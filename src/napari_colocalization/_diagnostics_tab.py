@@ -24,10 +24,13 @@ from qtpy.QtWidgets import (
 )
 
 from ._diagnostics import (
-    costes_randomization,
+    _ccf_setup,
+    _costes_setup,
+    _costes_summary,
+    _iter_ccf_values,
+    _iter_costes_null,
     li_ica,
     scramble_example,
-    van_steensel_ccf,
 )
 from ._plot import DiagnosticCanvas
 from ._widget_shared import (
@@ -36,10 +39,11 @@ from ._widget_shared import (
     _make_group,
     _new_region_combo,
     _nudge_distinct,
+    _progress_step,
     _refresh_region_combo,
     _reject_multiscale,
     _resolve_region,
-    _run_in_background,
+    _RunControl,
     _select_region_layer,
     _set_combo_choices,
 )
@@ -148,7 +152,9 @@ class DiagnosticsTab(QWidget):
 
     def _build_run_row(self):
         self._diag_run_button = QPushButton('Run diagnostic')
-        self._diag_run_button.clicked.connect(self._on_diag_run_clicked)
+        self._diag_run_control = _RunControl(
+            self._diag_run_button, self._on_diag_run_clicked
+        )
         self._diag_export_button = QPushButton('Export figure…')
         self._diag_export_button.clicked.connect(self._on_diag_export_clicked)
         # Scrambled-example output is a Costes-randomization concept.
@@ -160,12 +166,15 @@ class DiagnosticsTab(QWidget):
         self._diag_scramble_button.clicked.connect(
             self._on_diag_scramble_clicked
         )
+        buttons = QHBoxLayout()
+        buttons.addWidget(self._diag_run_button)
+        buttons.addWidget(self._diag_export_button)
+        buttons.addWidget(self._diag_scramble_button)
         row = QWidget()
-        layout = QHBoxLayout(row)
+        layout = QVBoxLayout(row)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self._diag_run_button)
-        layout.addWidget(self._diag_export_button)
-        layout.addWidget(self._diag_scramble_button)
+        layout.addLayout(buttons)
+        layout.addWidget(self._diag_run_control.progress)
         return row
 
     def _build_results_group(self):
@@ -261,9 +270,8 @@ class DiagnosticsTab(QWidget):
         params = self._gather_diag_params()
         if params is None:
             return
-        _run_in_background(
+        self._diag_run_control.start(
             self._diag_worker(params),
-            self._diag_run_button,
             self._on_diag_results_ready,
             self._on_diag_worker_error,
         )
@@ -274,20 +282,41 @@ class DiagnosticsTab(QWidget):
         method = params['method']
         a, b, mask = params['a'], params['b'], params['mask']
         if method == 'costes':
-            result = costes_randomization(
-                a,
-                b,
-                mask=mask,
-                n_iter=params['n_iter'],
-                block_size=params['block_size'],
+            n_iter = params['n_iter']
+            block_size = params['block_size']
+            a_c, b_c, mask_c, observed = _costes_setup(
+                a, b, mask, n_iter, block_size
             )
+            null = np.empty(n_iter, dtype=float)
+            step = _progress_step(n_iter)
+            yield 0, n_iter
+            nulls = _iter_costes_null(
+                a_c, b_c, mask_c, n_iter, block_size, np.random.default_rng()
+            )
+            for i, pcc in enumerate(nulls):
+                null[i] = pcc
+                if (i + 1) % step == 0:
+                    yield i + 1, n_iter
+            yield n_iter, n_iter
+            result = _costes_summary(observed, null)
         elif method == 'ccf':
-            shifts, ccf = van_steensel_ccf(
-                a, b, mask=mask, max_shift=params['max_shift']
+            a_v, b_v, mask_v, shifts = _ccf_setup(
+                a, b, mask, params['max_shift'], -1
             )
+            ccf = np.empty(shifts.size, dtype=float)
+            step = _progress_step(shifts.size)
+            yield 0, shifts.size
+            values = _iter_ccf_values(a_v, b_v, mask_v, shifts, -1)
+            for i, pcc in enumerate(values):
+                ccf[i] = pcc
+                if (i + 1) % step == 0:
+                    yield i + 1, shifts.size
+            yield shifts.size, shifts.size
             result = {'shifts': shifts, 'ccf': ccf}
         else:
+            yield 0, 1
             result = li_ica(a, b, mask=mask)
+            yield 1, 1
         return method, result, params['channel_a'], params['channel_b']
 
     def _on_diag_results_ready(self, payload):

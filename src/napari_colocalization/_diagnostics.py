@@ -26,6 +26,40 @@ def _slice_axis(arr, sl, axis):
     return arr[tuple(index)]
 
 
+def _ccf_setup(a, b, mask, max_shift, axis):
+    """Validate a CCF request; return the arrays, mask and shift grid."""
+    a = np.asarray(a)
+    b = np.asarray(b)
+    if a.shape != b.shape:
+        raise ValueError(f'shape mismatch: {a.shape} vs {b.shape}')
+    if max_shift < 1:
+        raise ValueError('max_shift must be >= 1')
+    n = a.shape[axis]
+    if max_shift >= n:
+        raise ValueError(
+            f'max_shift must be smaller than axis {axis} of length {n}'
+        )
+    mask = None if mask is None else np.asarray(mask, dtype=bool)
+    return a, b, mask, np.arange(-max_shift, max_shift + 1)
+
+
+def _iter_ccf_values(a, b, mask, shifts, axis):
+    """Yield the Pearson coefficient at each shift of ``shifts``."""
+    n = a.shape[axis]
+    for shift in shifts:
+        s = int(shift)
+        if s >= 0:
+            a_sl, b_sl = slice(s, n), slice(0, n - s)
+        else:
+            a_sl, b_sl = slice(0, n + s), slice(-s, n)
+        pcc, _ = pearson(
+            _slice_axis(a, a_sl, axis),
+            _slice_axis(b, b_sl, axis),
+            mask=None if mask is None else _slice_axis(mask, a_sl, axis),
+        )
+        yield pcc
+
+
 def van_steensel_ccf(a, b, mask=None, max_shift=20, axis=-1):
     """Van Steensel's cross-correlation function (CCF).
 
@@ -69,32 +103,12 @@ def van_steensel_ccf(a, b, mask=None, max_shift=20, axis=-1):
         If ``a`` and ``b`` differ in shape, ``max_shift < 1``, or
         ``max_shift`` is not smaller than ``a.shape[axis]``.
     """
-    a = np.asarray(a)
-    b = np.asarray(b)
-    if a.shape != b.shape:
-        raise ValueError(f'shape mismatch: {a.shape} vs {b.shape}')
-    if max_shift < 1:
-        raise ValueError('max_shift must be >= 1')
-    n = a.shape[axis]
-    if max_shift >= n:
-        raise ValueError(
-            f'max_shift must be smaller than axis {axis} of length {n}'
-        )
-    mask = None if mask is None else np.asarray(mask, dtype=bool)
-    shifts = np.arange(-max_shift, max_shift + 1)
-    ccf = np.empty(shifts.size, dtype=float)
-    for i, shift in enumerate(shifts):
-        s = int(shift)
-        if s >= 0:
-            a_sl, b_sl = slice(s, n), slice(0, n - s)
-        else:
-            a_sl, b_sl = slice(0, n + s), slice(-s, n)
-        pcc, _ = pearson(
-            _slice_axis(a, a_sl, axis),
-            _slice_axis(b, b_sl, axis),
-            mask=None if mask is None else _slice_axis(mask, a_sl, axis),
-        )
-        ccf[i] = pcc
+    a, b, mask, shifts = _ccf_setup(a, b, mask, max_shift, axis)
+    ccf = np.fromiter(
+        _iter_ccf_values(a, b, mask, shifts, axis),
+        dtype=float,
+        count=shifts.size,
+    )
     return shifts, ccf
 
 
@@ -208,6 +222,64 @@ def scramble_example(image, block_size=8, seed=None):
     return out
 
 
+def _costes_setup(a, b, mask, n_iter, block_size):
+    """Validate a Costes request; crop to whole blocks and score it.
+
+    Returns the cropped ``a``, ``b`` and mask together with the
+    observed PCC over that crop.
+    """
+    a = np.asarray(a)
+    b = np.asarray(b)
+    if a.shape != b.shape:
+        raise ValueError(f'shape mismatch: {a.shape} vs {b.shape}')
+    if block_size < 1:
+        raise ValueError('block_size must be >= 1')
+    if n_iter < 1:
+        raise ValueError('n_iter must be >= 1')
+    nb = [dim // block_size for dim in a.shape]
+    if any(n < 1 for n in nb):
+        raise ValueError('block_size is larger than the image')
+    crop = tuple(slice(0, n * block_size) for n in nb)
+    a_c = a[crop]
+    b_c = b[crop]
+    mask_c = None if mask is None else np.asarray(mask)[crop]
+    observed, _ = pearson(a_c, b_c, mask=mask_c)
+    return a_c, b_c, mask_c, observed
+
+
+def _iter_costes_null(a_c, b_c, mask_c, n_iter, block_size, rng):
+    """Yield one null PCC per block scramble of ``b_c``."""
+    for _ in range(n_iter):
+        scrambled = _scramble_blocks(b_c, block_size, rng)
+        pcc, _ = pearson(a_c, scrambled, mask=mask_c)
+        yield pcc
+
+
+def _costes_summary(observed, null):
+    """Place an observed PCC against its null distribution."""
+    finite = null[np.isfinite(null)]
+    if not np.isfinite(observed) or finite.size == 0:
+        return {
+            'observed': float(observed),
+            'null': null,
+            'p_value': float('nan'),
+            'z_score': float('nan'),
+        }
+    p_value = (int(np.sum(finite >= observed)) + 1) / (finite.size + 1)
+    std = float(finite.std())
+    z_score = (
+        (float(observed) - float(finite.mean())) / std
+        if std > 0
+        else float('nan')
+    )
+    return {
+        'observed': float(observed),
+        'null': null,
+        'p_value': float(p_value),
+        'z_score': float(z_score),
+    }
+
+
 def costes_randomization(a, b, mask=None, n_iter=200, block_size=8, seed=None):
     """Costes' randomization significance test for Pearson's PCC.
 
@@ -251,49 +323,11 @@ def costes_randomization(a, b, mask=None, n_iter=200, block_size=8, seed=None):
         On shape mismatch, ``block_size < 1`` or ``n_iter < 1``, or a
         ``block_size`` larger than the image in any dimension.
     """
-    a = np.asarray(a)
-    b = np.asarray(b)
-    if a.shape != b.shape:
-        raise ValueError(f'shape mismatch: {a.shape} vs {b.shape}')
-    if block_size < 1:
-        raise ValueError('block_size must be >= 1')
-    if n_iter < 1:
-        raise ValueError('n_iter must be >= 1')
-    nb = [dim // block_size for dim in a.shape]
-    if any(n < 1 for n in nb):
-        raise ValueError('block_size is larger than the image')
-
-    crop = tuple(slice(0, n * block_size) for n in nb)
-    a_c = a[crop]
-    b_c = b[crop]
-    mask_c = None if mask is None else np.asarray(mask)[crop]
-
-    observed, _ = pearson(a_c, b_c, mask=mask_c)
+    a_c, b_c, mask_c, observed = _costes_setup(a, b, mask, n_iter, block_size)
     rng = np.random.default_rng(seed)
-    null = np.empty(n_iter, dtype=float)
-    for i in range(n_iter):
-        scrambled = _scramble_blocks(b_c, block_size, rng)
-        pcc, _ = pearson(a_c, scrambled, mask=mask_c)
-        null[i] = pcc
-
-    finite = null[np.isfinite(null)]
-    if not np.isfinite(observed) or finite.size == 0:
-        return {
-            'observed': float(observed),
-            'null': null,
-            'p_value': float('nan'),
-            'z_score': float('nan'),
-        }
-    p_value = (int(np.sum(finite >= observed)) + 1) / (finite.size + 1)
-    std = float(finite.std())
-    z_score = (
-        (float(observed) - float(finite.mean())) / std
-        if std > 0
-        else float('nan')
+    null = np.fromiter(
+        _iter_costes_null(a_c, b_c, mask_c, n_iter, block_size, rng),
+        dtype=float,
+        count=n_iter,
     )
-    return {
-        'observed': float(observed),
-        'null': null,
-        'p_value': float(p_value),
-        'z_score': float(z_score),
-    }
+    return _costes_summary(observed, null)

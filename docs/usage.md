@@ -96,13 +96,18 @@ In all-to-all mode the chosen method applies to every channel pair.
 
 ### Run and results
 
-**Run** computes the metrics on a background thread (the UI stays responsive;
-the button disables while running). The **Results** group then appears.
+**Run** computes the metrics on a background thread, so the UI stays
+responsive. While a run is in flight the button turns into **Cancel** and a
+progress bar below it tracks the regions (or, on the Diagnostics tab, the
+randomization iterations or CCF shifts) completed so far; cancelling discards
+the run and leaves the previous results in place. The **Results** group then
+appears.
 
 The **table** has one row per *(channel pair, region[, slice])*: `region`,
 `slice`, `channel_a`, `channel_b`, `n_pixels`, the metric columns (`pcc`,
 `srcc`, `icq`, `overlap`/`k1`/`k2`, `tm1`/`tm2`) and
-`threshold_a`/`threshold_b`. Click a header to sort; multi-select with
+`threshold_a`/`threshold_b`. Hover a column header for a one-line explanation
+of what it holds. Click a header to sort; multi-select with
 **Ctrl/Shift-click**. If a region's metric can't be computed (too few pixels,
 a constant or empty channel) its cell is left blank and a note below the table
 summarises how many rows were affected and why.

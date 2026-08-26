@@ -17,7 +17,6 @@ from qtpy.QtWidgets import (
     QCheckBox,
     QComboBox,
     QGroupBox,
-    QHBoxLayout,
     QLabel,
     QPushButton,
     QScrollArea,
@@ -34,6 +33,7 @@ from ._objects import (
     object_table,
 )
 from ._widget_shared import (
+    OBJECT_COLUMN_TOOLTIPS,
     _fill_table,
     _format_object_cell,
     _hbox,
@@ -45,7 +45,7 @@ from ._widget_shared import (
     _refresh_region_combo,
     _reject_multiscale,
     _resolve_region,
-    _run_in_background,
+    _RunControl,
     _set_combo_choices,
 )
 
@@ -158,15 +158,20 @@ class ObjectTab(QWidget):
 
     def _build_run_row(self):
         self._obj_run_button = QPushButton('Run object analysis')
-        self._obj_run_button.clicked.connect(self._on_object_run_clicked)
+        self._obj_run_control = _RunControl(
+            self._obj_run_button, self._on_object_run_clicked
+        )
         row = QWidget()
-        layout = QHBoxLayout(row)
+        layout = QVBoxLayout(row)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._obj_run_button)
+        layout.addWidget(self._obj_run_control.progress)
         return row
 
     def _build_results_group(self):
-        self._object_table = _make_table(OBJECT_COLUMNS)
+        self._object_table = _make_table(
+            OBJECT_COLUMNS, OBJECT_COLUMN_TOOLTIPS
+        )
         self._obj_summary_label = QLabel('')
         self._obj_summary_label.setWordWrap(True)
         group = QGroupBox('Object results')
@@ -257,10 +262,8 @@ class ObjectTab(QWidget):
         params = self._gather_object_params()
         if params is None:
             return
-        self._clear_object_overlays()
-        _run_in_background(
+        self._obj_run_control.start(
             self._object_worker(params),
-            self._obj_run_button,
             self._on_object_results_ready,
             self._on_object_worker_error,
         )
@@ -268,13 +271,19 @@ class ObjectTab(QWidget):
     @staticmethod
     @thread_worker
     def _object_worker(params):
+        # The bare yields between steps are the only points at which
+        # the worker can honour a cancel request; the steps themselves
+        # have no progress to report, so the bar stays a busy
+        # indicator.
         if params['source'] == 'threshold':
+            yield
             labels_a = label_objects(
                 params['a'],
                 threshold_method=params['method'],
                 mask=params['mask'],
                 min_size=params['min_size'],
             )
+            yield
             labels_b = label_objects(
                 params['b'],
                 threshold_method=params['method'],
@@ -284,6 +293,7 @@ class ObjectTab(QWidget):
         else:
             labels_a = params['labels_a']
             labels_b = params['labels_b']
+        yield
         rows, summary = object_table(
             labels_a, labels_b, params['name_a'], params['name_b']
         )
@@ -302,6 +312,9 @@ class ObjectTab(QWidget):
         rows, summary, labels_a, labels_b, name_a, name_b, color_a, color_b = (
             payload
         )
+        # Deferred until the run completes so a cancelled run leaves
+        # the previous overlays in the viewer.
+        self._clear_object_overlays()
         self._populate_object_table(rows)
         self._obj_summary_label.setText(
             self._object_summary_text(summary, name_a, name_b)

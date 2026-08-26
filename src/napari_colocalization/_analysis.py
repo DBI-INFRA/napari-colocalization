@@ -183,6 +183,130 @@ def _iter_region_inputs(a, b, label_mask):
         )
 
 
+def _count_regions(label_mask):
+    """Number of non-zero regions in ``label_mask`` (1 for ``None``)."""
+    if label_mask is None:
+        return 1
+    labels = np.unique(np.asarray(label_mask))
+    return int(np.count_nonzero(labels))
+
+
+def _pairwise_row_count(shape, label_mask=None, slice_axis=None):
+    """How many rows `analyse_pairwise` will produce for these inputs.
+
+    Counts labels instead of computing anything, so a caller can size
+    a progress report before the work starts.
+    """
+    if slice_axis is None:
+        return _count_regions(label_mask)
+    n_slices = shape[slice_axis]
+    if label_mask is None:
+        return n_slices
+    lm = np.asarray(label_mask)
+    if lm.ndim != len(shape):
+        return _count_regions(lm) * n_slices
+    # A full-volume mask need not carry every region on every plane.
+    return sum(
+        _count_regions(np.take(lm, s, axis=slice_axis))
+        for s in range(n_slices)
+    )
+
+
+def _all_to_all_row_count(n_channels, label_mask=None):
+    """How many rows `analyse_all_to_all` will produce."""
+    n_pairs = n_channels * (n_channels - 1) // 2
+    return n_pairs * _count_regions(label_mask)
+
+
+def _iter_pairwise_rows(
+    a,
+    b,
+    *,
+    label_mask,
+    metrics,
+    threshold_method,
+    threshold_a,
+    threshold_b,
+    channel_a,
+    channel_b,
+    slice_axis,
+    region_warnings,
+):
+    """Yield the result rows of `analyse_pairwise`, one at a time.
+
+    Inputs are assumed already validated by the caller. Splitting the
+    loop out lets the widget consume rows as they arrive, so a run can
+    report progress and be cancelled between regions.
+    """
+    a = np.asarray(a)
+    b = np.asarray(b)
+    if slice_axis is not None:
+        lm = None if label_mask is None else np.asarray(label_mask)
+        for s in range(a.shape[slice_axis]):
+            if lm is None:
+                mask_s = None
+            elif lm.ndim == a.ndim:
+                mask_s = np.take(lm, s, axis=slice_axis)
+            else:
+                mask_s = lm
+            slice_rows = _iter_pairwise_rows(
+                np.take(a, s, axis=slice_axis),
+                np.take(b, s, axis=slice_axis),
+                label_mask=mask_s,
+                metrics=metrics,
+                threshold_method=threshold_method,
+                threshold_a=threshold_a,
+                threshold_b=threshold_b,
+                channel_a=channel_a,
+                channel_b=channel_b,
+                slice_axis=None,
+                region_warnings=region_warnings,
+            )
+            for row in slice_rows:
+                row['slice'] = s
+                yield row
+        return
+
+    for region in _iter_region_inputs(a, b, label_mask):
+        region_id, a_r, b_r, region_mask, n_pixels = region
+        row = _empty_row(region_id, channel_a, channel_b, n_pixels)
+        # The p-values `pearson`/`spearman` return are discarded: they
+        # assume independent samples, which spatially autocorrelated
+        # pixels are not. The Costes randomization test in _diagnostics
+        # is the significance test for these images.
+        if 'pcc' in metrics:
+            row['pcc'] = pearson(a_r, b_r, mask=region_mask)[0]
+        if 'srcc' in metrics:
+            row['srcc'] = spearman(a_r, b_r, mask=region_mask)[0]
+        if 'icq' in metrics:
+            row['icq'] = li_icq(a_r, b_r, mask=region_mask)
+        if 'overlap' in metrics:
+            r, k1, k2 = overlap(a_r, b_r, mask=region_mask)
+            row['overlap'] = r
+            row['k1'] = k1
+            row['k2'] = k2
+        if 'mcc' in metrics:
+            t_a, t_b = _resolve_thresholds(
+                a_r,
+                b_r,
+                region_mask,
+                threshold_method,
+                threshold_a,
+                threshold_b,
+            )
+            m1, m2 = manders(a_r, b_r, t_a, t_b, mask=region_mask)
+            row['tm1'] = m1
+            row['tm2'] = m2
+            row['threshold_a'] = t_a
+            row['threshold_b'] = t_b
+        if region_warnings is not None and _row_has_uncomputed(row, metrics):
+            reason = _skip_reason(a_r, b_r, region_mask, channel_a, channel_b)
+            region_warnings.append(
+                f'region {region_id} ({channel_a} vs {channel_b}): {reason}'
+            )
+        yield row
+
+
 def analyse_pairwise(
     a,
     b,
@@ -272,75 +396,58 @@ def analyse_pairwise(
         raise ValueError(f'shape mismatch: {a.shape} vs {b.shape}')
     if threshold_method not in ('manual', 'costes', *_AUTO_THRESHOLDS):
         raise ValueError(f"unknown threshold_method '{threshold_method}'")
-    metrics = tuple(metrics)
+    return list(
+        _iter_pairwise_rows(
+            a,
+            b,
+            label_mask=label_mask,
+            metrics=tuple(metrics),
+            threshold_method=threshold_method,
+            threshold_a=threshold_a,
+            threshold_b=threshold_b,
+            channel_a=channel_a,
+            channel_b=channel_b,
+            slice_axis=slice_axis,
+            region_warnings=region_warnings,
+        )
+    )
 
-    if slice_axis is not None:
-        lm = None if label_mask is None else np.asarray(label_mask)
-        rows = []
-        for s in range(a.shape[slice_axis]):
-            if lm is None:
-                mask_s = None
-            elif lm.ndim == a.ndim:
-                mask_s = np.take(lm, s, axis=slice_axis)
-            else:
-                mask_s = lm
-            slice_rows = analyse_pairwise(
-                np.take(a, s, axis=slice_axis),
-                np.take(b, s, axis=slice_axis),
-                label_mask=mask_s,
+
+def _iter_all_to_all_rows(
+    image,
+    channel_axis,
+    *,
+    label_mask,
+    metrics,
+    threshold_method,
+    threshold_a,
+    threshold_b,
+    channel_names,
+    region_warnings,
+):
+    """Yield the result rows of `analyse_all_to_all`, one at a time.
+
+    The generator counterpart of `_iter_pairwise_rows` for every
+    unordered channel pair; inputs are assumed already validated.
+    """
+    n_channels = image.shape[channel_axis]
+    for i in range(n_channels):
+        a = np.take(image, i, axis=channel_axis)
+        for j in range(i + 1, n_channels):
+            b = np.take(image, j, axis=channel_axis)
+            yield from _iter_pairwise_rows(
+                a,
+                b,
+                label_mask=label_mask,
                 metrics=metrics,
                 threshold_method=threshold_method,
                 threshold_a=threshold_a,
                 threshold_b=threshold_b,
-                channel_a=channel_a,
-                channel_b=channel_b,
+                channel_a=channel_names[i],
+                channel_b=channel_names[j],
+                slice_axis=None,
                 region_warnings=region_warnings,
             )
-            for row in slice_rows:
-                row['slice'] = s
-            rows.extend(slice_rows)
-        return rows
-
-    rows = []
-    for region in _iter_region_inputs(a, b, label_mask):
-        region_id, a_r, b_r, region_mask, n_pixels = region
-        row = _empty_row(region_id, channel_a, channel_b, n_pixels)
-        # The p-values `pearson`/`spearman` return are discarded: they
-        # assume independent samples, which spatially autocorrelated
-        # pixels are not. The Costes randomization test in _diagnostics
-        # is the significance test for these images.
-        if 'pcc' in metrics:
-            row['pcc'] = pearson(a_r, b_r, mask=region_mask)[0]
-        if 'srcc' in metrics:
-            row['srcc'] = spearman(a_r, b_r, mask=region_mask)[0]
-        if 'icq' in metrics:
-            row['icq'] = li_icq(a_r, b_r, mask=region_mask)
-        if 'overlap' in metrics:
-            r, k1, k2 = overlap(a_r, b_r, mask=region_mask)
-            row['overlap'] = r
-            row['k1'] = k1
-            row['k2'] = k2
-        if 'mcc' in metrics:
-            t_a, t_b = _resolve_thresholds(
-                a_r,
-                b_r,
-                region_mask,
-                threshold_method,
-                threshold_a,
-                threshold_b,
-            )
-            m1, m2 = manders(a_r, b_r, t_a, t_b, mask=region_mask)
-            row['tm1'] = m1
-            row['tm2'] = m2
-            row['threshold_a'] = t_a
-            row['threshold_b'] = t_b
-        if region_warnings is not None and _row_has_uncomputed(row, metrics):
-            reason = _skip_reason(a_r, b_r, region_mask, channel_a, channel_b)
-            region_warnings.append(
-                f'region {region_id} ({channel_a} vs {channel_b}): {reason}'
-            )
-        rows.append(row)
-    return rows
 
 
 def analyse_all_to_all(
@@ -399,7 +506,7 @@ def analyse_all_to_all(
     ------
     ValueError
         If ``len(channel_names)`` does not match the channel
-        count.
+        count, or if ``threshold_method`` is unknown.
     """
     image = np.asarray(image)
     n_channels = image.shape[channel_axis]
@@ -411,23 +518,18 @@ def analyse_all_to_all(
             f'match image.shape[{channel_axis}]={n_channels}'
         )
 
-    rows = []
-    for i in range(n_channels):
-        a = np.take(image, i, axis=channel_axis)
-        for j in range(i + 1, n_channels):
-            b = np.take(image, j, axis=channel_axis)
-            rows.extend(
-                analyse_pairwise(
-                    a,
-                    b,
-                    label_mask=label_mask,
-                    metrics=metrics,
-                    threshold_method=threshold_method,
-                    threshold_a=threshold_a,
-                    threshold_b=threshold_b,
-                    channel_a=channel_names[i],
-                    channel_b=channel_names[j],
-                    region_warnings=region_warnings,
-                )
-            )
-    return rows
+    if threshold_method not in ('manual', 'costes', *_AUTO_THRESHOLDS):
+        raise ValueError(f"unknown threshold_method '{threshold_method}'")
+    return list(
+        _iter_all_to_all_rows(
+            image,
+            channel_axis,
+            label_mask=label_mask,
+            metrics=tuple(metrics),
+            threshold_method=threshold_method,
+            threshold_a=threshold_a,
+            threshold_b=threshold_b,
+            channel_names=channel_names,
+            region_warnings=region_warnings,
+        )
+    )

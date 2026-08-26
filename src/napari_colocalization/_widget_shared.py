@@ -20,6 +20,7 @@ from qtpy.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLayout,
+    QProgressBar,
     QSpinBox,
     QTableWidget,
     QTableWidgetItem,
@@ -31,6 +32,89 @@ from ._masking import labels_to_label_mask, shapes_to_label_mask
 # Qt.UserRole already carries the ctx-index mapping of the intensity
 # table, so numeric sort keys need a role of their own.
 _SORT_ROLE = Qt.UserRole + 1
+
+# Every progress report crosses threads as a queued signal, so a
+# many-region run reports a sample of its units rather than all of them.
+_MAX_PROGRESS_REPORTS = 200
+
+# Header tooltips for the Pixel-based results table, keyed by the
+# column names of `_analysis.COLUMNS`.
+PIXEL_COLUMN_TOOLTIPS = {
+    'region': (
+        'Region id: the 0-based shape index for a Shapes region, or the '
+        'label value for a Labels region. 0 means the whole image.'
+    ),
+    'slice': (
+        'Z-plane index, for a per-Z-slice run. Blank when the whole '
+        'volume was analysed at once.'
+    ),
+    'channel_a': 'Name of the first channel of the pair.',
+    'channel_b': 'Name of the second channel of the pair.',
+    'n_pixels': 'Number of pixels analysed in this region.',
+    'pcc': (
+        'Pearson correlation coefficient of the paired pixel '
+        'intensities, -1 to 1. Measures how linearly the two channels '
+        'co-vary.'
+    ),
+    'srcc': (
+        'Spearman rank correlation, -1 to 1. Pearson on intensity '
+        'ranks, so it is robust to outliers and to non-linear but '
+        'monotonic relationships.'
+    ),
+    'icq': (
+        "Li's intensity correlation quotient: the fraction of pixels "
+        'where both channels deviate from their means in the same '
+        'direction, from -0.5 (segregated) through 0 (random) to +0.5 '
+        '(dependent).'
+    ),
+    'overlap': (
+        'Manders overlap coefficient r, 0 to 1: threshold-free '
+        'co-occurrence, insensitive to a brightness difference between '
+        'the channels but blind to the sign of the relationship.'
+    ),
+    'k1': (
+        'Manders split coefficient k1: the overlap dominated by pixels '
+        'where channel A is bright.'
+    ),
+    'k2': (
+        'Manders split coefficient k2: the overlap dominated by pixels '
+        'where channel B is bright.'
+    ),
+    'tm1': (
+        'Thresholded Manders coefficient tM1, 0 to 1: the fraction of '
+        "channel A's intensity that sits in pixels where channel B is "
+        'above its threshold.'
+    ),
+    'tm2': (
+        'Thresholded Manders coefficient tM2, 0 to 1: the fraction of '
+        "channel B's intensity that sits in pixels where channel A is "
+        'above its threshold.'
+    ),
+    'threshold_a': 'Channel-A intensity threshold used for tM2.',
+    'threshold_b': 'Channel-B intensity threshold used for tM1.',
+}
+
+# Header tooltips for the Object-based results table, keyed by the
+# column names of `_objects.OBJECT_COLUMNS`.
+OBJECT_COLUMN_TOOLTIPS = {
+    'channel': 'Channel the object was segmented from.',
+    'object': 'Label value of the object within its channel.',
+    'n_pixels': 'Size of the object in pixels.',
+    'centroid': 'Centroid coordinates of the object, in axis order.',
+    'coincident': (
+        "Whether the object's centroid falls inside an object of the "
+        'other channel.'
+    ),
+    'overlap': (
+        "Whether any of the object's pixels touch an object of the "
+        'other channel.'
+    ),
+}
+
+
+def _progress_step(total):
+    """Report every Nth unit of ``total`` work, at most ~200 times."""
+    return max(1, -(-int(total) // _MAX_PROGRESS_REPORTS))
 
 
 def _shape_without_axis(shape, axis):
@@ -211,10 +295,18 @@ def _hbox(*widgets):
     return layout
 
 
-def _make_table(columns):
-    """A read-only, row-selectable, sortable results table."""
+def _make_table(columns, tooltips=None):
+    """A read-only, row-selectable, sortable results table.
+
+    ``tooltips`` optionally maps a column name to the explanation
+    shown when the user hovers that column's header.
+    """
     table = QTableWidget(0, len(columns))
     table.setHorizontalHeaderLabels(list(columns))
+    for c, name in enumerate(columns):
+        tooltip = (tooltips or {}).get(name)
+        if tooltip:
+            table.horizontalHeaderItem(c).setToolTip(tooltip)
     table.setSelectionBehavior(QTableWidget.SelectRows)
     table.setEditTriggers(QTableWidget.NoEditTriggers)
     table.setSortingEnabled(True)
@@ -252,13 +344,71 @@ def _fill_table(table, rows, columns, formatter, *, user_role=False):
 # -- workers / export ---------------------------------------------------
 
 
-def _run_in_background(worker, button, on_ready, on_error):
-    """Disable ``button``, wire the worker's signals, and start it."""
-    button.setEnabled(False)
-    worker.returned.connect(on_ready)
-    worker.errored.connect(on_error)
-    worker.finished.connect(lambda: button.setEnabled(True))
-    worker.start()
+class _RunControl:
+    """A tab's Run button, its progress bar and its running worker.
+
+    Workers are generator functions: napari can only interrupt one
+    between yields, so those yields double as the progress reports
+    driving the bar. While a worker is alive the Run button reads
+    'Cancel' and clicking it asks the worker to quit, discarding
+    whatever it had produced - the button is never disabled, so a long
+    run always has a way out.
+    """
+
+    def __init__(self, button, on_start):
+        self.button = button
+        self.progress = QProgressBar()
+        self.progress.setTextVisible(False)
+        self.progress.setMaximumHeight(10)
+        self.progress.setVisible(False)
+        self._run_text = button.text()
+        self._on_start = on_start
+        self._worker = None
+        button.clicked.connect(self._on_clicked)
+
+    def is_running(self):
+        return self._worker is not None
+
+    def start(self, worker, on_ready, on_error):
+        """Take over the button and start ``worker``."""
+        self._worker = worker
+        # Busy indicator until (and unless) the worker reports a total.
+        self.progress.setRange(0, 0)
+        self.progress.setVisible(True)
+        self.button.setText('Cancel')
+        worker.yielded.connect(self._on_yielded)
+        worker.returned.connect(on_ready)
+        worker.errored.connect(on_error)
+        worker.aborted.connect(self._on_aborted)
+        worker.finished.connect(self._on_finished)
+        worker.start()
+
+    def _on_clicked(self):
+        if self._worker is None:
+            self._on_start()
+        else:
+            self._worker.quit()
+
+    def _on_yielded(self, report):
+        # Coarse steps yield nothing to report and only keep the busy
+        # indicator running; a (done, total) pair drives a real bar.
+        if not isinstance(report, tuple):
+            return
+        done, total = report
+        maximum = max(int(total), 1)
+        if self.progress.maximum() != maximum:
+            self.progress.setRange(0, maximum)
+        self.progress.setValue(min(int(done), maximum))
+
+    def _on_aborted(self):
+        show_info('Analysis cancelled.')
+
+    def _on_finished(self):
+        self._worker = None
+        self.button.setText(self._run_text)
+        self.progress.setVisible(False)
+        self.progress.setRange(0, 1)
+        self.progress.setValue(0)
 
 
 def _export_canvas_figure(parent, canvas, default_name):

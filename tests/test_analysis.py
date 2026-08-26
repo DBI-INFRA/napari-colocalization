@@ -3,6 +3,8 @@ import pytest
 
 from napari_colocalization._analysis import (
     COLUMNS,
+    _all_to_all_row_count,
+    _pairwise_row_count,
     analyse_all_to_all,
     analyse_pairwise,
 )
@@ -282,3 +284,32 @@ def test_all_to_all_validates_channel_names_length():
         analyse_all_to_all(
             np.zeros((3, 4, 4)), channel_axis=0, channel_names=['only_one']
         )
+
+
+# -- row counts -------------------------------------------------------
+
+
+def test_row_count_helpers_match_the_rows_produced(rng):
+    # A region that is absent from a plane yields no row there, so the
+    # per-slice count is not simply regions x slices.
+    a = rng.random((3, 8, 8))
+    label_mask = np.zeros((3, 8, 8), dtype=int)
+    label_mask[:, :4] = 1
+    label_mask[2, 4:] = 2
+    for slice_axis in (None, 0):
+        rows = analyse_pairwise(
+            a,
+            a.copy(),
+            label_mask=label_mask,
+            metrics=('pcc',),
+            slice_axis=slice_axis,
+        )
+        assert _pairwise_row_count(a.shape, label_mask, slice_axis) == len(
+            rows
+        )
+
+    image = np.stack([a[0], a[1], a[2]], axis=0)
+    rows = analyse_all_to_all(
+        image, channel_axis=0, label_mask=label_mask[0], metrics=('pcc',)
+    )
+    assert _all_to_all_row_count(3, label_mask[0]) == len(rows)
