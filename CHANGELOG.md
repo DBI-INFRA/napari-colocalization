@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
-## 0.3.0
+## 0.3.1
 
 ### Added
 
@@ -38,7 +38,7 @@ project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
   onto the other, so values in the tails of the curve differ from
   earlier releases; `max_shift` must be smaller than the shifted axis.
 - Costes bisection stops at one intensity level for integer images,
-  matching Fiji Coloc 2, and keeps the span-relative tolerance for float
+  matching Coloc 2, and keeps the span-relative tolerance for float
   data.
 - Shape and mask mismatches raise `ValueError` across the metric,
   threshold and analysis functions instead of silently correlating
