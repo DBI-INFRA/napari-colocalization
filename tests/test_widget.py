@@ -946,3 +946,117 @@ def test_exported_costes_seed_reproduces_the_null(widget, qtbot, rng):
         a, b, n_iter=20, block_size=4, seed=tab._diag_provenance['seed']
     )
     np.testing.assert_allclose(tab._diag_result[1]['null'], again['null'])
+
+
+@pytest.mark.filterwarnings('error::FutureWarning')
+def test_every_tab_runs_on_the_public_only_viewer(
+    make_napari_viewer_proxy, qtbot
+):
+    # napari hands plugin widgets a PublicOnlyProxy, which raises a
+    # FutureWarning on any private attribute access.
+    viewer = make_napari_viewer_proxy()
+    widget = ColocalizationWidget(viewer)
+    qtbot.addWidget(widget)
+    img = np.zeros((24, 24), dtype=np.float32)
+    img[4:10, 4:10] = 1.0
+    img[14:20, 14:20] = 0.5
+    viewer.add_image(img, name='a')
+    viewer.add_image(img + 0.01 * img.T, name='b')
+    # Iterating the proxied layer list yields the layers the combos hold.
+    layer_a, layer_b = list(viewer.layers)
+
+    pixel = widget._pixel_tab
+    pixel._image_a_combo.value = layer_a
+    pixel._image_b_combo.value = layer_b
+    _run(widget, qtbot)
+
+    obj = widget._object_tab
+    obj._obj_image_a_combo.value = layer_a
+    obj._obj_image_b_combo.value = layer_b
+    obj._on_object_run_clicked()
+    qtbot.waitUntil(lambda: obj._object_table.rowCount() > 0, timeout=10000)
+
+    diag = widget._diagnostics_tab
+    diag._diag_image_a_combo.value = layer_a
+    diag._diag_image_b_combo.value = layer_b
+    _select(diag._diag_method_combo, 'ccf')
+    diag._ccf_max_shift.setValue(3)
+    diag._on_diag_run_clicked()
+    qtbot.waitUntil(lambda: diag._diag_result is not None, timeout=15000)
+
+
+# -- workers, run synchronously ----------------------------------------
+# Coverage cannot trace the QThreads workers run on, so their bodies are
+# also driven here as plain generators.
+
+
+def _drain(worker_function, params):
+    """Exhaust a ``@thread_worker`` body: ``(yielded, returned)``."""
+    generator = worker_function.__wrapped__(params)
+    yielded = []
+    while True:
+        try:
+            yielded.append(next(generator))
+        except StopIteration as stop:
+            return yielded, stop.value
+
+
+@pytest.mark.parametrize('mode', ['pairwise', 'all_to_all'])
+def test_pixel_worker_body(widget, rng, mode):
+    tab = widget._pixel_tab
+    a = rng.random((16, 16)).astype(np.float32)
+    if mode == 'pairwise':
+        _add_pair(widget, a)
+    else:
+        tab._mode_all.setChecked(True)
+        tab._stack_combo.value = widget._viewer.add_image(
+            np.stack([a, a, a]), name='stack'
+        )
+    params = tab.gather_params()
+    yielded, payload = _drain(tab._run_worker, params)
+    n_rows = 1 if mode == 'pairwise' else 3
+    assert yielded[0] == (0, n_rows)
+    assert yielded[-1] == (n_rows, n_rows)
+    assert len(payload['rows']) == n_rows
+    assert payload['mode'] == mode
+
+
+@pytest.mark.parametrize('source', ['threshold', 'labels'])
+def test_object_worker_body(widget, source):
+    tab = widget._object_tab
+    viewer = widget._viewer
+    img = np.zeros((20, 20), dtype=np.float32)
+    img[2:6, 2:6] = 1.0
+    if source == 'threshold':
+        tab._obj_image_a_combo.value = viewer.add_image(img, name='a')
+        tab._obj_image_b_combo.value = viewer.add_image(img.copy(), name='b')
+    else:
+        _select(tab._obj_source_combo, 'labels')
+        labels = (img > 0).astype(np.int32)
+        tab._obj_labels_a_combo.value = viewer.add_labels(labels, name='la')
+        tab._obj_labels_b_combo.value = viewer.add_labels(
+            labels.copy(), name='lb'
+        )
+    params = tab._gather_object_params()
+    params['provenance'] = tab._object_provenance_for(params)
+    _, payload = _drain(tab._object_worker, params)
+    assert len(payload['rows']) == 2  # one object per channel
+    assert payload['centroids_a'].shape == (1, 2)
+
+
+@pytest.mark.parametrize('method', ['costes', 'ccf', 'ica'])
+def test_diagnostic_worker_body(widget, rng, method):
+    tab = widget._diagnostics_tab
+    viewer = widget._viewer
+    a = rng.random((16, 16)).astype(np.float32)
+    tab._diag_image_a_combo.value = viewer.add_image(a, name='a')
+    tab._diag_image_b_combo.value = viewer.add_image(a.copy(), name='b')
+    _select(tab._diag_method_combo, method)
+    tab._costes_niter.setValue(10)
+    tab._costes_block.setValue(4)
+    tab._ccf_max_shift.setValue(3)
+    params = tab._gather_diag_params()
+    params['provenance'] = tab._diag_provenance_for(params)
+    yielded, payload = _drain(tab._diag_worker, params)
+    assert payload[0] == method
+    assert yielded[-1][0] == yielded[-1][1]  # progress reaches the end
