@@ -327,10 +327,14 @@ class ObjectTab(QWidget):
         rows, _summary = object_table(
             labels_a, labels_b, params['name_a'], params['name_b']
         )
+        yield
         return {
             'rows': rows,
-            'labels_a': labels_a,
-            'labels_b': labels_b,
+            'shape': labels_a.shape,
+            # Overlay coordinates are computed here rather than in the
+            # results callback, which runs on the GUI thread.
+            'centroids_a': object_centroids(labels_a),
+            'centroids_b': object_centroids(labels_b),
             **{
                 key: params[key]
                 for key in (
@@ -346,8 +350,6 @@ class ObjectTab(QWidget):
 
     def _on_object_results_ready(self, payload):
         rows = payload['rows']
-        labels_a = payload['labels_a']
-        labels_b = payload['labels_b']
         name_a, name_b = payload['name_a'], payload['name_b']
         geometry = payload['geometry']
         self._object_provenance = payload['provenance']
@@ -362,12 +364,12 @@ class ObjectTab(QWidget):
             or self._obj_links_check.isChecked()
         ):
             return
-        centroids_a = object_centroids(labels_a)
-        centroids_b = object_centroids(labels_b)
+        centroids_a = payload['centroids_a']
+        centroids_b = payload['centroids_b']
         if self._centroid_size is not None:
             size = self._centroid_size
         else:
-            size = self._auto_centroid_size(labels_a.shape)
+            size = self._auto_centroid_size(payload['shape'])
             self._centroid_size_auto = size
         if self._obj_points_check.isChecked():
             if centroids_a.size:

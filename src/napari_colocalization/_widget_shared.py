@@ -291,7 +291,8 @@ def _layer_value_range(layer):
 
     Prefers napari's own ``contrast_limits_range``, which it has
     already computed, over scanning the array again - the array may be
-    a large or lazily-loaded stack.
+    a large or lazily-loaded stack. Only an in-memory array is ever
+    scanned; this runs on the GUI thread.
     """
     for attr in ('contrast_limits_range', 'contrast_limits'):
         limits = getattr(layer, attr, None)
@@ -299,8 +300,8 @@ def _layer_value_range(layer):
             low, high = float(limits[0]), float(limits[1])
             if np.isfinite(low) and np.isfinite(high) and high > low:
                 return low, high
-    data = np.asarray(layer.data)
-    if data.size == 0:
+    data = layer.data
+    if not isinstance(data, np.ndarray) or data.size == 0:
         return 0.0, 1.0
     low, high = float(np.nanmin(data)), float(np.nanmax(data))
     return (low, high) if high > low else (low, low + 1.0)

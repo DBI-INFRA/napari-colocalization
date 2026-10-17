@@ -28,6 +28,8 @@ project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
   and a failed write no longer leaves a truncated file in the cache.
 - Multiscale Labels layers are rejected up front on the Object-based
   tab, like multiscale images, instead of failing mid-run.
+- Adding a scrambled example and building object overlays no longer
+  block the viewer on large images.
 
 ## 0.3.1
 

@@ -46,6 +46,7 @@ from ._widget_shared import (
     _nudge_distinct,
     _progress_step,
     _refresh_region_combo,
+    _reject_multiscale,
     _RunControl,
     _select_region_layer,
     _set_combo_choices,
@@ -399,19 +400,30 @@ class DiagnosticsTab(QWidget):
         if layer_b is None:
             show_warning('Select Image B first.')
             return
-        try:
-            scrambled = scramble_example(
-                np.asarray(layer_b.data),
-                block_size=int(self._costes_block.value()),
-            )
-        except ValueError as exc:
-            show_warning(str(exc))
+        if _reject_multiscale(layer_b):
             return
-        self._viewer.add_image(
-            scrambled,
-            name=f'{layer_b.name} (scrambled)',
-            **_layer_geometry(layer_b),
+        block_size = int(self._costes_block.value())
+        # Checked here, not in the worker: a worker exception would
+        # log a traceback on top of the warning.
+        if any(dim // block_size < 1 for dim in layer_b.data.shape):
+            show_warning('Costes block size is larger than the image.')
+            return
+        name = f'{layer_b.name} (scrambled)'
+        geometry = _layer_geometry(layer_b)
+        worker = self._scramble_worker(layer_b.data, block_size)
+        worker.returned.connect(
+            lambda scrambled: self._viewer.add_image(
+                scrambled, name=name, **geometry
+            )
         )
+        worker.start()
+
+    @staticmethod
+    @thread_worker
+    def _scramble_worker(data, block_size):
+        # Lazy data loads and the whole volume is copied here, off the
+        # GUI thread.
+        return scramble_example(np.asarray(data), block_size=block_size)
 
     @staticmethod
     def _diag_provenance_for(params):

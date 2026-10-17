@@ -481,6 +481,10 @@ def test_added_layers_follow_source_geometry(widget, qtbot):
     widget._diagnostics_tab._diag_image_b_combo.value = layer_b
     widget._diagnostics_tab._costes_block.setValue(2)
     widget._diagnostics_tab._on_diag_scramble_clicked()
+    qtbot.waitUntil(
+        lambda: any('scrambled' in layer.name for layer in viewer.layers),
+        timeout=10000,
+    )
 
     added = [
         layer
@@ -571,7 +575,7 @@ def test_diag_costes_validation(widget, rng):
     assert widget._diagnostics_tab._gather_diag_params() is None
 
 
-def test_add_scrambled_example_layer(widget, rng):
+def test_add_scrambled_example_layer(widget, qtbot, rng):
     viewer = widget._viewer
     a = rng.random((32, 32)).astype(np.float32)
     viewer.add_image(a, name='a')
@@ -580,7 +584,7 @@ def test_add_scrambled_example_layer(widget, rng):
     )
     n_before = len(viewer.layers)
     widget._diagnostics_tab._on_diag_scramble_clicked()
-    assert len(viewer.layers) == n_before + 1
+    qtbot.waitUntil(lambda: len(viewer.layers) == n_before + 1, timeout=10000)
     assert any('scrambled' in layer.name for layer in viewer.layers)
 
 
