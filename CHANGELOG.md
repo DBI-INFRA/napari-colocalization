@@ -26,6 +26,8 @@ project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
   maxima instead of recomputing them on the UI thread.
 - Downloaded samples time out after 30 s instead of hanging the viewer,
   and a failed write no longer leaves a truncated file in the cache.
+- Multiscale Labels layers are rejected up front on the Object-based
+  tab, like multiscale images, instead of failing mid-run.
 
 ## 0.3.1
 

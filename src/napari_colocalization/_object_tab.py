@@ -38,9 +38,9 @@ from ._widget_shared import (
     _base_provenance,
     _fill_table,
     _format_object_cell,
+    _gather_pair,
     _hbox,
     _layer_color,
-    _layer_geometry,
     _layer_name,
     _make_group,
     _make_table,
@@ -48,8 +48,6 @@ from ._widget_shared import (
     _nudge_distinct,
     _object_rows_for_csv,
     _refresh_region_combo,
-    _reject_multiscale,
-    _resolve_region,
     _RunControl,
     _set_combo_choices,
     write_csv_rows,
@@ -217,62 +215,39 @@ class ObjectTab(QWidget):
         if self._obj_source_combo.currentData() == 'threshold':
             layer_a = self._obj_image_a_combo.value
             layer_b = self._obj_image_b_combo.value
-            if layer_a is None or layer_b is None:
-                show_warning('Select both image layers.')
+            pair = _gather_pair(layer_a, layer_b, self._obj_region_combo)
+            if pair is None:
                 return None
-            if _reject_multiscale(layer_a, layer_b):
-                return None
-            # Keep the layer data lazy: checks below need only
-            # .shape; the worker materializes off the GUI thread.
-            a = layer_a.data
-            b = layer_b.data
-            if a.shape != b.shape:
-                show_warning(f'Shape mismatch: {a.shape} vs {b.shape}.')
-                return None
-            geometry = _layer_geometry(layer_a)
-            try:
-                label_mask, region_layer = _resolve_region(
-                    self._obj_region_combo, a.shape, geometry
-                )
-            except ValueError as exc:
-                show_warning(str(exc))
-                return None
+            label_mask = pair.label_mask
             return {
                 'source': 'threshold',
-                'a': a,
-                'b': b,
+                'a': pair.a,
+                'b': pair.b,
                 'mask': None if label_mask is None else (label_mask > 0),
-                'region_layer': region_layer,
+                'region_layer': pair.region_layer,
                 'method': self._obj_method_combo.currentData(),
                 'min_size': int(self._obj_min_size.value()),
                 'name_a': layer_a.name,
                 'name_b': layer_b.name,
                 'color_a': _layer_color(layer_a),
                 'color_b': _layer_color(layer_b),
-                'geometry': geometry,
+                'geometry': pair.geometry,
             }
         layer_a = self._obj_labels_a_combo.value
         layer_b = self._obj_labels_b_combo.value
-        if layer_a is None or layer_b is None:
-            show_warning('Select both Labels layers.')
-            return None
-        labels_a = layer_a.data
-        labels_b = layer_b.data
-        if labels_a.shape != labels_b.shape:
-            show_warning(
-                f'Shape mismatch: {labels_a.shape} vs {labels_b.shape}.'
-            )
+        pair = _gather_pair(layer_a, layer_b, what='Labels layers')
+        if pair is None:
             return None
         return {
             'source': 'labels',
-            'labels_a': labels_a,
-            'labels_b': labels_b,
+            'labels_a': pair.a,
+            'labels_b': pair.b,
             'name_a': layer_a.name,
             'name_b': layer_b.name,
             # Labels layers have no single intensity colour; use defaults.
             'color_a': 'cyan',
             'color_b': 'magenta',
-            'geometry': _layer_geometry(layer_a),
+            'geometry': pair.geometry,
         }
 
     @staticmethod

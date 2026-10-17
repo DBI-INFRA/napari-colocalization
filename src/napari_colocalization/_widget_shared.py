@@ -9,6 +9,7 @@ imports another tab.
 
 import csv
 from datetime import datetime
+from typing import Any, NamedTuple
 
 import numpy as np
 from napari.utils.notifications import show_info, show_warning
@@ -674,6 +675,46 @@ def _resolve_region(region_combo, spatial_shape, geometry=None):
     if isinstance(layer, Shapes):
         return shapes_to_label_mask(layer, spatial_shape), layer
     return labels_to_label_mask(layer, spatial_shape), layer
+
+
+class _LayerPair(NamedTuple):
+    """A validated layer pair, data still lazy, plus its region."""
+
+    a: Any
+    b: Any
+    label_mask: Any
+    region_layer: Any
+    geometry: dict
+
+
+def _gather_pair(layer_a, layer_b, region_combo=None, what='image layers'):
+    """Validate two selected layers and resolve the region against them.
+
+    The checks every tab runs before a pairwise worker: both chosen,
+    neither multiscale, same shape, region aligned. Layer data is left
+    lazy - only ``.shape`` is read - so the worker materializes it off
+    the GUI thread. Returns a `_LayerPair`, or ``None`` after warning.
+    """
+    if layer_a is None or layer_b is None:
+        show_warning(f'Select both {what}.')
+        return None
+    if _reject_multiscale(layer_a, layer_b):
+        return None
+    a, b = layer_a.data, layer_b.data
+    if a.shape != b.shape:
+        show_warning(f'Shape mismatch: {a.shape} vs {b.shape}.')
+        return None
+    geometry = _layer_geometry(layer_a)
+    label_mask = region_layer = None
+    if region_combo is not None:
+        try:
+            label_mask, region_layer = _resolve_region(
+                region_combo, a.shape, geometry
+            )
+        except ValueError as exc:
+            show_warning(str(exc))
+            return None
+    return _LayerPair(a, b, label_mask, region_layer, geometry)
 
 
 def _region_source_for(layer):

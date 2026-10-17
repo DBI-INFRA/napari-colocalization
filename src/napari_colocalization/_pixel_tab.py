@@ -46,6 +46,7 @@ from ._widget_shared import (
     _export_canvas_figure,
     _fill_table,
     _format_cell,
+    _gather_pair,
     _hbox,
     _layer_geometry,
     _layer_name,
@@ -523,27 +524,10 @@ class PixelTab(QWidget):
     def _pairwise_params(self, common):
         layer_a = self._image_a_combo.value
         layer_b = self._image_b_combo.value
-        if layer_a is None or layer_b is None:
-            show_warning('Select both image layers.')
+        pair = _gather_pair(layer_a, layer_b, self._region_combo)
+        if pair is None:
             return None
-        if _reject_multiscale(layer_a, layer_b):
-            return None
-        # Keep the layer data lazy here: shape checks need only
-        # .shape, and the worker materializes off the GUI thread so a
-        # dask/zarr-backed layer does not freeze the click handler.
-        a = layer_a.data
-        b = layer_b.data
-        if a.shape != b.shape:
-            show_warning(f'Shape mismatch: {a.shape} vs {b.shape}.')
-            return None
-        geometry = _layer_geometry(layer_a)
-        try:
-            label_mask, region_layer = _resolve_region(
-                self._region_combo, a.shape, geometry
-            )
-        except ValueError as exc:
-            show_warning(str(exc))
-            return None
+        a = pair.a
         slice_axis = None
         if self._per_slice_check.isChecked():
             slice_axis = int(self._slice_axis_spin.value())
@@ -556,14 +540,14 @@ class PixelTab(QWidget):
         return {
             **common,
             'mode': 'pairwise',
-            'a': a,
-            'b': b,
-            'label_mask': label_mask,
-            'region_layer': region_layer,
+            'a': pair.a,
+            'b': pair.b,
+            'label_mask': pair.label_mask,
+            'region_layer': pair.region_layer,
             'channel_a': layer_a.name,
             'channel_b': layer_b.name,
             'slice_axis': slice_axis,
-            'geometry': geometry,
+            'geometry': pair.geometry,
         }
 
     def _all_to_all_params(self, common):
@@ -573,7 +557,7 @@ class PixelTab(QWidget):
             return None
         if _reject_multiscale(layer):
             return None
-        # Lazy on purpose - see _pairwise_params.
+        # Lazy on purpose: the worker materializes it off the GUI thread.
         image = layer.data
         axis = int(self._channel_axis_spin.value())
         if axis >= image.ndim:

@@ -279,6 +279,18 @@ def test_multiscale_image_is_rejected(widget):
     assert widget._pixel_tab.gather_params() is None
 
 
+def test_multiscale_labels_are_rejected(widget):
+    arr = np.zeros((32, 32), dtype=np.int32)
+    layer = widget._viewer.add_labels(
+        [arr, arr[::2, ::2]], multiscale=True, name='ms'
+    )
+    tab = widget._object_tab
+    _select(tab._obj_source_combo, 'labels')
+    tab._obj_labels_a_combo.value = layer
+    tab._obj_labels_b_combo.value = layer
+    assert tab._gather_object_params() is None
+
+
 def test_auto_threshold_manders(widget, qtbot, rng):
     # Otsu cleanly separates a two-level image, so the bright square
     # fully colocalizes with itself (M1 == 1).
@@ -483,10 +495,10 @@ def test_added_layers_follow_source_geometry(widget, qtbot):
 
 
 def test_misaligned_region_layer_is_rejected(widget, monkeypatch):
-    import napari_colocalization._pixel_tab as pixel_tab
+    import napari_colocalization._widget_shared as shared
 
     warnings = []
-    monkeypatch.setattr(pixel_tab, 'show_warning', warnings.append)
+    monkeypatch.setattr(shared, 'show_warning', warnings.append)
     img = np.ones((16, 16), dtype=np.float32)
     _add_pair(widget, img)
     roi = widget._viewer.add_shapes(

@@ -37,6 +37,7 @@ from ._plot import DiagnosticCanvas
 from ._widget_shared import (
     _base_provenance,
     _export_canvas_figure,
+    _gather_pair,
     _hbox,
     _layer_geometry,
     _layer_name,
@@ -45,8 +46,6 @@ from ._widget_shared import (
     _nudge_distinct,
     _progress_step,
     _refresh_region_combo,
-    _reject_multiscale,
-    _resolve_region,
     _RunControl,
     _select_region_layer,
     _set_combo_choices,
@@ -246,25 +245,10 @@ class DiagnosticsTab(QWidget):
     def _gather_diag_params(self):
         layer_a = self._diag_image_a_combo.value
         layer_b = self._diag_image_b_combo.value
-        if layer_a is None or layer_b is None:
-            show_warning('Select both image layers for the diagnostic.')
+        pair = _gather_pair(layer_a, layer_b, self._diag_region_combo)
+        if pair is None:
             return None
-        if _reject_multiscale(layer_a, layer_b):
-            return None
-        # Keep the layer data lazy: every check below reads only
-        # .shape, and the worker materializes off the GUI thread.
-        a = layer_a.data
-        b = layer_b.data
-        if a.shape != b.shape:
-            show_warning(f'Shape mismatch: {a.shape} vs {b.shape}.')
-            return None
-        try:
-            label_mask, _ = _resolve_region(
-                self._diag_region_combo, a.shape, _layer_geometry(layer_a)
-            )
-        except ValueError as exc:
-            show_warning(str(exc))
-            return None
+        a, b, label_mask = pair.a, pair.b, pair.label_mask
         # Diagnostics are single-ROI: collapse any multi-region label
         # mask to one boolean "analyse here" mask.
         mask = None if label_mask is None else (label_mask > 0)
@@ -297,7 +281,7 @@ class DiagnosticsTab(QWidget):
             'n_iter': int(self._costes_niter.value()),
             'block_size': block_size,
             'max_shift': max_shift,
-            'region_layer': self._diag_region_combo.currentData(),
+            'region_layer': pair.region_layer,
         }
 
     def _on_diag_run_clicked(self):
