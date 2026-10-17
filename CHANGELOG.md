@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Changed
+
+- Requires Python 3.11 or newer, matching napari 0.9.
+- `napari` is now a declared dependency; the widget modules import it
+  at runtime.
+
 ## 0.3.1
 
 ### Added

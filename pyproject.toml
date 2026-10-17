@@ -16,18 +16,18 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Image Processing",
 ]
-requires-python = ">=3.10"
-# napari can be included in dependencies if napari imports are required.
-# However, you should not include napari[all], napari[qt],
-# or any other Qt bindings directly (e.g. PyQt5, PySide2).
+requires-python = ">=3.11"
+# napari is a runtime dependency: the tabs import napari.qt.threading
+# and napari.utils.notifications at module level. Never list
+# napari[all], napari[qt] or Qt bindings here.
 # See best practices: https://napari.org/stable/plugins/building_a_plugin/best_practices.html
 dependencies = [
+    "napari",
     "numpy",
     "magicgui",
     "qtpy",
