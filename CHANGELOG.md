@@ -6,6 +6,12 @@ project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
 
+### Added
+
+- Costes randomization exports record the random seed, so
+  `costes_randomization(..., seed=...)` reproduces the null
+  distribution exactly.
+
 ### Changed
 
 - Requires Python 3.11 or newer, matching napari 0.9.

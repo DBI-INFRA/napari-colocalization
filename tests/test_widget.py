@@ -707,6 +707,8 @@ def test_diagnostic_value_export(
     assert first['diagnostic'] == method
     assert first['channel_a'] == 'a'
     assert all(column in first for column in columns)
+    # Only the randomization test consumes a seed.
+    assert (first['seed'] != '') == (method == 'costes')
 
 
 def test_diagnostic_provenance_survives_unfinished_run(
@@ -921,3 +923,24 @@ def test_column_headers_carry_tooltips(widget):
     objects = _tooltips(widget._object_tab._object_table)
     assert all(objects.values())
     assert 'centroid' in objects['coincident']
+
+
+def test_exported_costes_seed_reproduces_the_null(widget, qtbot, rng):
+    from napari_colocalization import costes_randomization
+
+    a = rng.random((32, 32)).astype(np.float32)
+    b = (a + rng.random((32, 32))).astype(np.float32)
+    viewer = widget._viewer
+    tab = widget._diagnostics_tab
+    tab._diag_image_a_combo.value = viewer.add_image(a, name='a')
+    tab._diag_image_b_combo.value = viewer.add_image(b, name='b')
+    _select(tab._diag_method_combo, 'costes')
+    tab._costes_niter.setValue(20)
+    tab._costes_block.setValue(4)
+    tab._on_diag_run_clicked()
+    qtbot.waitUntil(lambda: tab._diag_result is not None, timeout=15000)
+
+    again = costes_randomization(
+        a, b, n_iter=20, block_size=4, seed=tab._diag_provenance['seed']
+    )
+    np.testing.assert_allclose(tab._diag_result[1]['null'], again['null'])

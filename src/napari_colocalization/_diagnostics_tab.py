@@ -6,6 +6,8 @@ function, or the Li ICA scatters - plus the block-scrambled example
 layer the Costes null is built from.
 """
 
+import secrets
+
 import numpy as np
 from magicgui.widgets import create_widget
 from napari.qt.threading import thread_worker
@@ -283,6 +285,9 @@ class DiagnosticsTab(QWidget):
             'block_size': block_size,
             'max_shift': max_shift,
             'region_layer': pair.region_layer,
+            # Drawn per run and exported, so a Costes p-value can be
+            # reproduced exactly from the CSV.
+            'seed': secrets.randbits(63),
         }
 
     def _on_diag_run_clicked(self):
@@ -316,7 +321,12 @@ class DiagnosticsTab(QWidget):
             step = _progress_step(n_iter)
             yield 0, n_iter
             nulls = _iter_costes_null(
-                a_c, b_c, mask_c, n_iter, block_size, np.random.default_rng()
+                a_c,
+                b_c,
+                mask_c,
+                n_iter,
+                block_size,
+                np.random.default_rng(params['seed']),
             )
             for i, pcc in enumerate(nulls):
                 null[i] = pcc
@@ -438,6 +448,7 @@ class DiagnosticsTab(QWidget):
             # Each diagnostic has its own knobs; blank where not used.
             'n_iter': params['n_iter'] if method == 'costes' else '',
             'block_size': params['block_size'] if method == 'costes' else '',
+            'seed': params['seed'] if method == 'costes' else '',
             'max_shift': params['max_shift'] if method == 'ccf' else '',
         }
 
