@@ -14,7 +14,44 @@ sample server and cached under ~/.cache/napari-colocalization/; this
 is the image used by the ROI colocalization tutorial.
 """
 
+import io
+import urllib.request
+import zipfile
+from pathlib import Path
+
 import numpy as np
+
+_CACHE_DIR = Path.home() / '.cache' / 'napari-colocalization'
+# Sample loaders run on napari's UI thread; a stalled server must not
+# freeze the viewer indefinitely.
+_DOWNLOAD_TIMEOUT_S = 30
+
+
+def _cached_download(url, filename, member=None):
+    """Path to ``filename`` in the cache, downloading it on first use.
+
+    ``member`` names the file to extract when ``url`` is a zip archive.
+    The file is written under a temporary name and renamed into place,
+    so an interrupted download cannot leave a truncated file that later
+    calls would mistake for a finished one.
+    """
+    path = _CACHE_DIR / filename
+    if path.exists():
+        return path
+    _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    with urllib.request.urlopen(url, timeout=_DOWNLOAD_TIMEOUT_S) as response:
+        raw = response.read()
+    if member is not None:
+        with zipfile.ZipFile(io.BytesIO(raw)) as zf:
+            raw = zf.read(member)
+    partial = path.with_name(path.name + '.part')
+    try:
+        partial.write_bytes(raw)
+        partial.replace(path)
+    except BaseException:
+        partial.unlink(missing_ok=True)
+        raise
+    return path
 
 
 def _gaussian_blob_nd(shape, center, sigma, amplitude):
@@ -113,6 +150,12 @@ def make_sample_data_3d():
     ]
 
 
+_CBS006RBM_URL = (
+    'https://colocalization-benchmark.com/download/cbs006rbm.tiff.zip'
+)
+_CBS006RBM_TIFF = 'CBS006RBM.tiff'
+
+
 def make_sample_data_cbs006rbm():
     """2D sample from the Colocalization Benchmark Source (CBS006RBM).
 
@@ -121,26 +164,11 @@ def make_sample_data_cbs006rbm():
 
     Source: https://colocalization-benchmark.com/
     """
-    import io
-    import urllib.request
-    import zipfile
-    from pathlib import Path
-
     from skimage.io import imread
 
-    _URL = 'https://colocalization-benchmark.com/download/cbs006rbm.tiff.zip'
-    _TIFF = 'CBS006RBM.tiff'
-
-    cache_dir = Path.home() / '.cache' / 'napari-colocalization'
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    tiff_path = cache_dir / _TIFF
-
-    if not tiff_path.exists():
-        with urllib.request.urlopen(_URL) as response:
-            raw = response.read()
-        with zipfile.ZipFile(io.BytesIO(raw)) as zf:
-            tiff_path.write_bytes(zf.read(_TIFF))
-
+    tiff_path = _cached_download(
+        _CBS006RBM_URL, _CBS006RBM_TIFF, member=_CBS006RBM_TIFF
+    )
     img = imread(str(tiff_path))  # (H, W, 3) uint8 RGB
     red = img[:, :, 0].astype(np.float32) / 255.0
     blue = img[:, :, 2].astype(np.float32) / 255.0
@@ -175,17 +203,7 @@ def coloc_sample_path():
     path : pathlib.Path
         Filesystem path to the cached multi-channel TIFF.
     """
-    import urllib.request
-    from pathlib import Path
-
-    cache_dir = Path.home() / '.cache' / 'napari-colocalization'
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    tiff_path = cache_dir / _COLOC_TIFF
-
-    if not tiff_path.exists():
-        with urllib.request.urlopen(_COLOC_URL) as response:
-            tiff_path.write_bytes(response.read())
-    return tiff_path
+    return _cached_download(_COLOC_URL, _COLOC_TIFF)
 
 
 def load_coloc_sample():

@@ -24,6 +24,8 @@ project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
 - Many-region runs no longer hold a full-size mask per result row, and
   revisiting a row reuses its regression line and the fixed-axis
   maxima instead of recomputing them on the UI thread.
+- Downloaded samples time out after 30 s instead of hanging the viewer,
+  and a failed write no longer leaves a truncated file in the cache.
 
 ## 0.3.1
 
