@@ -229,7 +229,7 @@ class ObjectTab(QWidget):
                 show_warning(f'Shape mismatch: {a.shape} vs {b.shape}.')
                 return None
             try:
-                label_mask, _ = _resolve_region(
+                label_mask, region_layer = _resolve_region(
                     self._obj_region_combo, a.shape
                 )
             except ValueError as exc:
@@ -240,6 +240,7 @@ class ObjectTab(QWidget):
                 'a': a,
                 'b': b,
                 'mask': None if label_mask is None else (label_mask > 0),
+                'region_layer': region_layer,
                 'method': self._obj_method_combo.currentData(),
                 'min_size': int(self._obj_min_size.value()),
                 'name_a': layer_a.name,
@@ -305,7 +306,9 @@ class ObjectTab(QWidget):
         params = self._gather_object_params()
         if params is None:
             return
-        self._object_provenance = self._object_provenance_for(params)
+        # Provenance rides with the results so a cancelled or failed
+        # run cannot relabel the previous run's export.
+        params['provenance'] = self._object_provenance_for(params)
         self._obj_run_control.start(
             self._object_worker(params),
             self._on_object_results_ready,
@@ -353,10 +356,20 @@ class ObjectTab(QWidget):
             params['name_b'],
             params['color_a'],
             params['color_b'],
+            params['provenance'],
         )
 
     def _on_object_results_ready(self, payload):
-        rows, labels_a, labels_b, name_a, name_b, color_a, color_b = payload
+        (
+            rows,
+            labels_a,
+            labels_b,
+            name_a,
+            name_b,
+            color_a,
+            color_b,
+            self._object_provenance,
+        ) = payload
         # Deferred until the run completes so a cancelled run leaves
         # the previous overlays in the viewer.
         self._clear_object_overlays()

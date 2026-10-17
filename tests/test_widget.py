@@ -554,6 +554,34 @@ def test_object_csv_export(widget, qtbot, tmp_path):
     assert written[0]['plugin_version']
 
 
+def test_object_provenance_names_region_and_survives_unfinished_run(
+    widget, qtbot, monkeypatch
+):
+    img = np.zeros((20, 20), dtype=np.float32)
+    img[2:6, 2:6] = 1.0
+    viewer = widget._viewer
+    tab = widget._object_tab
+    tab._obj_image_a_combo.value = viewer.add_image(img, name='a')
+    tab._obj_image_b_combo.value = viewer.add_image(img.copy(), name='b')
+    roi = viewer.add_shapes(
+        [np.array([[0, 0], [0, 10], [10, 10], [10, 0]])], name='roi'
+    )
+    combo = tab._obj_region_combo
+    combo.setCurrentIndex(
+        [combo.itemData(i) for i in range(combo.count())].index(roi)
+    )
+    tab._on_object_run_clicked()
+    qtbot.waitUntil(lambda: tab._object_table.rowCount() > 0, timeout=10000)
+    assert tab._object_provenance['region_layer'] == 'roi'
+
+    # A run that never delivers (cancelled, errored) must not relabel
+    # the export of the results still on screen.
+    _select(tab._obj_method_combo, 'li')
+    monkeypatch.setattr(tab._obj_run_control, 'start', lambda *a: None)
+    tab._on_object_run_clicked()
+    assert tab._object_provenance['threshold_method'] == 'otsu'
+
+
 def test_object_provenance_blanks_threshold_for_labels_source(widget):
     provenance = widget._object_tab._object_provenance_for(
         {'source': 'labels', 'region_layer': None}
@@ -606,6 +634,27 @@ def test_diagnostic_value_export(
     assert first['diagnostic'] == method
     assert first['channel_a'] == 'a'
     assert all(column in first for column in columns)
+
+
+def test_diagnostic_provenance_survives_unfinished_run(
+    widget, qtbot, rng, monkeypatch
+):
+    a = rng.random((32, 32)).astype(np.float32)
+    viewer = widget._viewer
+    tab = widget._diagnostics_tab
+    tab._diag_image_a_combo.value = viewer.add_image(a, name='a')
+    tab._diag_image_b_combo.value = viewer.add_image(a.copy(), name='b')
+    _select(tab._diag_method_combo, 'ccf')
+    tab._ccf_max_shift.setValue(5)
+    tab._on_diag_run_clicked()
+    qtbot.waitUntil(
+        lambda: tab._diag_summary_label.text() != '', timeout=15000
+    )
+    _select(tab._diag_method_combo, 'ica')
+    monkeypatch.setattr(tab._diag_run_control, 'start', lambda *a: None)
+    tab._on_diag_run_clicked()
+    assert tab._diag_provenance['diagnostic'] == 'ccf'
+    assert tab._diag_result[0] == 'ccf'
 
 
 def test_manual_threshold_spins_track_the_selected_layers(widget):

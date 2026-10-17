@@ -301,7 +301,9 @@ class DiagnosticsTab(QWidget):
         params = self._gather_diag_params()
         if params is None:
             return
-        self._diag_provenance = self._diag_provenance_for(params)
+        # Provenance rides with the result so a cancelled or failed run
+        # cannot relabel the previous run's export.
+        params['provenance'] = self._diag_provenance_for(params)
         self._diag_run_control.start(
             self._diag_worker(params),
             self._on_diag_results_ready,
@@ -352,11 +354,18 @@ class DiagnosticsTab(QWidget):
             yield 0, 1
             result = li_ica(a, b, mask=mask)
             yield 1, 1
-        return method, result, params['channel_a'], params['channel_b']
+        return (
+            method,
+            result,
+            params['channel_a'],
+            params['channel_b'],
+            params['provenance'],
+        )
 
     def _on_diag_results_ready(self, payload):
-        method, result, name_a, name_b = payload
+        method, result, name_a, name_b, provenance = payload
         self._diag_result = (method, result)
+        self._diag_provenance = provenance
         self._diag_export_values_button.setEnabled(True)
         title = f'{name_a} vs {name_b}'
         if method == 'costes':

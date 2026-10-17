@@ -12,6 +12,12 @@ project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
 - `napari` is now a declared dependency; the widget modules import it
   at runtime.
 
+### Fixed
+
+- Object and diagnostic CSV exports no longer take their provenance
+  from a later run that was cancelled or failed, and object exports
+  name the region layer.
+
 ## 0.3.1
 
 ### Added
