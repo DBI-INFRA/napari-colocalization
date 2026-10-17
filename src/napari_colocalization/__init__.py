@@ -42,9 +42,8 @@ from ._sample_data import (
 def __getattr__(name):
     # The widget is the one root export that needs napari and Qt.
     # Importing it lazily (PEP 562) keeps the compute API usable in
-    # environments without them; npe2 resolves the manifest's
-    # python_name via attribute access, so plugin discovery still
-    # works.
+    # environments without them. The manifest points at
+    # ``_widget`` directly; this is the public Python entry.
     if name == 'ColocalizationWidget':
         from ._widget import ColocalizationWidget
 

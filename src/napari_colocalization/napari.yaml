@@ -4,7 +4,7 @@ visibility: public
 contributions:
   commands:
     - id: napari-colocalization.make_widget
-      python_name: napari_colocalization:ColocalizationWidget
+      python_name: napari_colocalization._widget:ColocalizationWidget
       title: Open Colocalization Analysis
     - id: napari-colocalization.make_sample_data
       python_name: napari_colocalization._sample_data:make_sample_data
