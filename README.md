@@ -185,11 +185,11 @@ python -m pytest tests/ -v
 ```
 
 Pre-commit hooks (ruff lint + format, napari-plugin-checks) ship with the
-repo:
+repo and run with [prek](https://prek.j178.dev/), included in the dev group:
 
 ```bash
-pre-commit install
-pre-commit run --all-files
+prek install
+prek run --all-files
 ```
 
 Please keep test coverage at or above the current level when submitting a PR.
