@@ -40,6 +40,7 @@ from ._widget_shared import (
     _format_object_cell,
     _hbox,
     _layer_color,
+    _layer_geometry,
     _layer_name,
     _make_group,
     _make_table,
@@ -228,9 +229,10 @@ class ObjectTab(QWidget):
             if a.shape != b.shape:
                 show_warning(f'Shape mismatch: {a.shape} vs {b.shape}.')
                 return None
+            geometry = _layer_geometry(layer_a)
             try:
                 label_mask, region_layer = _resolve_region(
-                    self._obj_region_combo, a.shape
+                    self._obj_region_combo, a.shape, geometry
                 )
             except ValueError as exc:
                 show_warning(str(exc))
@@ -247,6 +249,7 @@ class ObjectTab(QWidget):
                 'name_b': layer_b.name,
                 'color_a': _layer_color(layer_a),
                 'color_b': _layer_color(layer_b),
+                'geometry': geometry,
             }
         layer_a = self._obj_labels_a_combo.value
         layer_b = self._obj_labels_b_combo.value
@@ -269,6 +272,7 @@ class ObjectTab(QWidget):
             # Labels layers have no single intensity colour; use defaults.
             'color_a': 'cyan',
             'color_b': 'magenta',
+            'geometry': _layer_geometry(layer_a),
         }
 
     @staticmethod
@@ -348,28 +352,30 @@ class ObjectTab(QWidget):
         rows, _summary = object_table(
             labels_a, labels_b, params['name_a'], params['name_b']
         )
-        return (
-            rows,
-            labels_a,
-            labels_b,
-            params['name_a'],
-            params['name_b'],
-            params['color_a'],
-            params['color_b'],
-            params['provenance'],
-        )
+        return {
+            'rows': rows,
+            'labels_a': labels_a,
+            'labels_b': labels_b,
+            **{
+                key: params[key]
+                for key in (
+                    'name_a',
+                    'name_b',
+                    'color_a',
+                    'color_b',
+                    'geometry',
+                    'provenance',
+                )
+            },
+        }
 
     def _on_object_results_ready(self, payload):
-        (
-            rows,
-            labels_a,
-            labels_b,
-            name_a,
-            name_b,
-            color_a,
-            color_b,
-            self._object_provenance,
-        ) = payload
+        rows = payload['rows']
+        labels_a = payload['labels_a']
+        labels_b = payload['labels_b']
+        name_a, name_b = payload['name_a'], payload['name_b']
+        geometry = payload['geometry']
+        self._object_provenance = payload['provenance']
         # Deferred until the run completes so a cancelled run leaves
         # the previous overlays in the viewer.
         self._clear_object_overlays()
@@ -395,7 +401,8 @@ class ObjectTab(QWidget):
                         centroids_a,
                         name=f'{name_a} centroids',
                         size=size,
-                        face_color=color_a,
+                        face_color=payload['color_a'],
+                        **geometry,
                     )
                 )
             if centroids_b.size:
@@ -404,7 +411,8 @@ class ObjectTab(QWidget):
                         centroids_b,
                         name=f'{name_b} centroids',
                         size=size,
-                        face_color=color_b,
+                        face_color=payload['color_b'],
+                        **geometry,
                     )
                 )
         if self._obj_links_check.isChecked():
@@ -415,6 +423,7 @@ class ObjectTab(QWidget):
                         vectors,
                         name=f'{name_a} → {name_b} links',
                         edge_width=0.5,
+                        **geometry,
                     )
                 )
 

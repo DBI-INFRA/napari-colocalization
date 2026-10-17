@@ -17,6 +17,10 @@ project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
 - Object and diagnostic CSV exports no longer take their provenance
   from a later run that was cancelled or failed, and object exports
   name the region layer.
+- Coloc masks, centroid/link overlays and scrambled examples take the
+  source image's scale and translate, so they line up with anisotropic
+  or offset images. A region layer placed differently from the image
+  is rejected instead of silently selecting the wrong pixels.
 
 ## 0.3.1
 

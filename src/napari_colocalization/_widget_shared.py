@@ -200,6 +200,41 @@ def _layer_name(layer):
     return '' if layer is None else layer.name
 
 
+def _layer_geometry(layer, drop_axis=None):
+    """``scale``/``translate`` kwargs placing a derived layer on ``layer``.
+
+    Everything the plugin adds to the viewer is computed in the source
+    layer's data coordinates; without these an anisotropic or offset
+    image gets misaligned overlays. ``drop_axis`` removes a channel
+    axis the derived data no longer has.
+    """
+    scale = list(layer.scale)
+    translate = list(layer.translate)
+    if drop_axis is not None:
+        del scale[drop_axis]
+        del translate[drop_axis]
+    return {'scale': tuple(scale), 'translate': tuple(translate)}
+
+
+def _check_aligned(region_layer, geometry):
+    """Raise ``ValueError`` if ``region_layer`` sits elsewhere in the world.
+
+    Regions are rasterised in the image's data coordinates, which only
+    matches what the user drew when both layers share scale and
+    translate. Leading axes a 2D region layer lacks are not compared.
+    """
+    n = min(region_layer.ndim, len(geometry['scale']))
+    for key in ('scale', 'translate'):
+        ours = np.asarray(getattr(region_layer, key), dtype=float)[-n:]
+        theirs = np.asarray(geometry[key], dtype=float)[-n:]
+        if not np.allclose(ours, theirs):
+            raise ValueError(
+                f"Region layer '{region_layer.name}' has a different "
+                f'{key} from the image, so its regions would not line '
+                'up with the pixels analysed.'
+            )
+
+
 def write_csv_rows(path, rows, columns, provenance=None):
     """Write ``rows`` as CSV, with ``provenance`` repeated on every row.
 
@@ -623,13 +658,19 @@ def _select_region_layer(region_combo, layer):
             return
 
 
-def _resolve_region(region_combo, spatial_shape):
-    """The combo's region as a label mask, plus the layer it came from."""
+def _resolve_region(region_combo, spatial_shape, geometry=None):
+    """The combo's region as a label mask, plus the layer it came from.
+
+    ``geometry`` (from `_layer_geometry`) is the image's placement; a
+    region layer placed differently raises ``ValueError``.
+    """
     from napari.layers import Shapes
 
     layer = region_combo.currentData()
     if layer is None:
         return None, None
+    if geometry is not None:
+        _check_aligned(layer, geometry)
     if isinstance(layer, Shapes):
         return shapes_to_label_mask(layer, spatial_shape), layer
     return labels_to_label_mask(layer, spatial_shape), layer

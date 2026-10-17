@@ -38,6 +38,7 @@ from ._widget_shared import (
     _base_provenance,
     _export_canvas_figure,
     _hbox,
+    _layer_geometry,
     _layer_name,
     _make_group,
     _new_region_combo,
@@ -258,7 +259,9 @@ class DiagnosticsTab(QWidget):
             show_warning(f'Shape mismatch: {a.shape} vs {b.shape}.')
             return None
         try:
-            label_mask, _ = _resolve_region(self._diag_region_combo, a.shape)
+            label_mask, _ = _resolve_region(
+                self._diag_region_combo, a.shape, _layer_geometry(layer_a)
+            )
         except ValueError as exc:
             show_warning(str(exc))
             return None
@@ -420,7 +423,11 @@ class DiagnosticsTab(QWidget):
         except ValueError as exc:
             show_warning(str(exc))
             return
-        self._viewer.add_image(scrambled, name=f'{layer_b.name} (scrambled)')
+        self._viewer.add_image(
+            scrambled,
+            name=f'{layer_b.name} (scrambled)',
+            **_layer_geometry(layer_b),
+        )
 
     @staticmethod
     def _diag_provenance_for(params):

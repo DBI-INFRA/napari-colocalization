@@ -440,6 +440,59 @@ def test_per_slice_coloc_mask_covers_only_that_plane(widget, qtbot):
     assert int(mask.data[2].sum()) == 0
 
 
+def test_added_layers_follow_source_geometry(widget, qtbot):
+    from napari.layers import Labels, Points, Vectors
+
+    img = np.zeros((3, 16, 16), dtype=np.float32)
+    img[:, 4:12, 4:12] = 1.0
+    geometry = {'scale': (3.0, 0.5, 0.5), 'translate': (0.0, 10.0, 20.0)}
+    viewer = widget._viewer
+    layer_a = viewer.add_image(img, name='a', **geometry)
+    layer_b = viewer.add_image(img.copy(), name='b', **geometry)
+    widget._pixel_tab._image_a_combo.value = layer_a
+    widget._pixel_tab._image_b_combo.value = layer_b
+    _select(widget._pixel_tab._threshold_combo, 'otsu')
+    _run(widget, qtbot)
+    widget._pixel_tab._table.selectRow(0)
+    widget._pixel_tab._on_add_mask_clicked()
+
+    obj = widget._object_tab
+    obj._obj_image_a_combo.value = layer_a
+    obj._obj_image_b_combo.value = layer_b
+    obj._on_object_run_clicked()
+    qtbot.waitUntil(lambda: obj._object_table.rowCount() > 0, timeout=10000)
+
+    widget._diagnostics_tab._diag_image_b_combo.value = layer_b
+    widget._diagnostics_tab._costes_block.setValue(2)
+    widget._diagnostics_tab._on_diag_scramble_clicked()
+
+    added = [
+        layer
+        for layer in viewer.layers
+        if isinstance(layer, (Labels, Points, Vectors))
+        or 'scrambled' in layer.name
+    ]
+    assert len(added) == 5  # mask, 2 centroid layers, links, scrambled
+    for layer in added:
+        np.testing.assert_allclose(layer.scale, geometry['scale'])
+        np.testing.assert_allclose(layer.translate, geometry['translate'])
+
+
+def test_misaligned_region_layer_is_rejected(widget, monkeypatch):
+    import napari_colocalization._pixel_tab as pixel_tab
+
+    warnings = []
+    monkeypatch.setattr(pixel_tab, 'show_warning', warnings.append)
+    img = np.ones((16, 16), dtype=np.float32)
+    _add_pair(widget, img)
+    roi = widget._viewer.add_shapes(
+        [np.array([[0, 0], [0, 8], [8, 8], [8, 0]])], name='roi', scale=(2, 2)
+    )
+    _select_region(widget, roi)
+    assert widget._pixel_tab.gather_params() is None
+    assert 'scale' in warnings[-1]
+
+
 # -- diagnostics tab --------------------------------------------------
 
 

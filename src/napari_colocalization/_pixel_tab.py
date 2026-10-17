@@ -47,6 +47,7 @@ from ._widget_shared import (
     _fill_table,
     _format_cell,
     _hbox,
+    _layer_geometry,
     _layer_name,
     _layer_value_range,
     _make_grid_group,
@@ -89,6 +90,7 @@ class PixelTab(QWidget):
         self._channel_arrays = {}
         self._label_mask = None
         self._slice_axis = None
+        self._geometry = {}
 
         # Configuration block - its own scroll area so a tall set
         # of options doesn't squeeze the results panel below.
@@ -532,9 +534,10 @@ class PixelTab(QWidget):
         if a.shape != b.shape:
             show_warning(f'Shape mismatch: {a.shape} vs {b.shape}.')
             return None
+        geometry = _layer_geometry(layer_a)
         try:
             label_mask, region_layer = _resolve_region(
-                self._region_combo, a.shape
+                self._region_combo, a.shape, geometry
             )
         except ValueError as exc:
             show_warning(str(exc))
@@ -558,6 +561,7 @@ class PixelTab(QWidget):
             'channel_a': layer_a.name,
             'channel_b': layer_b.name,
             'slice_axis': slice_axis,
+            'geometry': geometry,
         }
 
     def _all_to_all_params(self, common):
@@ -574,9 +578,10 @@ class PixelTab(QWidget):
             show_warning(f'Channel axis {axis} >= ndim {image.ndim}.')
             return None
         spatial_shape = _shape_without_axis(image.shape, axis)
+        geometry = _layer_geometry(layer, drop_axis=axis)
         try:
             label_mask, region_layer = _resolve_region(
-                self._region_combo, spatial_shape
+                self._region_combo, spatial_shape, geometry
             )
         except ValueError as exc:
             show_warning(str(exc))
@@ -591,6 +596,7 @@ class PixelTab(QWidget):
             'channel_names': [
                 f'{layer.name}_{i}' for i in range(image.shape[axis])
             ],
+            'geometry': geometry,
         }
 
     # -- run -----------------------------------------------------------
@@ -678,6 +684,7 @@ class PixelTab(QWidget):
             'metrics': params['metrics'],
             'region_warnings': region_warnings,
             'slice_axis': params.get('slice_axis'),
+            'geometry': params['geometry'],
         }
 
     def _on_results_ready(self, payload):
@@ -694,6 +701,7 @@ class PixelTab(QWidget):
         self._channel_arrays = payload['channel_arrays']
         self._label_mask = payload['label_mask']
         self._slice_axis = payload['slice_axis']
+        self._geometry = payload['geometry']
         self._populate_table(rows)
         self._plot_context = self._build_plot_context(
             rows,
@@ -1038,6 +1046,7 @@ class PixelTab(QWidget):
         self._viewer.add_labels(
             data,
             name=f'coloc {row["channel_a"]} & {row["channel_b"]}',
+            **self._geometry,
         )
 
     @staticmethod
