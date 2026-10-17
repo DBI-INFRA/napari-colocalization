@@ -165,6 +165,7 @@ class DiagnosticsTab(QWidget):
             self._diag_run_button, self._on_diag_run_clicked
         )
         self._diag_export_button = QPushButton('Export figure…')
+        self._diag_export_button.setEnabled(False)
         self._diag_export_button.clicked.connect(self._on_diag_export_clicked)
         self._diag_export_values_button = QPushButton('Export values…')
         self._diag_export_values_button.setEnabled(False)
@@ -364,6 +365,7 @@ class DiagnosticsTab(QWidget):
         method, result, name_a, name_b, provenance = payload
         self._diag_result = (method, result)
         self._diag_provenance = provenance
+        self._diag_export_button.setEnabled(True)
         self._diag_export_values_button.setEnabled(True)
         title = f'{name_a} vs {name_b}'
         if method == 'costes':

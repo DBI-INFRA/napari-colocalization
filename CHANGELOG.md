@@ -36,6 +36,8 @@ project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
   tab, like multiscale images, instead of failing mid-run.
 - Adding a scrambled example and building object overlays no longer
   block the viewer on large images.
+- The Diagnostics **Export figure…** button stays disabled until a
+  diagnostic has run, instead of exporting the empty placeholder plot.
 
 ## 0.3.1
 

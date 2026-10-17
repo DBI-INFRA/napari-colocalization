@@ -687,12 +687,14 @@ def test_diagnostic_value_export(
     _select(tab._diag_method_combo, method)
     tab._costes_niter.setValue(20)
     tab._ccf_max_shift.setValue(5)  # -> 11 shifts
-    # The figure is exportable but the numbers behind it were not.
+    # Nothing to export, figure or values, until a run has finished.
+    assert not tab._diag_export_button.isEnabled()
     assert not tab._diag_export_values_button.isEnabled()
     tab._on_diag_run_clicked()
     qtbot.waitUntil(
         lambda: tab._diag_summary_label.text() != '', timeout=15000
     )
+    assert tab._diag_export_button.isEnabled()
     assert tab._diag_export_values_button.isEnabled()
 
     out = tmp_path / f'{method}.csv'
