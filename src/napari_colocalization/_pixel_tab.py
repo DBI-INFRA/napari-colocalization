@@ -91,6 +91,8 @@ class PixelTab(QWidget):
         self._label_mask = None
         self._slice_axis = None
         self._geometry = {}
+        # Per-channel maxima for 'Fixed plot axes', filled on first use.
+        self._channel_max = {}
 
         # Configuration block - its own scroll area so a tall set
         # of options doesn't squeeze the results panel below.
@@ -702,6 +704,7 @@ class PixelTab(QWidget):
         self._label_mask = payload['label_mask']
         self._slice_axis = payload['slice_axis']
         self._geometry = payload['geometry']
+        self._channel_max = {}
         self._populate_table(rows)
         self._plot_context = self._build_plot_context(
             rows,
@@ -785,18 +788,27 @@ class PixelTab(QWidget):
                 b = _axis_view(b, si, slice_axis)
                 if lm is not None and np.asarray(lm).ndim > a.ndim:
                     lm = _axis_view(label_mask, si, slice_axis)
-            mask = None
-            if lm is not None and row['region'] != 0:
-                mask = lm == row['region']
+            # The region's boolean mask is built only when its row is
+            # plotted: one full-size mask per row up front costs
+            # n_regions x image size of memory.
             context.append(
                 {
                     'a': a,
                     'b': b,
-                    'mask': mask,
+                    'label_mask': lm,
                     'row': row,
                 }
             )
         return context
+
+    @staticmethod
+    def _ctx_mask(ctx):
+        """Boolean mask of ``ctx``'s region, or ``None`` for the whole image."""
+        lm = ctx['label_mask']
+        region = ctx['row']['region']
+        if lm is None or region == 0:
+            return None
+        return lm == region
 
     def _on_row_selected(self):
         selected_ctx = self._selected_ctx_indices()
@@ -875,12 +887,13 @@ class PixelTab(QWidget):
                 isinstance(value, float) and np.isnan(value)
             ):
                 annotation_lines.append(f'{label} = {value:.4g}')
-        slope, intercept = self._costes_line_for(ctx, row)
+        mask = self._ctx_mask(ctx)
+        slope, intercept = self._costes_line_for(ctx, row, mask)
         xlim, ylim = self._fixed_axes_for(row)
         self._scatter.update_plot(
             ctx['a'],
             ctx['b'],
-            mask=ctx['mask'],
+            mask=mask,
             threshold_a=row.get('threshold_a'),
             threshold_b=row.get('threshold_b'),
             slope=slope,
@@ -901,21 +914,28 @@ class PixelTab(QWidget):
         """
         if not self._fixed_axes_check.isChecked():
             return None, None
-        full_a = self._channel_arrays.get(row['channel_a'])
-        full_b = self._channel_arrays.get(row['channel_b'])
-        if full_a is None or full_b is None:
+        high_a = self._channel_maximum(row['channel_a'])
+        high_b = self._channel_maximum(row['channel_b'])
+        if high_a is None or high_b is None:
             return None, None
-        return (
-            (0.0, float(np.nanmax(full_a))),
-            (0.0, float(np.nanmax(full_b))),
-        )
+        return (0.0, high_a), (0.0, high_b)
 
-    def _costes_line_for(self, ctx, row):
+    def _channel_maximum(self, name):
+        """A channel's ``nanmax``, scanned once per run."""
+        if name not in self._channel_max:
+            full = self._channel_arrays.get(name)
+            self._channel_max[name] = (
+                None if full is None else float(np.nanmax(full))
+            )
+        return self._channel_max[name]
+
+    def _costes_line_for(self, ctx, row, mask):
         """Regression slope/intercept to draw, or ``(None, None)``.
 
         Only returned when the run used the Costes method and the
         row carries finite thresholds (i.e. Manders was computed),
-        so the line matches the threshold pair already shown.
+        so the line matches the threshold pair already shown. Cached
+        on ``ctx``: it is a full regression and rows are revisited.
         """
         if self._threshold_method != 'costes':
             return None, None
@@ -928,7 +948,11 @@ class PixelTab(QWidget):
             and np.isfinite(t_b)
         ):
             return None, None
-        return costes_regression(ctx['a'], ctx['b'], mask=ctx['mask'])
+        if 'costes_line' not in ctx:
+            ctx['costes_line'] = costes_regression(
+                ctx['a'], ctx['b'], mask=mask
+            )
+        return ctx['costes_line']
 
     def _highlight_regions(self, region_labels):
         layer = self._region_layer

@@ -232,6 +232,10 @@ def test_region_mask_gives_one_row_per_region(widget, qtbot, rng):
     _select_region(widget, layer)
     _run(widget, qtbot)
     assert widget._pixel_tab._table.rowCount() == 2
+    # Rows share the run's label mask instead of each holding a
+    # full-size boolean copy of their region.
+    context = widget._pixel_tab._plot_context
+    assert context[0]['label_mask'] is context[1]['label_mask']
 
 
 def test_table_sorts_numerically_not_lexicographically(widget):

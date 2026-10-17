@@ -21,6 +21,9 @@ project uses [semantic versioning](https://semver.org/spec/v2.0.0.html).
   source image's scale and translate, so they line up with anisotropic
   or offset images. A region layer placed differently from the image
   is rejected instead of silently selecting the wrong pixels.
+- Many-region runs no longer hold a full-size mask per result row, and
+  revisiting a row reuses its regression line and the fixed-axis
+  maxima instead of recomputing them on the UI thread.
 
 ## 0.3.1
 
