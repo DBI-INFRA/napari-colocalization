@@ -8,6 +8,7 @@ imports another tab.
 """
 
 import csv
+import weakref
 from datetime import datetime
 from typing import Any, NamedTuple
 
@@ -581,7 +582,7 @@ class _RunControl:
 
 def _export_canvas_figure(parent, canvas, default_name):
     """Prompt for size/DPI and path, then save the canvas figure."""
-    figure = canvas._figure
+    figure = canvas.figure
     width, height = (float(v) for v in figure.get_size_inches())
     dlg = FigureExportDialog(parent, width, height, int(figure.get_dpi()))
     if dlg.exec_() != QDialog.Accepted:
@@ -606,6 +607,10 @@ def _export_canvas_figure(parent, canvas, default_name):
 
 # -- layer / region combos ----------------------------------------------
 
+# The value each layer combo was last given automatically rather than
+# by the user, kept beside the combos instead of on magicgui's objects.
+_AUTO_VALUES = weakref.WeakKeyDictionary()
+
 
 def _set_combo_choices(combo, layers):
     previous = combo.value
@@ -615,7 +620,7 @@ def _set_combo_choices(combo, layers):
     else:
         # magicgui defaulted the value; remember it was not the
         # user's choice so _nudge_distinct may still move it.
-        combo._auto_value = combo.value
+        _AUTO_VALUES[combo] = combo.value
 
 
 def _nudge_distinct(combo_a, combo_b, candidates):
@@ -628,12 +633,12 @@ def _nudge_distinct(combo_a, combo_b, candidates):
     """
     if len(candidates) < 2 or combo_a.value is not combo_b.value:
         return
-    if combo_b.value is not getattr(combo_b, '_auto_value', None):
+    if combo_b.value is not _AUTO_VALUES.get(combo_b):
         return
     for layer in candidates:
         if layer is not combo_a.value:
             combo_b.value = layer
-            combo_b._auto_value = layer
+            _AUTO_VALUES[combo_b] = layer
             break
 
 
